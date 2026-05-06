@@ -38,6 +38,9 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Inference API server
 - Documentation for clinic staff
 
+**Plans:**
+- [ ] 01-foundation/01-PLAN.md — Foundation: LLM + RAG Infrastructure (4 plans)
+
 **Estimated Effort**: 2-3 weeks
 
 ---
