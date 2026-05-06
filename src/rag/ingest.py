@@ -83,7 +83,7 @@ class DocumentIngestor:
     
     def __init__(
         self,
-        chroma_dir: str = "data/rag/chroma/",
+        chroma_dir: str = "data/rag/chroma_new/",
         collection_name: str = "medical_documents",
         chunk_size: int = 512,
         chunk_overlap: int = 50,
@@ -350,7 +350,7 @@ class DocumentIngestor:
             base_meta = {
                 "source": os.path.basename(file_path),
                 "full_path": file_path,
-                "ingested_at": time.time(),
+                "ingested_at": str(int(time.time())),
             }
             if metadata:
                 base_meta.update(metadata)
@@ -358,10 +358,10 @@ class DocumentIngestor:
             for chunk in chunks:
                 meta = base_meta.copy()
                 meta.update({
-                    "page": chunk.page,
-                    "section": chunk.section,
-                    "chunk_index": chunk.index,
-                    "tokens": chunk.tokens,
+                    "page": str(chunk.page) if chunk.page is not None else "",
+                    "section": str(chunk.section) if chunk.section else "",
+                    "chunk_index": chunk.index if chunk.index is not None else 0,
+                    "tokens": chunk.tokens if chunk.tokens else 0,
                 })
                 metadatas.append(meta)
             

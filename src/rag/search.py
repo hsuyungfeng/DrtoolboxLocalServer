@@ -61,7 +61,7 @@ class SemanticSearch:
     
     def __init__(
         self,
-        chroma_dir: str = "data/rag/chroma/",
+        chroma_dir: str = "data/rag/chroma_new/",
         collection_name: str = "medical_documents",
         default_top_k: int = 5,
     ):
@@ -153,11 +153,7 @@ class SemanticSearch:
             results = self.collection.query(
                 query_texts=[query],
                 n_results=top_k,
-                where=where,
-                where_document=where_document,
-                include_embeddings=False,
-                include_metadatas=True,
-                include_distances=True,
+                include=['documents', 'metadatas', 'distances'],
             )
             
             # Parse results

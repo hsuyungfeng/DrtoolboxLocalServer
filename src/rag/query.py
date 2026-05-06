@@ -87,7 +87,7 @@ class QueryAnswer:
     
     def __init__(
         self,
-        chroma_dir: str = "data/rag/chroma/",
+        chroma_dir: str = "data/rag/chroma_new/",
         collection_name: str = "medical_documents",
         llm_server=None,  # Optional LlamaCppServer instance
         top_k: int = 5,

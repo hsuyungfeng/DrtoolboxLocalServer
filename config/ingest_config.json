@@ -1,7 +1,7 @@
 {
   "chroma": {
     "type": "persistant",
-    "path": "data/rag/chroma/",
+    "path": "data/rag/chroma_new/",
     "collection_name": "medical_documents"
   },
   "chunking": {
