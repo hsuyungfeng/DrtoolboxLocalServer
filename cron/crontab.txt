@@ -1,0 +1,9 @@
+# DrToolbox Local Server - Crontab Configuration
+# Daily restart at 2 AM for 24h stability (D-12)
+#
+# Install with: crontab cron/crontab.txt
+# Or add manually: crontab -e and add the line below
+#
+
+# Daily restart at 2:00 AM
+0 2 * * * /home/hsu/DrtoolboxLocalServer/scripts/daily_restart.sh >> /home/hsu/DrtoolboxLocalServer/logs/restart.log 2>&1
