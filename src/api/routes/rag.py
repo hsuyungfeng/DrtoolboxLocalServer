@@ -13,13 +13,15 @@ from flask import Blueprint, request, jsonify
 from typing import Optional, List, Dict, Any
 
 from src.rag.ingest import DocumentIngestor
+from src.rag.query import QueryAnswer
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('rag', __name__, url_prefix='/api/v1/rag')
 
-# Global ingestor instance
+# Global ingestor and query instances
 _ingestor: Optional[DocumentIngestor] = None
+_query_answer: Optional[QueryAnswer] = None
 
 
 def get_ingestor() -> DocumentIngestor:
@@ -50,30 +52,58 @@ def get_ingestor() -> DocumentIngestor:
     return _ingestor
 
 
+def get_query_answer() -> QueryAnswer:
+    """Get or create QueryAnswer instance."""
+    global _query_answer
+    
+    if _query_answer is None:
+        import json
+        config = {}
+        try:
+            with open('config/ingest_config.json', 'r') as f:
+                config = json.load(f)
+        except Exception:
+            pass
+        
+        _query_answer = QueryAnswer(
+            chroma_dir=config.get('chroma', {}).get('path', 'data/rag/chroma/'),
+            collection_name=config.get('chroma', {}).get('collection_name', 'medical_documents'),
+            top_k=5,
+        )
+    
+    return _query_answer
+
+
 @bp.route('/query', methods=['POST'])
 def query():
     """
-    Query RAG system with prompt.
+    Query RAG system with prompt (with confidence and citations).
     
     Request body:
         {
             "prompt": "What is the treatment protocol for X?",
-            "n_results": 5,              // Optional, default 5
-            "include_sources": true        // Optional
+            "n_results": 5              // Optional, default 5
         }
     
-    Response:
+    Response (new format with citations):
         {
             "answer": "Generated answer...",
-            "sources": [
+            "confidence": 0.85,
+            "confidence_level": "high",
+            "citations": [
                 {
-                    "text": "...",
-                    "source": "document.pdf",
-                    "page": 3,
-                    "section": "Treatment Protocol",
-                    "relevance": 0.85
+                    "document_name": "document.pdf",
+                    "section_heading": "Treatment Protocol",
+                    "page_number": 3,
+                    "chunk_index": 0,
+                    "ingestion_timestamp": "2026-05-06T12:00:00Z",
+                    "text_snippet": "..."
                 }
-            ]
+            ],
+            "sources": ["document.pdf"],
+            "query_time_ms": 150.0,
+            "generation_time_ms": 250.0,
+            "chunks_retrieved": 5
         }
     """
     data = request.get_json()
@@ -86,53 +116,17 @@ def query():
     
     prompt = data['prompt']
     n_results = data.get('n_results', 5)
-    include_sources = data.get('include_sources', True)
     
     try:
-        ingestor = get_ingestor()
+        # Use QueryAnswer for proper confidence and citation handling
+        qa = get_query_answer()
         
-        # Search for relevant documents
-        results = ingestor.search(prompt, n_results=n_results)
-        
-        if not results:
-            return jsonify({
-                "answer": "No relevant documents found.",
-                "sources": [],
-                "message": "Try different query or ingest documents first"
-            })
-        
-        # Build context from sources
-        context_parts = []
-        for r in results:
-            meta = r.get('metadata', {})
-            source = meta.get('source', 'unknown')
-            page = meta.get('page')
-            
-            context_part = f"[{source}"
-            if page:
-                context_part += f", Page {page}"
-            context_part += f"]\n{r['text']}\n"
-            
-            context_parts.append(context_part)
-        
-        context = "\n\n".join(context_parts)
-        
-        # Build RAG prompt
-        rag_prompt = f"""Based on the following context, answer the question.
-
-Context:
-{context}
-
-Question: {prompt}
-
-Answer:"""
-        
-        # Generate answer using LLM
-        from src.llm.server import LlamaCppServer, GenerationConfig
-        
+        # Get LLM server if available
+        llm_server = None
         try:
-            # Load model path from config
+            from src.llm.server import LlamaCppServer
             import json
+            
             model_path = "data/models/Qwen3-8B-Q8_0.gguf"
             try:
                 with open('config/llama_config.json', 'r') as f:
@@ -141,40 +135,21 @@ Answer:"""
             except Exception:
                 pass
             
-            server = LlamaCppServer(model_path=model_path)
-            
-            if server.load_model():
-                result = server.generate(rag_prompt, GenerationConfig(
-                    max_tokens=1024,
-                    temperature=0.7,
-                ))
-                
-                answer = result.text
-            else:
-                answer = "LLM not available for answer generation."
-                
-            server.shutdown()
-            
+            llm_server = LlamaCppServer(model_path=model_path)
+            llm_server.load_model()
         except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
-            answer = "Answer generation failed. Sources retrieved but LLM unavailable."
+            logger.warning(f"LLM not available: {e}")
         
-        # Format response
-        response = {
-            "answer": answer,
-            "sources": [
-                {
-                    "text": r['text'][:200] + "..." if len(r['text']) > 200 else r['text'],
-                    "source": r['metadata'].get('source', 'unknown'),
-                    "page": r['metadata'].get('page'),
-                    "section": r['metadata'].get('section'),
-                    "relevance": round(1 - r['distance'], 3) if 'distance' in r else None,
-                }
-                for r in results
-            ] if include_sources else [],
-        }
+        # Execute RAG query
+        result = qa.query_with_llm(prompt, llm_server, top_k=n_results) if llm_server else \
+                 qa.query(prompt, top_k=n_results, use_llm=False)
         
-        return jsonify(response)
+        # Cleanup LLM server
+        if llm_server:
+            llm_server.shutdown()
+        
+        # Return new format with confidence and citations
+        return jsonify(result.to_dict())
         
     except Exception as e:
         logger.error(f"RAG query error: {e}")
