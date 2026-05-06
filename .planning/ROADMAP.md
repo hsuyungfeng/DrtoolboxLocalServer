@@ -39,7 +39,10 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Documentation for clinic staff
 
 **Plans:**
-- [ ] 01-foundation/01-PLAN.md — Foundation: LLM + RAG Infrastructure (4 plans)
+- [x] 01-foundation/01-PLAN.md — Foundation: LLM + RAG Infrastructure - COMPLETED
+- [ ] 02-LLM 優化與測試 — TODO
+- [ ] 03-RAG 搜尋優化 — TODO
+- [ ] 04-API 完整化 — TODO
 
 **Estimated Effort**: 2-3 weeks
 
