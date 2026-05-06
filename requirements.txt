@@ -1,0 +1,27 @@
+# DrtoolboxLocalServer - Python Dependencies
+# Phase 1: Foundation - Local LLM & RAG Infrastructure
+
+# LLM Inference
+llama-cpp-python==0.2.90
+pynvml==11.5.0
+
+# RAG & Vector Database
+chromadb==0.4.24
+pypdf2==3.0.1
+python-docx==1.1.0
+pydantic>=2.0.0
+
+# API Server
+flask==3.0.0
+flask-cors==4.0.0
+gunicorn==21.2.0
+
+# Utilities
+python-dotenv==1.0.0
+pyyaml==6.0.1
+tiktoken==0.5.2
+numpy<2.0.0
+
+# File Handling
+python-magic==0.4.27
+chardet==5.2.0
