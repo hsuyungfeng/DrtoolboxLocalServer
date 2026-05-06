@@ -56,6 +56,7 @@ class AnswerResult:
     query_time_ms: float = 0.0
     generation_time_ms: float = 0.0
     chunks_retrieved: int = 0
+    old_documents_warning: Optional[List[Dict[str, Any]]] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to API response format."""
@@ -68,6 +69,7 @@ class AnswerResult:
             "query_time_ms": self.query_time_ms,
             "generation_time_ms": self.generation_time_ms,
             "chunks_retrieved": self.chunks_retrieved,
+            "old_documents_warning": self.old_documents_warning,
         }
 
 
@@ -144,7 +146,7 @@ class QueryAnswer:
     def calculate_confidence(
         self,
         search_results: List[SearchResult],
-    ) -> Tuple[float, str]:
+    ) -> Tuple[float, str, Dict[str, Any]]:
         """
         Calculate confidence score from search results.
         
@@ -152,14 +154,48 @@ class QueryAnswer:
             search_results: List of SearchResult from semantic search
             
         Returns:
-            Tuple of (confidence_score, confidence_level)
+            Tuple of (confidence_score, confidence_level, warnings)
         """
+        warnings = []
+        
         if not search_results:
-            return 0.0, "low"
+            return 0.0, "low", {"old_documents": []}
+        
+        # Check document age
+        old_documents = []
+        current_time = time.time()
+        ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
+        
+        for result in search_results:
+            meta = result.metadata or {}
+            ingested_at = meta.get("ingested_at", "")
+            if ingested_at:
+                try:
+                    doc_time = int(ingested_at)
+                    age_seconds = current_time - doc_time
+                    if age_seconds > ONE_YEAR_SECONDS:
+                        old_documents.append({
+                            "document": meta.get("source", "unknown"),
+                            "age_years": round(age_seconds / ONE_YEAR_SECONDS, 1)
+                        })
+                except (ValueError, TypeError):
+                    pass
+        
+        if old_documents:
+            warnings.append({
+                "type": "old_documents",
+                "message": f"{len(old_documents)} document(s) over 1 year old - verify information",
+                "documents": old_documents
+            })
         
         # Use average of top results' similarities
         top_results = search_results[:3]  # Top 3
         avg_similarity = sum(r.similarity for r in top_results) / len(top_results)
+        
+        # Adjust confidence for old documents
+        if old_documents:
+            avg_similarity *= 0.8  # Reduce confidence by 20% for old docs
+            logger.warning(f"Confidence reduced by 20% due to {len(old_documents)} old document(s)")
         
         # Determine confidence level
         if avg_similarity >= self.high_threshold:
@@ -171,7 +207,7 @@ class QueryAnswer:
         
         logger.debug(f"Confidence: {avg_similarity:.3f} ({level})")
         
-        return round(avg_similarity, 3), level
+        return round(avg_similarity, 3), level, {"old_documents": old_documents, "warnings": warnings}
     
     def format_citations(
         self,
@@ -311,10 +347,16 @@ Answer:"""
                 query_time_ms=query_time_ms,
                 generation_time_ms=0.0,
                 chunks_retrieved=0,
+                old_documents_warning=[],
             )
         
-        # Step 2: Calculate confidence
-        confidence, level = self.calculate_confidence(context_chunks)
+        # Step 2: Calculate confidence (includes age warnings)
+        confidence, level, age_warnings = self.calculate_confidence(context_chunks)
+        
+        # Check for old document warnings
+        old_docs_warning = None
+        if age_warnings and age_warnings.get("old_documents"):
+            old_docs_warning = age_warnings["old_documents"]
         
         # Step 3: Format citations
         citations = self.format_citations(context_chunks)
@@ -341,6 +383,7 @@ Answer:"""
             query_time_ms=query_time_ms,
             generation_time_ms=gen_time_ms,
             chunks_retrieved=len(context_chunks),
+            old_documents_warning=old_docs_warning or [],
         )
     
     def query_with_llm(
