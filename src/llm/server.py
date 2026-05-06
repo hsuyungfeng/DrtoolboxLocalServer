@@ -126,10 +126,40 @@ class LlamaCppServer:
         # GPU memory threshold (18GB for safety on 22GB card)
         self._vram_threshold = 18 * 1024 * 1024 * 1024  # 18GB
         
+        # Memory monitoring config (loaded from memory_config.json)
+        self._memory_config = self._load_memory_config()
+        self._polling_interval = self._memory_config.get("polling_interval_seconds", 30)
+        self._warning_threshold = self._memory_config.get("warning_threshold_gb", 18)
+        self._critical_threshold = self._memory_config.get("critical_threshold_gb", 20)
+        
+        # Memory monitoring thread
+        self._monitor_thread: Optional[threading.Thread] = None
+        self._monitor_running = False
+        
         # Load config if provided
         self.config = self._load_config(config_path) if config_path else {}
         
         logger.info(f"LlamaCppServer initialized: model={model_path}")
+    
+    def _load_memory_config(self) -> dict:
+        """Load memory monitoring configuration."""
+        import json
+        default_config = {
+            "polling_interval_seconds": 30,
+            "warning_threshold_gb": 18,
+            "critical_threshold_gb": 20,
+            "alert_webhook": None,
+        }
+        
+        try:
+            with open("config/memory_config.json", "r") as f:
+                user_config = json.load(f)
+                return {**default_config, **user_config}
+        except FileNotFoundError:
+            return default_config
+        except Exception as e:
+            logger.warning(f"Failed to load memory config: {e}")
+            return default_config
     
     def _load_config(self, config_path: str) -> dict:
         """Load configuration from JSON file."""
@@ -182,6 +212,9 @@ class LlamaCppServer:
                 thread_name_prefix="llama-inference"
             )
             self._running = True
+            
+            # Start GPU memory monitoring thread (D-10: every 30 seconds)
+            self.start_memory_monitor()
             
             return True
             
@@ -350,6 +383,135 @@ class LlamaCppServer:
         
         return False
     
+    def init_nvml(self) -> bool:
+        """
+        Initialize NVML for GPU monitoring.
+        
+        Returns:
+            True if NVML initialized successfully
+        """
+        global NVML_AVAILABLE, pynvml
+        
+        if NVML_AVAILABLE:
+            return True
+        
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            NVML_AVAILABLE = True
+            logger.info("NVML initialized successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to initialize NVML: {e}")
+            NVML_AVAILABLE = False
+            return False
+    
+    def get_gpu_memory(self) -> dict:
+        """
+        Get current GPU VRAM usage (simple interface).
+        
+        Returns:
+            Dict with used_gb, total_gb, free_gb
+        """
+        if not self.init_nvml():
+            return {"available": False}
+        
+        try:
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+            memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            
+            return {
+                "available": True,
+                "used_gb": round(memory_info.used / 1e9, 2),
+                "total_gb": round(memory_info.total / 1e9, 2),
+                "free_gb": round(memory_info.free / 1e9, 2),
+                "used_bytes": memory_info.used,
+                "total_bytes": memory_info.total,
+            }
+            
+        except Exception as e:
+            logger.warning(f"Failed to get GPU memory: {e}")
+            return {"available": False, "error": str(e)}
+    
+    def check_memory_threshold(self, threshold_gb: float = 18.0) -> bool:
+        """
+        Check if GPU memory usage exceeds threshold.
+        
+        Args:
+            threshold_gb: Memory threshold in GB
+            
+        Returns:
+            True if memory exceeds threshold (warning condition)
+        """
+        mem = self.get_gpu_memory()
+        
+        if not mem.get("available", False):
+            return False
+        
+        used_gb = mem.get("used_gb", 0)
+        
+        if used_gb > threshold_gb:
+            logger.warning(
+                f"VRAM alert: {used_gb:.1f}GB used (threshold: {threshold_gb}GB)"
+            )
+            return True
+        
+        return False
+    
+    def start_memory_monitor(self):
+        """Start the memory monitoring background thread."""
+        if self._monitor_running:
+            logger.warning("Memory monitor already running")
+            return
+        
+        self._monitor_running = True
+        self._monitor_thread = threading.Thread(
+            target=self._memory_monitor_loop,
+            daemon=True,
+            name="gpu-memory-monitor"
+        )
+        self._monitor_thread.start()
+        logger.info(f"Memory monitoring started (interval: {self._polling_interval}s)")
+    
+    def stop_memory_monitor(self):
+        """Stop the memory monitoring thread."""
+        self._monitor_running = False
+        if self._monitor_thread:
+            self._monitor_thread.join(timeout=5)
+            self._monitor_thread = None
+        logger.info("Memory monitoring stopped")
+    
+    def _memory_monitor_loop(self):
+        """Background loop for GPU memory monitoring."""
+        while self._monitor_running:
+            try:
+                mem = self.get_gpu_memory()
+                
+                if mem.get("available", False):
+                    used_gb = mem.get("used_gb", 0)
+                    
+                    # Warning threshold (18GB)
+                    if used_gb > self._warning_threshold:
+                        logger.warning(
+                            f"VRAM warning: {used_gb:.1f}GB used "
+                            f"(warning: {self._warning_threshold}GB, "
+                            f"critical: {self._critical_threshold}GB)"
+                        )
+                    
+                    # Critical threshold (20GB) - stop accepting new requests
+                    if used_gb > self._critical_threshold:
+                        logger.critical(
+                            f"VRAM critical: {used_gb:.1f}GB - "
+                            f"stopping new inference requests"
+                        )
+                        # Could set a flag here to reject new requests
+                        
+            except Exception as e:
+                logger.error(f"Memory monitor error: {e}")
+            
+            # Sleep for polling interval
+            time.sleep(self._polling_interval)
+    
     def get_gpu_memory_info(self) -> dict:
         """
         Get current GPU memory usage.
@@ -357,7 +519,7 @@ class LlamaCppServer:
         Returns:
             Dict with used, total, and free memory in bytes
         """
-        if not NVML_AVAILABLE:
+        if not self.init_nvml():
             return {"available": False}
         
         try:
@@ -393,6 +555,9 @@ class LlamaCppServer:
     def shutdown(self):
         """Shutdown the server and release resources."""
         self._running = False
+        
+        # Stop memory monitoring thread
+        self.stop_memory_monitor()
         
         if self._executor:
             self._executor.shutdown(wait=True)

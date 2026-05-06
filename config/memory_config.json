@@ -1,0 +1,6 @@
+{
+  "polling_interval_seconds": 30,
+  "warning_threshold_gb": 18,
+  "critical_threshold_gb": 20,
+  "alert_webhook": null
+}
