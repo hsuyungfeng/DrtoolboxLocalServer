@@ -19,7 +19,6 @@ gunicorn==21.2.0
 # Utilities
 python-dotenv==1.0.0
 pyyaml==6.0.1
-tiktoken==0.5.2
 numpy<2.0.0
 
 # File Handling
