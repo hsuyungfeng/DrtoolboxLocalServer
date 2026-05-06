@@ -1,0 +1,98 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-06T11:35:00Z",
+  "phase": 1,
+  "phase_name": "Foundation — Local LLM & RAG Infrastructure",
+  "phase_dir": ".planning/phases/01-foundation",
+  "status": "paused",
+  "context": "phase",
+  "completed_work": [
+    {
+      "id": 1,
+      "name": "Project initialization (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md)",
+      "status": "done",
+      "commit": "39526d6"
+    },
+    {
+      "id": 2,
+      "name": "DrtoolboxserverPlan.md expanded with architecture, tech stack, bilingual docs, strategic advice",
+      "status": "done",
+      "commit": "39526d6"
+    },
+    {
+      "id": 3,
+      "name": "Phase 1 CONTEXT.md with 12 locked implementation decisions",
+      "status": "done",
+      "commit": "39526d6"
+    }
+  ],
+  "remaining_work": [
+    {
+      "id": 1,
+      "name": "Create Phase 1 PLAN.md with detailed task breakdown",
+      "status": "not_started"
+    },
+    {
+      "id": 2,
+      "name": "Implement Phase 1 (llama.cpp, RAG pipeline, Flask API, monitoring)",
+      "status": "not_started"
+    },
+    {
+      "id": 3,
+      "name": "Validate Phase 1 success criteria and transition to Phase 2",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {
+      "decision": "Qwen 3.6 with Q8_0 quantization",
+      "rationale": "~250-300ms latency, ~10GB VRAM, avoids OOM on 2080Ti",
+      "phase": 1
+    },
+    {
+      "decision": "Streaming token-by-token output",
+      "rationale": "Better perceived latency, fits <3s overall response time target",
+      "phase": 1
+    },
+    {
+      "decision": "Dynamic batching (batch_size 1-4)",
+      "rationale": "Flexible scaling without guaranteed VRAM overrun",
+      "phase": 1
+    },
+    {
+      "decision": "Semantic-only RAG search (Chroma existing instance)",
+      "rationale": "Excellent conceptual matching, existing infrastructure, fast Phase 1 start",
+      "phase": 1
+    },
+    {
+      "decision": "Small document chunks (256-512 tokens)",
+      "rationale": "Precise retrieval, easier source citation tracking",
+      "phase": 1
+    },
+    {
+      "decision": "Library-based document ingestion (PyPDF2, python-docx)",
+      "rationale": "Simple, low dependencies, no cloud service dependency",
+      "phase": 1
+    },
+    {
+      "decision": "Flask API framework (synchronous)",
+      "rationale": "Lightweight, simple implementation, adequate for clinic scale",
+      "phase": 1
+    },
+    {
+      "decision": "Full document + section tracking for citations",
+      "rationale": "Supports audit trail and medical accountability",
+      "phase": 1
+    },
+    {
+      "decision": "GPU memory: nvidia-smi polling + token limit + daily restart",
+      "rationale": "Safe 24-hour operation without memory leaks",
+      "phase": 1
+    }
+  ],
+  "uncommitted_files": [],
+  "next_action": "Run /gsd-plan-phase 1 to create Phase 1 PLAN.md and break down implementation tasks",
+  "context_notes": "Phase 1 context gathering complete through interactive discussion. User selected all 4 implementation areas (LLM, RAG, document ingestion, GPU memory) and locked 12 decisions. All project planning artifacts created and committed. Ready for Phase 1 planning and execution. Strategic improvements identified for future phases (hermes-desktop integration, AstrBot framework, HIS read-only access, phase parallelization)."
+}
