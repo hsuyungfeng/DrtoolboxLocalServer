@@ -131,7 +131,17 @@ Answer:"""
         from src.llm.server import LlamaCppServer, GenerationConfig
         
         try:
-            server = LlamaCppServer(model_path="models/Qwen3-6B-Q8_0.gguf")
+            # Load model path from config
+            import json
+            model_path = "data/models/Qwen3-8B-Q8_0.gguf"
+            try:
+                with open('config/llama_config.json', 'r') as f:
+                    config = json.load(f)
+                    model_path = config.get('model', {}).get('path', model_path)
+            except Exception:
+                pass
+            
+            server = LlamaCppServer(model_path=model_path)
             
             if server.load_model():
                 result = server.generate(rag_prompt, GenerationConfig(

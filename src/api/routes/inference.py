@@ -25,7 +25,16 @@ def get_server() -> LlamaCppServer:
     global _server
     
     if _server is None:
-        model_path = "models/Qwen3-6B-Q8_0.gguf"
+        # Load model path from config
+        import json
+        model_path = "data/models/Qwen3-8B-Q8_0.gguf"
+        try:
+            with open('config/llama_config.json', 'r') as f:
+                config = json.load(f)
+                model_path = config.get('model', {}).get('path', model_path)
+        except Exception:
+            pass
+        
         config_path = "config/llama_config.json"
         
         _server = LlamaCppServer(
@@ -211,9 +220,19 @@ def load_model():
         }
     """
     import time
+    import json
     
     body = request.get_json() or {}
-    model_path = body.get('model_path', 'models/Qwen3-6B-Q8_0.gguf')
+    model_path = body.get('model_path', 'data/models/Qwen3-8B-Q8_0.gguf')
+    
+    # Use config default if not specified
+    if not body.get('model_path'):
+        try:
+            with open('config/llama_config.json', 'r') as f:
+                config = json.load(f)
+                model_path = config.get('model', {}).get('path', model_path)
+        except Exception:
+            pass
     
     try:
         server = get_server()
