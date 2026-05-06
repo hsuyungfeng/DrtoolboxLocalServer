@@ -1,0 +1,39 @@
+{
+  "chroma": {
+    "type": "persistant",
+    "path": "data/rag/chroma/",
+    "collection_name": "medical_documents"
+  },
+  "chunking": {
+    "chunk_size": 512,
+    "chunk_overlap": 50,
+    "min_chunk_size": 100,
+    "max_chunk_size": 1024
+  },
+  "embedding": {
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "device": "cpu",
+    "batch_size": 32
+  },
+  "supported_formats": [
+    ".txt",
+    ".pdf",
+    ".docx"
+  ],
+  "ingestion": {
+    "max_file_size_mb": 50,
+    "timeout_seconds": 120,
+    "skip_large_files": true
+  },
+  "search": {
+    "default_n_results": 5,
+    "max_n_results": 20,
+    "min_relevance_score": 0.3
+  },
+  "metadata": {
+    "track_source": true,
+    "track_page": true,
+    "track_section": true,
+    "track_ingestion_time": true
+  }
+}
