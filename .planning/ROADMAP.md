@@ -40,9 +40,8 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 
 **Plans:**
 - [x] 01-foundation/01-PLAN.md — Foundation: LLM + RAG Infrastructure - COMPLETED
-- [ ] 02-LLM 優化與測試 — TODO
-- [ ] 03-RAG 搜尋優化 — TODO
-- [ ] 04-API 完整化 — TODO
+- [x] 01-03-SUMMARY.md — 監控與引用 (GPU 記憶體、信心分數、來源引用、每日重啟) - COMPLETED ✓
+- [ ] 01-04-SUMMARY.md — 端到端測試與文件 - TODO
 
 **Estimated Effort**: 2-3 weeks
 
