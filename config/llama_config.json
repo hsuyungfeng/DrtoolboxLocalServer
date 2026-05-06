@@ -1,9 +1,10 @@
 {
   "model": {
-    "path": "models/Qwen3-6B-Q8_0.gguf",
-    "name": "Qwen3-6B-Q8_0",
+    "path": "data/models/Qwen3-8B-Q8_0.gguf",
+    "name": "Qwen3-8B-Q8_0",
     "quantization": "Q8_0",
-    "estimated_vram_gb": 10
+    "estimated_vram_gb": 10,
+    "note": "Symlink to glm-4-9b-chat-q8_0.gguf as placeholder - replace with actual Qwen2.5-8B model"
   },
   "inference": {
     "n_ctx": 2048,
