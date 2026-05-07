@@ -415,10 +415,38 @@
 
 ---
 
+## 9. Strategic Advice & Plan Improvements | 戰略建議與計畫改進
+
+Based on a deep review of the workspace and current architecture, the following recommendations are provided to enhance the execution plan:
+基於對工作區和當前架構的深入研究，提出以下建議以完善執行計畫：
+
+### 9.1 Clarify the Role of `hermes-desktop` | 明確 `hermes-desktop` 的作用
+**Observation (觀察)**: The workspace contains a robust `hermes-desktop` Electron/Vite application, yet the plan primarily references "Web Forms" and "doctor-toolbox.com/chats" for the staff interface.
+**Advice (建議)**: Explicitly integrate `hermes-desktop` into the "Architecture Overview" and Phase 3. It should be positioned as the primary local dashboard and unified staff inbox for clinic operations, replacing or augmenting the web-based CRM for on-premises use.
+
+### 9.2 Integrate `AstrBot` into the Communication Layer | 將 `AstrBot` 整合到通信層
+**Observation (觀察)**: The `AstrBot` framework is present in the repository but not mentioned in the plan.
+**Advice (建議)**: Update Phase 2 and the Architecture Overview to specify `AstrBot` as the message routing and LINE bot integration engine. Clarify how `AstrBot` will interface with the RAG pipeline and Hermes agent.
+
+### 9.3 Secure HIS Database Access (Read-Only Replica) | 保護 HIS 數據庫訪問 (唯讀副本)
+**Observation (觀察)**: Phase 2 and Phase 4 involve the Hermes agent querying the HIS database.
+**Advice (建議)**: For risk mitigation, explicitly require the use of a **Read-Only Replica** or strictly permissioned database user for the Hermes agent. This prevents any accidental data corruption or `DROP TABLE` scenarios during agent exploratory queries.
+
+### 9.4 Refine Hardware Assumptions | 細化硬體假設
+**Observation (觀察)**: The plan cites a 2080Ti with 22GB VRAM. Standard 2080Ti cards have 11GB VRAM (though 22GB modded versions exist).
+**Advice (建議)**: If using an 11GB card, serving Qwen 3.6 might require heavier quantization (e.g., Q4_K_M) and strict context length limits. Add a specific sub-task in Phase 1 to benchmark the exact model size and context window against the physical VRAM available.
+
+### 9.5 Phase Parallelization Strategy | 階段並行策略
+**Observation (觀察)**: The 15-week timeline is sequential, but `.planning/STATE.md` notes potential parallelization.
+**Advice (建議)**: Update the "Timeline" section to show that Phase 3 (Web Forms/Desktop) and Phase 4 (Hermes Agent) can be executed concurrently once Phase 2 (HIS Integration) is stable, potentially reducing the total timeline from 15 weeks to 10-12 weeks.
+
+---
+
 ## Document History | 文檔歷史
 
 - **2026-05-06**: Initial project plan (user concept)
 - **2026-05-06**: Expanded with full architecture, phases, tech stack, and bilingual documentation
+- **2026-05-06**: Added Strategic Advice & Plan Improvements section based on deep workspace research.
 
 ---
 

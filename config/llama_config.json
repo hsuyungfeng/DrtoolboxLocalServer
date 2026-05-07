@@ -1,10 +1,10 @@
 {
   "model": {
-    "path": "data/models/Qwen3-8B-Q8_0.gguf",
-    "name": "Qwen3-8B-Q8_0",
-    "quantization": "Q8_0",
-    "estimated_vram_gb": 10,
-    "note": "Symlink to glm-4-9b-chat-q8_0.gguf as placeholder - replace with actual Qwen2.5-8B model"
+    "path": "data/models/gemma-4-31B.Q4_K_M.gguf",
+    "name": "Gemma-4-31B-Q4_K_M",
+    "quantization": "Q4_K_M",
+    "estimated_vram_gb": 19,
+    "note": "Gemma 4 31B Q4_K_M - fits in 22GB VRAM"
   },
   "inference": {
     "n_ctx": 2048,
@@ -40,7 +40,7 @@
   },
   "paths": {
     "data_dir": "data/rag/",
-    "chroma_dir": "data/rag/chroma/",
+    "chroma_dir": "data/rag/chroma_new/",
     "models_dir": "models/"
   }
 }

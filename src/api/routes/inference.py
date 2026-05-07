@@ -7,10 +7,14 @@ Endpoints:
 """
 
 import logging
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from typing import Optional
 
-from src.llm.server import LlamaCppServer, GenerationConfig
+from llm.server import LlamaCppServer, GenerationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +31,7 @@ def get_server() -> LlamaCppServer:
     if _server is None:
         # Load model path from config
         import json
-        model_path = "data/models/Qwen3-8B-Q8_0.gguf"
+        model_path = "data/models/gemma-4-31B.Q4_K_M.gguf"
         try:
             with open('config/llama_config.json', 'r') as f:
                 config = json.load(f)
@@ -41,14 +45,8 @@ def get_server() -> LlamaCppServer:
             model_path=model_path,
             config_path=config_path,
         )
-        
-        # Note: Call load_model() separately to avoid blocking API start
-        # In production, use gunicorn with proper model pre-loading
     
     return _server
-
-
-@bp.route('/generate', methods=['POST'])
 def generate():
     """
     Synchronous text generation.

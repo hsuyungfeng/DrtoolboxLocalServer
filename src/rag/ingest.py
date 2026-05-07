@@ -15,6 +15,7 @@ import os
 import time
 import logging
 import hashlib
+import json
 from typing import List, Optional, Generator, Dict, Any
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -110,9 +111,9 @@ class DocumentIngestor:
         self._documents: List[str] = []
         self._metadatas: List[dict] = []
         self._ids: List[str] = []
-        
+
         # Supported formats
-        self.supported_formats = {'.txt', '.pdf', '.docx'}
+        self.supported_formats = {'.txt', '.pdf', '.docx', '.json'}
         
         logger.info(f"DocumentIngestor initialized: collection={collection_name}")
     
@@ -170,20 +171,23 @@ class DocumentIngestor:
             raise ValueError(f"Unsupported format: {ext}")
         
         text = ""
-        
+
         try:
             if ext == '.txt':
                 with open(file_path, 'r', encoding='utf-8') as f:
                     text = f.read()
-                    
+
             elif ext == '.pdf' and PDF_AVAILABLE:
                 text = self._parse_pdf(file_path)
-                
+
             elif ext == '.docx' and DOCX_AVAILABLE:
                 text = self._parse_docx(file_path)
-            
+
+            elif ext == '.json':
+                text = self._parse_json(file_path)
+
             return text
-            
+
         except Exception as e:
             raise RuntimeError(f"Failed to parse {file_path}: {e}")
     
@@ -206,19 +210,75 @@ class DocumentIngestor:
         """Parse Word document."""
         doc = docx.Document(file_path)
         text_parts = []
-        
+
         for para in doc.paragraphs:
             if para.text.strip():
                 text_parts.append(para.text)
-        
+
         # Also extract tables
         for table in doc.tables:
             for row in table.rows:
                 row_text = " | ".join(cell.text for cell in row.cells)
                 if row_text.strip():
                     text_parts.append(row_text)
-        
+
         return "\n\n".join(text_parts)
+
+    def _parse_json(self, file_path: str) -> str:
+        """Parse JSON file (array or JSONL format). Extract Q&A pairs for SFT datasets."""
+        text_parts = []
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            try:
+                # Try parsing as JSON array first
+                data = json.load(f)
+                if isinstance(data, list):
+                    for record in data:
+                        # Handle SFT Q&A format: {Question, Complex_CoT, Response} or similar
+                        if isinstance(record, dict):
+                            question = record.get('Question', record.get('question', ''))
+                            response = record.get('Response', record.get('response', record.get('answer', '')))
+                            cot = record.get('Complex_CoT', record.get('chain_of_thought', ''))
+
+                            # Build text from available fields
+                            parts = []
+                            if question:
+                                parts.append(f"Question: {question}")
+                            if cot:
+                                parts.append(f"Reasoning: {cot}")
+                            if response:
+                                parts.append(f"Answer: {response}")
+
+                            if parts:
+                                text_parts.append("\n".join(parts))
+            except json.JSONDecodeError:
+                # Fall back to JSONL (one JSON object per line)
+                f.seek(0)
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if isinstance(record, dict):
+                            question = record.get('Question', record.get('question', ''))
+                            response = record.get('Response', record.get('response', record.get('answer', '')))
+                            cot = record.get('Complex_CoT', record.get('chain_of_thought', ''))
+
+                            parts = []
+                            if question:
+                                parts.append(f"Question: {question}")
+                            if cot:
+                                parts.append(f"Reasoning: {cot}")
+                            if response:
+                                parts.append(f"Answer: {response}")
+
+                            if parts:
+                                text_parts.append("\n".join(parts))
+                    except json.JSONDecodeError:
+                        continue
+
+        return "\n\n---\n\n".join(text_parts)
     
     def chunk_text(
         self,
@@ -274,19 +334,19 @@ class DocumentIngestor:
                     if last_boundary > position + chunk_chars // 2:
                         end = last_boundary + len(boundary)
                         break
-            
+
             chunk_text = text[position:end].strip()
-            
+
             if chunk_text:
                 chunk_id = self._generate_chunk_id(source, index)
                 chunk_tokens = len(chunk_text) // chars_per_token
-                
+
                 # Try to detect section from first line
                 section = None
                 first_line = chunk_text.split('\n')[0].strip()
                 if first_line and len(first_line) < 100:
                     section = first_line
-                
+
                 chunks.append(ChunkResult(
                     chunk_id=chunk_id,
                     text=chunk_text,
@@ -296,9 +356,14 @@ class DocumentIngestor:
                     index=index,
                     tokens=chunk_tokens,
                 ))
-            
-            # Move position with overlap
-            position = end - overlap_chars
+
+            # Move position with overlap (ensure we always progress)
+            new_position = end - overlap_chars
+            if new_position <= position:
+                # Overlap is too large, just move past current chunk
+                position = end
+            else:
+                position = new_position
             index += 1
         
         return chunks

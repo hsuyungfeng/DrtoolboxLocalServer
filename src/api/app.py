@@ -8,7 +8,12 @@ Provides REST API for:
 """
 
 import os
+import sys
 import logging
+
+# Fix import paths
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -65,8 +70,8 @@ def create_app(config=None):
 
 def _register_routes(app):
     """Register all API routes."""
-    from src.api.routes import inference, rag
-    
+    from api.routes import inference, rag, hybrid
+
     # Health check routes
     @app.route('/health', methods=['GET'])
     def health_check():
@@ -87,13 +92,13 @@ def _register_routes(app):
         
         # Check API dependencies
         try:
-            from src.llm.server import LlamaCppServer
+            from llm.server import LlamaCppServer
             checks["llm"] = "available"
         except ImportError:
             checks["llm"] = "not_available"
-        
+
         try:
-            from src.rag.ingest import DocumentIngestor
+            from rag.ingest import DocumentIngestor
             checks["rag"] = "available"
         except ImportError:
             checks["rag"] = "not_available"
@@ -106,9 +111,12 @@ def _register_routes(app):
     
     # Inference routes
     app.register_blueprint(inference.bp)
-    
+
     # RAG routes
     app.register_blueprint(rag.bp)
+
+    # Hybrid query routes (Database + RAG combined)
+    app.register_blueprint(hybrid.bp)
     
     # Root route
     @app.route('/', methods=['GET'])
@@ -125,6 +133,14 @@ def _register_routes(app):
                 "rag_query": "/api/v1/rag/query",
                 "rag_search": "/api/v1/rag/search",
                 "rag_ingest": "/api/v1/rag/ingest",
+                "hybrid_query": "/api/v1/hybrid/query",
+                "hybrid_diagnostic": "/api/v1/hybrid/diagnostic",
+                "hybrid_clinic_schedule": "/api/v1/hybrid/clinic/schedule",
+                "hybrid_clinic_staff": "/api/v1/hybrid/clinic/staff",
+                "hybrid_clinic_supplies": "/api/v1/hybrid/clinic/supplies",
+                "hybrid_medical_search": "/api/v1/hybrid/medical/search",
+                "hybrid_medical_condition": "/api/v1/hybrid/medical/condition",
+                "hybrid_health": "/api/v1/hybrid/health",
             }
         })
 

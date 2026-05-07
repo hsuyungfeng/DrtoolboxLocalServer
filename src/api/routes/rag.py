@@ -12,8 +12,8 @@ import logging
 from flask import Blueprint, request, jsonify
 from typing import Optional, List, Dict, Any
 
-from src.rag.ingest import DocumentIngestor
-from src.rag.query import QueryAnswer
+from rag.ingest import DocumentIngestor
+from rag.query import QueryAnswer
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def get_query_answer(collection: str = "both") -> QueryAnswer:
             clinic_search = get_ingestor("clinic_specific").collection
 
             # Create general search instance
-            from src.rag.search import SemanticSearch
+            from rag.search import SemanticSearch
             general = SemanticSearch(
                 chroma_dir=chroma_path,
                 collection_name="general_medical",

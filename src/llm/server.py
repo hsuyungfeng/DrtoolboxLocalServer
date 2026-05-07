@@ -24,9 +24,10 @@ from concurrent.futures import ThreadPoolExecutor, Future
 # Try to import llama.cpp bindings
 try:
     from llama_cpp import Llama
-    from llama_cpp.llama_chat_completion import LlamaChatCompletionRequest
     LLAMA_CPP_AVAILABLE = True
-except ImportError:
+    print("[DEBUG] llama_cpp imported successfully")
+except ImportError as e:
+    print(f"[DEBUG] llama_cpp import failed: {e}")
     LLAMA_CPP_AVAILABLE = False
     Llama = None
 

@@ -26,7 +26,8 @@
   "supported_formats": [
     ".txt",
     ".pdf",
-    ".docx"
+    ".docx",
+    ".json"
   ],
   "ingestion": {
     "max_file_size_mb": 50,
