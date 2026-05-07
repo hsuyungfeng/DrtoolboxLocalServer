@@ -2,7 +2,15 @@
   "chroma": {
     "type": "persistant",
     "path": "data/rag/chroma_new/",
-    "collection_name": "medical_documents"
+    "collections": {
+      "general_medical": "general_medical",
+      "clinic_specific": "clinic_specific"
+    },
+    "default_collection": "general_medical"
+  },
+  "document_folders": {
+    "general_medical": "data/rag/general_docs/",
+    "clinic_specific": "data/rag/clinic_docs/"
   },
   "chunking": {
     "chunk_size": 512,

@@ -18,7 +18,7 @@ import logging
 from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass, field
 
-from .search import SemanticSearch, SearchResult
+from .search import SemanticSearch, SearchResult, search_dual
 
 logger = logging.getLogger(__name__)
 
@@ -94,27 +94,31 @@ class QueryAnswer:
         llm_server=None,  # Optional LlamaCppServer instance
         top_k: int = 5,
         confidence_thresholds: Tuple[float, float] = (0.7, 0.4),
+        clinic_search: Optional[SemanticSearch] = None,  # For dual-collection mode
     ):
         """
         Initialize QueryAnswer.
-        
+
         Args:
             chroma_dir: Path to Chroma directory
             collection_name: Name of Chroma collection
             llm_server: Optional LlamaCppServer for LLM generation
             top_k: Number of context chunks to retrieve
             confidence_thresholds: (high_threshold, medium_threshold)
+            clinic_search: Optional SemanticSearch for clinic_specific collection (enables dual mode)
         """
         self.search = SemanticSearch(
             chroma_dir=chroma_dir,
             collection_name=collection_name,
             default_top_k=top_k,
         )
+        self.clinic_search = clinic_search  # None = single collection mode, set = dual mode
         self.llm_server = llm_server
         self.top_k = top_k
         self.high_threshold, self.medium_threshold = confidence_thresholds
-        
-        logger.info(f"QueryAnswer initialized: top_k={top_k}")
+
+        mode = "dual" if clinic_search else "single"
+        logger.info(f"QueryAnswer initialized: mode={mode}, top_k={top_k}")
     
     def retrieve_context(
         self,
@@ -123,22 +127,35 @@ class QueryAnswer:
     ) -> List[SearchResult]:
         """
         Retrieve relevant context chunks.
-        
+
+        In dual mode, searches both general_medical and clinic_specific collections.
+        In single mode, searches only the configured collection.
+
         Args:
             query: User query
             top_k: Number of chunks to retrieve
-            
+
         Returns:
             List of SearchResult with relevant context
         """
         if top_k is None:
             top_k = self.top_k
-        
+
         try:
-            results = self.search.search(query=query, top_k=top_k)
+            # Use dual search if clinic_search is available
+            if self.clinic_search:
+                results = search_dual(
+                    query_text=query,
+                    general_search=self.search,
+                    clinic_search=self.clinic_search,
+                    top_k=top_k,
+                )
+            else:
+                results = self.search.search(query=query, top_k=top_k)
+
             logger.info(f"Retrieved {len(results)} context chunks")
             return results
-            
+
         except Exception as e:
             logger.error(f"Context retrieval failed: {e}")
             raise

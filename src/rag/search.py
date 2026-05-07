@@ -235,3 +235,55 @@ class SemanticSearch:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         pass
+
+
+def search_dual(
+    query_text: str,
+    general_search: SemanticSearch,
+    clinic_search: SemanticSearch,
+    top_k: int = 5,
+) -> List[SearchResult]:
+    """
+    Search both general_medical and clinic_specific collections.
+
+    Performs semantic search on both collections simultaneously, merges
+    results ranked by similarity (clinic results prioritized on ties).
+
+    Args:
+        query_text: Search query
+        general_search: SemanticSearch instance for general_medical collection
+        clinic_search: SemanticSearch instance for clinic_specific collection
+        top_k: Number of results to return (per collection, before merge)
+
+    Returns:
+        List of SearchResult from both collections, merged and re-ranked
+    """
+    try:
+        # Search both collections
+        results_general = general_search.search(query_text, top_k=top_k)
+        results_clinic = clinic_search.search(query_text, top_k=top_k)
+
+        # Tag source collection in metadata
+        for r in results_general:
+            r.metadata['_collection'] = 'general_medical'
+        for r in results_clinic:
+            r.metadata['_collection'] = 'clinic_specific'
+
+        # Merge and re-rank by similarity (descending)
+        # Clinic docs get secondary sort priority on ties (clinic_specific first)
+        merged = results_general + results_clinic
+        merged.sort(
+            key=lambda x: (x.similarity, x.metadata.get('_collection') == 'clinic_specific'),
+            reverse=True
+        )
+
+        logger.info(
+            f"Dual search: {len(results_general)} general + {len(results_clinic)} clinic results, "
+            f"returning top {min(top_k, len(merged))}"
+        )
+
+        return merged[:top_k]
+
+    except Exception as e:
+        logger.error(f"Dual search failed: {e}")
+        raise RuntimeError(f"Dual collection search failed: {e}")

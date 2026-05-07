@@ -263,14 +263,14 @@ class DocumentIngestor:
         # Multiple chunks with overlap
         position = 0
         index = 0
-        
+
         while position < text_len:
             end = min(position + chunk_chars, text_len)
-            
+
             # Try to break at sentence boundary
             if end < text_len:
                 for boundary in ['. ', '.\n', '!\n', '?\n', '\n\n']:
-                    last_boundary = text.rfind(boundry, position, end)
+                    last_boundary = text.rfind(boundary, position, end)
                     if last_boundary > position + chunk_chars // 2:
                         end = last_boundary + len(boundary)
                         break
