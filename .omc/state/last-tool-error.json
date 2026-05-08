@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"rtk pytest tests/test_clinic_his_api.py::TestHealthEndpoint -v 2>&1\"}",
+  "error": "Exit code 4\nPytest: No tests collected\n[full output: ~/.local/share/rtk/tee/1778209439_pytest.log]\nERROR: found no collectors for /home/hsu/DrtoolboxLocalServer/tests/test_clinic_his_api.py::TestHealthEndpoint",
+  "timestamp": "2026-05-08T03:03:59.732Z",
+  "retry_count": 1
+}

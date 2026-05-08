@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: drtoolbox-local-server
+Version: 1.0.0
+Summary: Local medical RAG server with dual-collection support
+Requires-Dist: flask>=2.0
+Requires-Dist: flask-cors>=3.0
+Requires-Dist: chromadb>=0.3
+Requires-Dist: requests>=2.28
+Requires-Dist: python-dotenv>=0.19
+Requires-Dist: llama-cpp-python>=0.2

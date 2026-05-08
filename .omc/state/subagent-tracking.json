@@ -1,0 +1,24 @@
+{
+  "agents": [
+    {
+      "agent_id": "aae0dd3b59ff11e9f",
+      "agent_type": "gsd-planner",
+      "started_at": "2026-05-08T02:17:24.609Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "a2da74f45d8b709c0",
+      "agent_type": "gsd-executor",
+      "started_at": "2026-05-08T02:23:19.397Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-05-08T03:05:03.531Z",
+      "duration_ms": 2504134
+    }
+  ],
+  "total_spawned": 2,
+  "total_completed": 2,
+  "total_failed": 0,
+  "last_updated": "2026-05-08T03:05:03.632Z"
+}

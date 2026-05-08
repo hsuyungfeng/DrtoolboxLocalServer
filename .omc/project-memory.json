@@ -1,0 +1,461 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1778128745041,
+  "projectRoot": "/home/hsu/DrtoolboxLocalServer",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "cat > /home/hsu/DrtoolboxLocalServer/tests/test_his_connection.py << 'EOF'\n\"\"\"Tests for HIS connection, queue, and cache layers.\"\"\"\n\nimport pytest\nimport tempfile\nimport sqlite3\nfrom src.db.his_connection import HISConnection, HISQueryError\nfrom src.db.query_queue import QueryQueue, QueryTask\nfrom src.db.query_cache import QueryCache\n\n\n@pytest.fixture\ndef test_db():\n    \"\"\"Create temporary HIS test database.\"\"\"\n    fd, path = tempfile.mkstemp(suffix=\".db\")\n    conn = sqlite3.connect(path)\n    conn.execute(\"\"\"\n        CREATE TABLE patients (\n            patient_id TEXT PRIMARY KEY,\n            name TEXT,\n            dob TEXT\n        )\n    \"\"\")\n    conn.execute(\"INSERT INTO patients VALUES ('TEST_001', 'Test Patient', '1990-01-01')\")\n    conn.commit()\n    conn.close()\n    yield path\n    import os\n    os.close(fd)\n    os.unlink(path)\n\n\ndef test_his_connection_read_only(test_db):\n    \"\"\"Test that read-only mode is enforced.\"\"\"\n    his = HISConnection(db_path=test_db)\n    with pytest.raises(HISQueryError):\n        his.execute(\"INSERT INTO patients VALUES ('TEST_002', 'Bad', '2000-01-01')\")\n\n\ndef test_his_connection_select(test_db):\n    \"\"\"Test SELECT query execution.\"\"\"\n    his = HISConnection(db_path=test_db)\n    result = his.execute(\"SELECT * FROM patients WHERE patient_id = ?\", (\"TEST_001\",))\n    assert len(result) == 1\n    assert result[0][\"name\"] == \"Test Patient\"\n\n\ndef test_query_queue_submit():\n    \"\"\"Test query queue submission.\"\"\"\n    from src.db.query_queue import set_query_queue\n    queue = QueryQueue()\n    set_query_queue(queue)\n    \n    task = QueryTask(query=\"SELECT 1\", params=())\n    task_id = queue.submit(task)\n    assert task_id is not None\n\n\ndef test_query_cache_hit_miss(test_db):\n    \"\"\"Test cache hit and miss.\"\"\"\n    fd, cache_db = tempfile.mkstemp(suffix=\".db\")\n    cache = QueryCache(db_path=cache_db)\n    \n    query = \"SELECT * FROM patients\"\n    result = [{\"patient_id\": \"TEST_001\", \"name\": \"Test\"}]\n    \n    cached = cache.get(query, ())\n    assert cached is None\n    \n    cache.set(query, (), result)\n    cached = cache.get(query, ())\n    assert cached == result\n    \n    import os\n    os.close(fd)\n    os.unlink(cache_db)\n\n\nif __name__ == \"__main__\":\n    pytest.main([__file__, \"-v\"])\nEOF\n",
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "AstrBot": {
+      "path": "AstrBot",
+      "purpose": null,
+      "fileCount": 25,
+      "lastAccessed": 1778128745036,
+      "keyFiles": [
+        "AGENTS.md",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
+        "Dockerfile",
+        "EULA.md"
+      ]
+    },
+    "config": {
+      "path": "config",
+      "purpose": "Configuration files",
+      "fileCount": 3,
+      "lastAccessed": 1778128745037,
+      "keyFiles": [
+        "ingest_config.json",
+        "llama_config.json",
+        "memory_config.json"
+      ]
+    },
+    "cron": {
+      "path": "cron",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1778128745037,
+      "keyFiles": [
+        "crontab.txt"
+      ]
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 0,
+      "lastAccessed": 1778128745038,
+      "keyFiles": []
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1778128745038,
+      "keyFiles": [
+        "clinic_user_guide.md"
+      ]
+    },
+    "filebrowser": {
+      "path": "filebrowser",
+      "purpose": null,
+      "fileCount": 7,
+      "lastAccessed": 1778128745038,
+      "keyFiles": [
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md",
+        "makefile"
+      ]
+    },
+    "graphify-out": {
+      "path": "graphify-out",
+      "purpose": null,
+      "fileCount": 24,
+      "lastAccessed": 1778128745038,
+      "keyFiles": []
+    },
+    "hermes-agent": {
+      "path": "hermes-agent",
+      "purpose": null,
+      "fileCount": 53,
+      "lastAccessed": 1778128745039,
+      "keyFiles": [
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "Dockerfile",
+        "LICENSE",
+        "MANIFEST.in"
+      ]
+    },
+    "hermes-desktop": {
+      "path": "hermes-desktop",
+      "purpose": null,
+      "fileCount": 18,
+      "lastAccessed": 1778128745039,
+      "keyFiles": [
+        "CONTRIBUTING.md",
+        "CONTRIBUTING.zh-CN.md",
+        "LICENSE",
+        "README.md",
+        "README.zh-CN.md"
+      ]
+    },
+    "llama.cpp": {
+      "path": "llama.cpp",
+      "purpose": null,
+      "fileCount": 34,
+      "lastAccessed": 1778128745039,
+      "keyFiles": [
+        "AGENTS.md",
+        "AUTHORS",
+        "CLAUDE.md",
+        "CMakeLists.txt",
+        "CMakePresets.json"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 2,
+      "lastAccessed": 1778128745039,
+      "keyFiles": [
+        "daily_restart.sh",
+        "ingest_all.sh"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 0,
+      "lastAccessed": 1778128745039,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 1,
+      "lastAccessed": 1778128745040,
+      "keyFiles": [
+        "e2e_rag_test.py"
+      ]
+    },
+    "data/models": {
+      "path": "data/models",
+      "purpose": "Data models",
+      "fileCount": 2,
+      "lastAccessed": 1778128745040,
+      "keyFiles": [
+        "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+        "gemma-4-31B.Q4_K_M.gguf"
+      ]
+    },
+    "src/api": {
+      "path": "src/api",
+      "purpose": "API routes",
+      "fileCount": 1,
+      "lastAccessed": 1778128745041,
+      "keyFiles": [
+        "app.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/rag/ingest.py",
+      "accessCount": 20,
+      "lastAccessed": 1778137118608,
+      "type": "file"
+    },
+    {
+      "path": "src/api/app.py",
+      "accessCount": 13,
+      "lastAccessed": 1778208534214,
+      "type": "file"
+    },
+    {
+      "path": "src/api/routes/rag.py",
+      "accessCount": 7,
+      "lastAccessed": 1778207125276,
+      "type": "file"
+    },
+    {
+      "path": "schema/medical.db.sql",
+      "accessCount": 6,
+      "lastAccessed": 1778140840030,
+      "type": "file"
+    },
+    {
+      "path": "ingest_all_collections.py",
+      "accessCount": 5,
+      "lastAccessed": 1778136024581,
+      "type": "file"
+    },
+    {
+      "path": "config/ingest_config.json",
+      "accessCount": 4,
+      "lastAccessed": 1778132458305,
+      "type": "file"
+    },
+    {
+      "path": "src/rag/search.py",
+      "accessCount": 4,
+      "lastAccessed": 1778136010829,
+      "type": "file"
+    },
+    {
+      "path": "config/llama_config.json",
+      "accessCount": 4,
+      "lastAccessed": 1778137960076,
+      "type": "file"
+    },
+    {
+      "path": "schema/clinic.db.sql",
+      "accessCount": 4,
+      "lastAccessed": 1778208024197,
+      "type": "file"
+    },
+    {
+      "path": "src/rag/query.py",
+      "accessCount": 3,
+      "lastAccessed": 1778136001889,
+      "type": "file"
+    },
+    {
+      "path": ".planning/.continue-here.md",
+      "accessCount": 3,
+      "lastAccessed": 1778206619509,
+      "type": "file"
+    },
+    {
+      "path": ".planning/phases/02-clinic-integration/02-CONTEXT.md",
+      "accessCount": 3,
+      "lastAccessed": 1778206650792,
+      "type": "file"
+    },
+    {
+      "path": ".planning/ROADMAP.md",
+      "accessCount": 3,
+      "lastAccessed": 1778206651057,
+      "type": "file"
+    },
+    {
+      "path": "scripts/hybrid_query.py",
+      "accessCount": 3,
+      "lastAccessed": 1778206654334,
+      "type": "file"
+    },
+    {
+      "path": ".planning/REQUIREMENTS.md",
+      "accessCount": 3,
+      "lastAccessed": 1778206770485,
+      "type": "file"
+    },
+    {
+      "path": ".planning/phases/02-clinic-integration/.continue-here.md",
+      "accessCount": 3,
+      "lastAccessed": 1778206833154,
+      "type": "file"
+    },
+    {
+      "path": ".planning/phases/02-clinic-integration/02-01-PLAN.md",
+      "accessCount": 3,
+      "lastAccessed": 1778207001905,
+      "type": "file"
+    },
+    {
+      "path": ".planning/phases/01-foundation/01-04-SUMMARY.md",
+      "accessCount": 3,
+      "lastAccessed": 1778207124698,
+      "type": "file"
+    },
+    {
+      "path": "scripts/ingest_all.sh",
+      "accessCount": 2,
+      "lastAccessed": 1778132388006,
+      "type": "file"
+    },
+    {
+      "path": "src/api/routes/inference.py",
+      "accessCount": 2,
+      "lastAccessed": 1778138711099,
+      "type": "file"
+    },
+    {
+      "path": ".planning/HYBRID_API_COMPLETE.md",
+      "accessCount": 2,
+      "lastAccessed": 1778144812220,
+      "type": "file"
+    },
+    {
+      "path": "HYBRID_API_GUIDE.md",
+      "accessCount": 2,
+      "lastAccessed": 1778144812261,
+      "type": "file"
+    },
+    {
+      "path": "src/api/routes/hybrid.py",
+      "accessCount": 2,
+      "lastAccessed": 1778206659374,
+      "type": "file"
+    },
+    {
+      "path": ".planning/STATE.md",
+      "accessCount": 2,
+      "lastAccessed": 1778207001488,
+      "type": "file"
+    },
+    {
+      "path": "scripts/daily_restart.sh",
+      "accessCount": 1,
+      "lastAccessed": 1778132338702,
+      "type": "file"
+    },
+    {
+      "path": "config/memory_config.json",
+      "accessCount": 1,
+      "lastAccessed": 1778132339478,
+      "type": "file"
+    },
+    {
+      "path": "DASHBOARD_PLAN.md",
+      "accessCount": 1,
+      "lastAccessed": 1778137934932,
+      "type": "file"
+    },
+    {
+      "path": "src/llm/server.py",
+      "accessCount": 1,
+      "lastAccessed": 1778137962448,
+      "type": "file"
+    },
+    {
+      "path": "LLM_INTEGRATION_GUIDE.md",
+      "accessCount": 1,
+      "lastAccessed": 1778137996032,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 1,
+      "lastAccessed": 1778138564511,
+      "type": "file"
+    },
+    {
+      "path": "scripts/populate_databases.py",
+      "accessCount": 1,
+      "lastAccessed": 1778140938915,
+      "type": "file"
+    },
+    {
+      "path": "scripts/test_hybrid_api.py",
+      "accessCount": 1,
+      "lastAccessed": 1778141280248,
+      "type": "file"
+    },
+    {
+      "path": "QUICKSTART_HYBRID_API.md",
+      "accessCount": 1,
+      "lastAccessed": 1778141305702,
+      "type": "file"
+    },
+    {
+      "path": "data/Howtouse.md",
+      "accessCount": 1,
+      "lastAccessed": 1778141525665,
+      "type": "file"
+    },
+    {
+      "path": ".planning/PROJECT.md",
+      "accessCount": 1,
+      "lastAccessed": 1778145612256,
+      "type": "file"
+    },
+    {
+      "path": ".planning/phases/02-clinic-integration/02-PLAN.md",
+      "accessCount": 1,
+      "lastAccessed": 1778206819006,
+      "type": "file"
+    },
+    {
+      "path": "src/db/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1778207493860,
+      "type": "file"
+    },
+    {
+      "path": "src/db/his_connection.py",
+      "accessCount": 1,
+      "lastAccessed": 1778207628079,
+      "type": "file"
+    },
+    {
+      "path": "src/db/query_queue.py",
+      "accessCount": 1,
+      "lastAccessed": 1778207762025,
+      "type": "file"
+    },
+    {
+      "path": "src/db/query_cache.py",
+      "accessCount": 1,
+      "lastAccessed": 1778207898093,
+      "type": "file"
+    },
+    {
+      "path": "src/api/routes/clinic_his.py",
+      "accessCount": 1,
+      "lastAccessed": 1778208166485,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_his_connection.py",
+      "accessCount": 1,
+      "lastAccessed": 1778208684833,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_clinic_his_api.py",
+      "accessCount": 1,
+      "lastAccessed": 1778208825113,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

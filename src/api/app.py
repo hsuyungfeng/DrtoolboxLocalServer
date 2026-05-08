@@ -70,7 +70,7 @@ def create_app(config=None):
 
 def _register_routes(app):
     """Register all API routes."""
-    from api.routes import inference, rag, hybrid
+    from api.routes import inference, rag, hybrid, clinic_his
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -117,7 +117,10 @@ def _register_routes(app):
 
     # Hybrid query routes (Database + RAG combined)
     app.register_blueprint(hybrid.bp)
-    
+
+    # HIS integration routes
+    app.register_blueprint(clinic_his.bp)
+
     # Root route
     @app.route('/', methods=['GET'])
     def root():
