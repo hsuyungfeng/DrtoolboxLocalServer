@@ -16,10 +16,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from flask import Flask, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (optional - may not be available in all environments)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Configure logging
 logging.basicConfig(
@@ -72,6 +75,7 @@ def _register_routes(app):
     """Register all API routes."""
     from api.routes import inference, rag, hybrid, clinic_his
     from api.routes.line_bot import line_bp
+    from api.routes.staff_api import staff_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -124,6 +128,9 @@ def _register_routes(app):
 
     # LINE bot webhook routes
     app.register_blueprint(line_bp)
+
+    # Staff API routes (conversation history, escalations)
+    app.register_blueprint(staff_bp)
 
     # Root route
     @app.route('/', methods=['GET'])
