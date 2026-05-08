@@ -20,6 +20,13 @@ import time
 
 import requests
 
+try:
+    from src.services.conversation_manager import ConversationManager
+    from src.services.escalation_handler import EscalationHandler
+except ImportError:
+    from services.conversation_manager import ConversationManager
+    from services.escalation_handler import EscalationHandler
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ──────────────────────────────────────────────────
@@ -153,6 +160,7 @@ def send_response(routing_result: dict) -> bool:
     user_id = routing_result.get("user_id", "unknown")
     decision = routing_result.get("routing_decision", "escalation")
     rag_result = routing_result.get("rag_result")
+    confidence = routing_result.get("confidence")
     send_start = time.time()
 
     logger.info(
@@ -162,22 +170,62 @@ def send_response(routing_result: dict) -> bool:
     if decision == "rag_response" and rag_result:
         message_text = _format_rag_response(rag_result)
         ok = _push_message(user_id, message_text)
+
+        # Save RAG response to conversation history (Wave 3 Task 10)
+        msg_mgr = ConversationManager()
+        msg_mgr.save_message(
+            patient_id=user_id,
+            sender="bot",
+            text=message_text,
+            rag_confidence=confidence,
+            escalated=False,
+        )
+
         _log_outbound(user_id, decision, message_text, send_start)
         return ok
 
     elif decision in ("escalation",):
-        # D-04: do NOT send auto-reply; flag for staff (Wave 3)
+        # D-04: do NOT send auto-reply; flag for staff (Wave 3 Task 11)
         logger.info(
             "Escalation queued | user=%s confidence=%.2f",
             user_id,
-            routing_result.get("confidence") or 0.0,
+            confidence or 0.0,
         )
-        # Wave 3 (Task 11) will persist + notify staff here
+
+        # Create escalation record with full conversation history (Wave 3 Task 11)
+        msg_mgr = ConversationManager()
+        history = msg_mgr.get_conversation_history(patient_id=user_id, days=7)
+
+        escalation_mgr = EscalationHandler()
+        original_message = routing_result.get("original_message", "")
+        escalation_id = escalation_mgr.create_escalation(
+            patient_id=user_id,
+            original_message=original_message,
+            rag_confidence=confidence or 0.0,
+            conversation_history=history,
+        )
+
+        logger.info(
+            "Escalation created | user=%s escalation_id=%s",
+            user_id,
+            escalation_id,
+        )
         return True
 
     else:
         # rag_error or unknown — send fallback message
         ok = _push_message(user_id, FALLBACK_MESSAGE)
+
+        # Save fallback message to history (Wave 3 Task 10)
+        msg_mgr = ConversationManager()
+        msg_mgr.save_message(
+            patient_id=user_id,
+            sender="bot",
+            text=FALLBACK_MESSAGE,
+            rag_confidence=None,
+            escalated=False,
+        )
+
         _log_outbound(user_id, decision, FALLBACK_MESSAGE, send_start)
         return ok
 

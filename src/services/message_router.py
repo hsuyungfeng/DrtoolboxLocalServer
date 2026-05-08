@@ -21,6 +21,13 @@ import time
 
 import requests
 
+try:
+    from src.services.conversation_manager import ConversationManager
+    from src.services.escalation_handler import EscalationHandler
+except ImportError:
+    from services.conversation_manager import ConversationManager
+    from services.escalation_handler import EscalationHandler
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ──────────────────────────────────────────────────
@@ -102,11 +109,13 @@ def route_message(envelope: dict) -> dict:
             "confidence": float | None,
             "rag_result": dict | None,
             "error": str | None,
+            "message_id": str (for conversation history),
         }
     """
     user_id = envelope.get("user_id", "unknown")
     text = envelope.get("text", "")
     reply_token = envelope.get("reply_token", "")
+    received_at = envelope.get("received_at")
     start_ts = time.time()
 
     # ── Step 1: classify intent ──
@@ -118,6 +127,15 @@ def route_message(envelope: dict) -> dict:
             "Routing | user=%s intent=%s confidence=N/A decision=escalation (auto)",
             user_id, intent,
         )
+        # Save incoming message to history (Wave 3 Task 10)
+        msg_mgr = ConversationManager()
+        message_id = msg_mgr.save_message(
+            patient_id=user_id,
+            sender="patient",
+            text=text,
+            rag_confidence=None,
+            escalated=True,
+        )
         return _build_result(
             user_id=user_id,
             routing_decision="escalation",
@@ -125,6 +143,7 @@ def route_message(envelope: dict) -> dict:
             confidence=None,
             rag_result=None,
             error=None,
+            message_id=message_id,
         )
 
     # ── Step 3: query RAG (D-03: default route) ──
@@ -155,6 +174,16 @@ def route_message(envelope: dict) -> dict:
     else:
         routing_decision = "rag_response"
 
+    # ── Step 5: save incoming message to history (Wave 3 Task 10) ──
+    msg_mgr = ConversationManager()
+    message_id = msg_mgr.save_message(
+        patient_id=user_id,
+        sender="patient",
+        text=text,
+        rag_confidence=confidence,
+        escalated=(routing_decision == "escalation"),
+    )
+
     elapsed = time.time() - start_ts
     logger.info(
         "Routing | user=%s intent=%s confidence=%.2f decision=%s elapsed=%.3fs",
@@ -172,8 +201,10 @@ def route_message(envelope: dict) -> dict:
         confidence=confidence,
         rag_result=rag_result,
         error=error,
+        message_id=message_id,
     )
     result["reply_token"] = reply_token
+    result["original_message"] = text  # For escalation context (Wave 3 Task 11)
 
     # ── Step 5: hand off to responder ──
     try:
@@ -197,6 +228,7 @@ def _build_result(
     confidence: float | None,
     rag_result: dict | None,
     error: str | None,
+    message_id: str | None = None,
 ) -> dict:
     return {
         "user_id": user_id,
@@ -205,4 +237,5 @@ def _build_result(
         "confidence": confidence,
         "rag_result": rag_result,
         "error": error,
+        "message_id": message_id,
     }

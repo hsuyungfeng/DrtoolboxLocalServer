@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"rtk pytest tests/test_clinic_his_api.py::TestHealthEndpoint -v 2>&1\"}",
-  "error": "Exit code 4\nPytest: No tests collected\n[full output: ~/.local/share/rtk/tee/1778209439_pytest.log]\nERROR: found no collectors for /home/hsu/DrtoolboxLocalServer/tests/test_clinic_his_api.py::TestHealthEndpoint",
-  "timestamp": "2026-05-08T03:03:59.732Z",
+  "tool_input_preview": "{\"command\":\"python -c \\\"import tests.test_line_integration; print('Import OK')\\\" 2>&1\",\"description\":\"Check if test file imports correctly\"}",
+  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import tests.test_line_integration; print('Import OK')\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/hsu/DrtoolboxLocalServer/tests/test_line_integration.py\", line 27, in <module>\n    import pytest\nModuleNotFoundError: No module named 'pytest'",
+  "timestamp": "2026-05-08T09:42:54.131Z",
   "retry_count": 1
 }

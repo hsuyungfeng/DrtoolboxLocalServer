@@ -209,9 +209,10 @@ class TestFormatRagResponse:
 # ─────────────────────────────────────────────────────────────────
 
 class TestNormalFlow:
+    @patch("services.message_router.ConversationManager")
     @patch("services.message_router.requests.post")
     @patch("services.line_responder._push_message", return_value=True)
-    def test_high_confidence_routes_to_response(self, mock_push, mock_rag_post):
+    def test_high_confidence_routes_to_response(self, mock_push, mock_rag_post, mock_conv_mgr):
         mock_rag_post.return_value = MagicMock(
             status_code=200,
             json=lambda: _rag_ok(0.80),
@@ -233,9 +234,10 @@ class TestNormalFlow:
         assert result["confidence"] == pytest.approx(0.80)
         assert elapsed < 5.0, f"SC-2 VIOLATION: took {elapsed:.3f}s"
 
+    @patch("services.message_router.ConversationManager")
     @patch("services.message_router.requests.post")
     @patch("services.line_responder._push_message", return_value=True)
-    def test_sc2_latency_100_percent(self, mock_push, mock_rag_post):
+    def test_sc2_latency_100_percent(self, mock_push, mock_rag_post, mock_conv_mgr):
         """SC-2 gate: 100% of messages processed within 5 seconds."""
         mock_rag_post.return_value = MagicMock(
             status_code=200,
@@ -275,9 +277,11 @@ class TestNormalFlow:
 # ─────────────────────────────────────────────────────────────────
 
 class TestEscalationFlow:
+    @patch("services.message_router.ConversationManager")
+    @patch("services.message_router.EscalationHandler")
     @patch("services.message_router.requests.post")
     @patch("services.line_responder._push_message", return_value=True)
-    def test_low_confidence_escalates(self, mock_push, mock_rag_post):
+    def test_low_confidence_escalates(self, mock_push, mock_rag_post, mock_esc_handler, mock_conv_mgr):
         mock_rag_post.return_value = MagicMock(
             status_code=200,
             json=lambda: _rag_ok(0.45),
@@ -301,7 +305,9 @@ class TestEscalationFlow:
         mock_push.assert_not_called()
         assert elapsed < 5.0, f"SC-2 VIOLATION: escalation took {elapsed:.3f}s"
 
-    def test_abusive_message_auto_escalates(self):
+    @patch("services.message_router.ConversationManager")
+    @patch("services.message_router.EscalationHandler")
+    def test_abusive_message_auto_escalates(self, mock_esc_handler, mock_conv_mgr):
         """Abusive messages skip RAG and go straight to escalation."""
         with patch("services.line_responder.send_response", return_value=True):
             envelope = {
@@ -321,9 +327,10 @@ class TestEscalationFlow:
 # ─────────────────────────────────────────────────────────────────
 
 class TestRagErrorFlow:
+    @patch("services.message_router.ConversationManager")
     @patch("services.message_router.requests.post", side_effect=Exception("Connection refused"))
     @patch("services.line_responder._push_message", return_value=True)
-    def test_rag_error_sends_fallback(self, mock_push, mock_rag_post):
+    def test_rag_error_sends_fallback(self, mock_push, mock_rag_post, mock_conv_mgr):
         envelope = {
             "user_id": "U003",
             "reply_token": "rtoken3",
@@ -341,8 +348,9 @@ class TestRagErrorFlow:
         mock_push.assert_called_once()
         assert elapsed < 5.0, f"SC-2 VIOLATION: RAG error path took {elapsed:.3f}s"
 
+    @patch("services.line_responder.ConversationManager")
     @patch("services.line_responder.requests.post")
-    def test_send_response_fallback_on_rag_error(self, mock_line_post):
+    def test_send_response_fallback_on_rag_error(self, mock_line_post, mock_conv_mgr):
         mock_line_post.return_value = MagicMock(status_code=200)
         os.environ["LINE_CHANNEL_ACCESS_TOKEN"] = "test_token"
 
@@ -469,9 +477,10 @@ class TestSC2Compliance:
     message exceeds the 5-second SLA.
     """
 
+    @patch("services.message_router.ConversationManager")
     @patch("services.message_router.requests.post")
     @patch("services.line_responder._push_message", return_value=True)
-    def test_all_messages_within_5s(self, mock_push, mock_rag):
+    def test_all_messages_within_5s(self, mock_push, mock_rag, mock_conv_mgr):
         mock_rag.return_value = MagicMock(
             status_code=200,
             json=lambda: _rag_ok(0.80),
