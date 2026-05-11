@@ -514,3 +514,65 @@ CREATE INDEX IF NOT EXISTS idx_query_cache_hash
 
 CREATE INDEX IF NOT EXISTS idx_query_cache_expires
     ON query_cache(expires_at);
+
+-- ============================================================================
+-- Patient Intake Tables (Phase 3 - Patient Engagement)
+-- ============================================================================
+
+-- Patients (患者)
+CREATE TABLE IF NOT EXISTS patients (
+    patient_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    dob DATE NOT NULL,
+    medical_history TEXT,
+    allergies TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by TEXT,
+    updated_by TEXT
+);
+
+-- Appointments (掛號/預約)
+CREATE TABLE IF NOT EXISTS appointments (
+    appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    appointment_date DATE NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by TEXT,
+    updated_by TEXT,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
+-- LINE User Mapping (LINE用戶映射)
+CREATE TABLE IF NOT EXISTS line_user_mapping (
+    mapping_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    line_user_id TEXT UNIQUE NOT NULL,
+    patient_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    linked_by TEXT,
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+);
+
+-- ============================================================================
+-- Patient Intake Indices
+-- ============================================================================
+
+-- Unique composite index for phone+email deduplication (per D-03 idempotency)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_phone_email
+    ON patients(phone, email);
+
+-- Index for created_at queries
+CREATE INDEX IF NOT EXISTS idx_patients_created
+    ON patients(created_at);
+
+-- Index for appointment lookups by patient
+CREATE INDEX IF NOT EXISTS idx_appointments_patient
+    ON appointments(patient_id);
+
+-- Index for line user mapping lookups
+CREATE INDEX IF NOT EXISTS idx_line_user_mapping_patient
+    ON line_user_mapping(patient_id);
