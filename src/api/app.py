@@ -78,6 +78,7 @@ def _register_routes(app):
     from api.routes import inference, rag, hybrid, clinic_his
     from api.routes.line_bot import line_bp
     from api.routes.staff_api import staff_bp
+    from api.routes.line_linking import line_linking_bp
     from api.routes.patient_intake import patient_intake_bp
     from api.routes.patient_dashboard import patient_dashboard_bp
     from api.routes.staff_dashboard import staff_dashboard_bp
@@ -136,6 +137,9 @@ def _register_routes(app):
 
     # Staff API routes (conversation history, escalations)
     app.register_blueprint(staff_bp)
+
+    # LINE user to patient linking routes (manual staff linking)
+    app.register_blueprint(line_linking_bp)
 
     # Patient Intake routes (form submission, idempotency)
     app.register_blueprint(patient_intake_bp)
