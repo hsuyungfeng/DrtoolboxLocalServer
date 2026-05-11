@@ -76,6 +76,7 @@ def _register_routes(app):
     from api.routes import inference, rag, hybrid, clinic_his
     from api.routes.line_bot import line_bp
     from api.routes.staff_api import staff_bp
+    from api.routes.patient_intake import patient_intake_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -131,6 +132,9 @@ def _register_routes(app):
 
     # Staff API routes (conversation history, escalations)
     app.register_blueprint(staff_bp)
+
+    # Patient Intake routes (form submission, idempotency)
+    app.register_blueprint(patient_intake_bp)
 
     # Root route
     @app.route('/', methods=['GET'])
