@@ -16,7 +16,7 @@ import logging
 import sqlite3
 import threading
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from typing import Dict, Optional, List, Any
 
 logger = logging.getLogger(__name__)
@@ -451,3 +451,64 @@ class PatientService:
             raise
         except Exception as e:
             raise PatientServiceError(f"Unexpected error in update_patient: {str(e)}")
+
+    def get_upcoming_appointments(self, patient_id: int, days: int = 30) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get upcoming appointments for a patient within a time window.
+
+        Args:
+            patient_id: Patient ID
+            days: Number of days ahead to look (default 30)
+
+        Returns:
+            List of appointment dicts ordered by date, or None on error
+            Each dict contains: appointment_id, date, type, status
+
+        Raises:
+            ValidationError: If patient_id invalid
+            PatientServiceError: On database errors
+        """
+        if not isinstance(patient_id, int) or patient_id <= 0:
+            raise ValidationError("patient_id must be a positive integer")
+
+        cutoff_date = date.today() + timedelta(days=days)
+
+        try:
+            with self._lock:
+                conn = self._get_connection()
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    """
+                    SELECT appointment_id, appointment_date, status
+                    FROM appointments
+                    WHERE patient_id = ? AND appointment_date >= ? AND appointment_date <= ?
+                    ORDER BY appointment_date ASC
+                    """,
+                    (patient_id, date.today().isoformat(), cutoff_date.isoformat())
+                )
+
+                rows = cursor.fetchall()
+                appointments = [
+                    {
+                        'appointment_id': row[0],
+                        'date': row[1],
+                        'type': 'General',  # Default type; extend schema if needed
+                        'status': row[2] or 'pending'
+                    }
+                    for row in rows
+                ]
+
+                logger.debug(
+                    "Appointments retrieved | patient_id=%d count=%d days=%d",
+                    patient_id,
+                    len(appointments),
+                    days
+                )
+
+                return appointments
+
+        except ValueError as e:
+            raise ValidationError(f"Invalid date format: {str(e)}")
+        except Exception as e:
+            raise PatientServiceError(f"Failed to get appointments: {str(e)}")

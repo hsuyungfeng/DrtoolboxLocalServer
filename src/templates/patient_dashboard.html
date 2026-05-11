@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>患者儀表板</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f5f7fa;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-header h1 {
+            margin: 0 0 5px 0;
+            font-weight: 600;
+        }
+
+        .dashboard-header .last-updated {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .section-title {
+            color: #2c3e50;
+            font-weight: 700;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .read-only-field {
+            background-color: #f9f9f9;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .no-edit-controls {
+            user-select: none;
+        }
+
+        .no-edit-controls button,
+        .no-edit-controls input[type="button"],
+        .no-edit-controls input[type="submit"],
+        .no-edit-controls a.btn {
+            display: none !important;
+        }
+
+        .appointment-card {
+            border-left: 5px solid #667eea;
+            padding: 15px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease;
+        }
+
+        .appointment-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .appointment-date {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.05rem;
+            margin-bottom: 5px;
+        }
+
+        .appointment-type {
+            color: #495057;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            font-size: 0.8rem;
+            padding: 6px 10px;
+        }
+
+        .badge.bg-info {
+            background-color: #17a2b8 !important;
+        }
+
+        .badge.bg-success {
+            background-color: #28a745 !important;
+        }
+
+        .badge.bg-warning {
+            background-color: #ffc107 !important;
+            color: #000;
+        }
+
+        .conversation-item {
+            border-left: 3px solid #95a5a6;
+            padding: 12px;
+            margin: 12px 0;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .conversation-timestamp {
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .conversation-sender {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+            text-transform: capitalize;
+        }
+
+        .conversation-text {
+            color: #2c3e50;
+            word-wrap: break-word;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2col {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-header {
+                padding: 20px;
+            }
+
+            .dashboard-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .section-title {
+                font-size: 1.1rem;
+                margin-top: 20px;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4 mb-5">
+        {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <strong>錯誤:</strong> {{ error }}
+            </div>
+        {% else %}
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <h1>患者儀表板</h1>
+                <p class="last-updated mb-0">
+                    <small>更新於: {{ last_updated[:19].replace('T', ' ') }} (UTC)</small>
+                </p>
+            </div>
+
+            <!-- Personal Information Section (Read-Only) -->
+            <section class="no-edit-controls">
+                <div class="section-title">個人資訊</div>
+                <div class="grid-2col">
+                    <div>
+                        <div class="field-label">姓名</div>
+                        <div class="read-only-field">{{ patient.name or '未提供' }}</div>
+                    </div>
+                    <div>
+                        <div class="field-label">生日</div>
+                        <div class="read-only-field">
+                            {% if patient.dob %}
+                                {{ patient.dob }}
+                            {% else %}
+                                未提供
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="field-label">電話</div>
+                        <div class="read-only-field">{{ patient.phone or '未提供' }}</div>
+                    </div>
+                    <div>
+                        <div class="field-label">電郵</div>
+                        <div class="read-only-field">{{ patient.email or '未提供' }}</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Medical Information Section (Read-Only) -->
+            <section class="no-edit-controls">
+                <div class="section-title">醫療資訊</div>
+                <div>
+                    <div class="field-label">過敏症</div>
+                    <div class="read-only-field">
+                        {% if patient.allergies and patient.allergies.strip() %}
+                            {{ patient.allergies }}
+                        {% else %}
+                            未提供
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="field-label">醫療歷史 / 主訴</div>
+                    <div class="read-only-field">
+                        {% if patient.medical_history and patient.medical_history.strip() %}
+                            {{ patient.medical_history }}
+                        {% else %}
+                            未提供
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <!-- Upcoming Appointments Section -->
+            <section>
+                <div class="section-title">未來預約</div>
+                {% if appointments %}
+                    <div>
+                        {% for appt in appointments %}
+                            <div class="appointment-card">
+                                <div class="appointment-date">📅 {{ appt.date }}</div>
+                                <div class="appointment-type">類型: {{ appt.type or '一般' }}</div>
+                                <span class="badge bg-info">{{ appt.status or 'pending' }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>暫無預約</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Conversation History Section (Last 7 Days) -->
+            <section>
+                <div class="section-title">對話歷史 (過去7天)</div>
+                {% if conversation_history %}
+                    <div class="conversation-list">
+                        {% for msg in conversation_history %}
+                            <div class="conversation-item">
+                                <div class="conversation-timestamp">
+                                    🕐 {{ msg.timestamp[:19].replace('T', ' ') }} (UTC)
+                                </div>
+                                <div class="conversation-sender">
+                                    {% if msg.sender == 'patient' %}
+                                        👤 患者
+                                    {% elif msg.sender == 'bot' %}
+                                        🤖 系統
+                                    {% else %}
+                                        💬 {{ msg.sender }}
+                                    {% endif %}
+                                </div>
+                                <div class="conversation-text">{{ msg.text }}</div>
+                                {% if msg.escalated_flag %}
+                                    <div style="margin-top: 8px;">
+                                        <span class="badge bg-warning">已升級</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <p>暫無對話</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Footer Info -->
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; color: #7f8c8d; text-align: center; font-size: 0.9rem;">
+                <p>此為患者唯讀儀表板。如需更新資訊，請洽詢診所職員。</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
