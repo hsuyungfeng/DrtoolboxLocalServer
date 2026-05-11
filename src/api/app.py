@@ -80,6 +80,7 @@ def _register_routes(app):
     from api.routes.staff_api import staff_bp
     from api.routes.patient_intake import patient_intake_bp
     from api.routes.patient_dashboard import patient_dashboard_bp
+    from api.routes.staff_dashboard import staff_dashboard_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -141,6 +142,9 @@ def _register_routes(app):
 
     # Patient Dashboard routes (read-only view)
     app.register_blueprint(patient_dashboard_bp)
+
+    # Staff Dashboard routes (CRUD operations)
+    app.register_blueprint(staff_dashboard_bp)
 
     # Root route
     @app.route('/', methods=['GET'])
