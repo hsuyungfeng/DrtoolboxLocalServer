@@ -68,25 +68,32 @@ class PatientService:
                 self._conn.close()
                 self._conn = None
 
-    def _validate_patient_data(self, patient_data: dict) -> None:
+    def _validate_patient_data(self, patient_data: dict, for_insert: bool = False) -> None:
         """
         Validate required fields in patient data.
 
         Args:
             patient_data: Patient record dictionary
+            for_insert: If True, validate all NOT NULL fields. If False (for upsert merge), only validate core fields.
 
         Raises:
             ValidationError: If required fields missing or invalid
         """
-        required_fields = ["name", "phone", "email"]
+        # Core required fields (always needed)
+        core_fields = ["name", "phone", "email"]
 
-        for field in required_fields:
+        for field in core_fields:
             if field not in patient_data or not patient_data[field]:
                 raise ValidationError(f"Missing required field: {field}")
 
         # Basic email validation
         if "@" not in patient_data["email"]:
             raise ValidationError(f"Invalid email format: {patient_data['email']}")
+
+        # For new inserts, dob is required (NOT NULL in schema)
+        if for_insert:
+            if "dob" not in patient_data or not patient_data["dob"]:
+                raise ValidationError("Missing required field for new patient: dob")
 
     def _dict_from_row(self, row: sqlite3.Row) -> dict:
         """Convert sqlite3.Row to dictionary."""
@@ -129,7 +136,7 @@ class PatientService:
                 - name: str (required)
                 - phone: str (required)
                 - email: str (required)
-                - dob: str (optional)
+                - dob: str (required for new patients, optional for updates)
                 - medical_history: str (optional)
                 - allergies: str (optional)
             updated_by: Staff member ID performing the action (optional)
@@ -141,7 +148,8 @@ class PatientService:
             ValidationError: If required fields missing or invalid
             PatientServiceError: On database errors
         """
-        self._validate_patient_data(patient_data)
+        # Validate core fields (name, phone, email always required)
+        self._validate_patient_data(patient_data, for_insert=False)
 
         phone = patient_data.get("phone")
         email = patient_data.get("email")
@@ -217,6 +225,10 @@ class PatientService:
 
                 else:
                     # Step 2b: PATIENT NOT EXISTS - INSERT new record
+                    # For new inserts, dob is required
+                    if not patient_data.get("dob"):
+                        raise ValidationError("dob (date of birth) is required for new patient registration")
+
                     conn.execute("BEGIN TRANSACTION")
 
                     try:
