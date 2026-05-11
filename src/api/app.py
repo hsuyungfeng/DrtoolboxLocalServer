@@ -35,14 +35,16 @@ logger = logging.getLogger(__name__)
 def create_app(config=None):
     """
     Create and configure Flask application.
-    
+
     Args:
         config: Optional configuration dict
-        
+
     Returns:
         Configured Flask application
     """
-    app = Flask(__name__)
+    # Set template folder to absolute path (src/templates)
+    template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates')
+    app = Flask(__name__, template_folder=template_dir)
     
     # Load config
     app.config['JSON_SORT_KEYS'] = False

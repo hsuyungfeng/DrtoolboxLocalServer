@@ -576,3 +576,36 @@ CREATE INDEX IF NOT EXISTS idx_appointments_patient
 -- Index for line user mapping lookups
 CREATE INDEX IF NOT EXISTS idx_line_user_mapping_patient
     ON line_user_mapping(patient_id);
+
+-- ============================================================================
+-- Conversation History Table (Phase 3 - Patient Conversations)
+-- ============================================================================
+
+-- Patient conversation history (patient-bot interactions)
+CREATE TABLE IF NOT EXISTS patient_conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id TEXT NOT NULL,
+    message_id TEXT UNIQUE,
+    sender TEXT NOT NULL CHECK(sender IN ('patient', 'bot')),
+    text TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    rag_confidence REAL,  -- NULL for non-RAG messages (e.g., escalations)
+    escalated_flag BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- Conversation History Indexes (Performance)
+-- ============================================================================
+
+-- Primary query: get conversation history for a patient
+CREATE INDEX IF NOT EXISTS idx_patient_timestamp
+    ON patient_conversations(patient_id, timestamp);
+
+-- Support cleanup queries
+CREATE INDEX IF NOT EXISTS idx_timestamp
+    ON patient_conversations(timestamp);
+
+-- Support escalation tracking
+CREATE INDEX IF NOT EXISTS idx_escalated_flag
+    ON patient_conversations(escalated_flag, timestamp);

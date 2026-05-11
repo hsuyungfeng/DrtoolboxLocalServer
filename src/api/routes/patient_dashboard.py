@@ -108,8 +108,9 @@ def view_patient_dashboard(patient_id: int):
             appointments = []
 
         # Fetch conversation history (last 7 days)
+        # Note: ConversationManager expects patient_id as string
         conv_manager = ConversationManager(db_path='clinic.db')
-        conversation_messages = conv_manager.get_conversation_history(patient_id, days=7)
+        conversation_messages = conv_manager.get_conversation_history(str(patient_id), days=7)
 
         # Convert Message objects to dicts for template rendering
         conversation_history = [msg.to_dict() for msg in conversation_messages]
