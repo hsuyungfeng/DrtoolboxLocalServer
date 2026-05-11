@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-11T12:51:22+08:00",
+  "timestamp": "2026-05-11T15:48:57+08:00",
   "phase": "4",
   "phase_name": "Hermes Agent & Auto-Skills",
   "phase_dir": ".planning",
@@ -12,19 +12,21 @@
     {"id": 1, "name": "Implement hermes_core.py with llama.cpp integration and RAG", "status": "done"},
     {"id": 2, "name": "Implement pattern_learner.py for skill candidates", "status": "done"},
     {"id": 3, "name": "Implement auto-skills SQLite tables, manager, and generator", "status": "done"},
-    {"id": 4, "name": "Implement hermes_cli.py and test", "status": "done"}
+    {"id": 4, "name": "Develop and build llama.cpp for gemma4", "status": "done"}
   ],
-  "remaining_tasks": [],
+  "remaining_tasks": [
+    {"id": 5, "name": "Validate system chat response", "status": "blocked"}
+  ],
   "blockers": [
-    {"description": "Waiting for huggingface-cli to finish downloading gemma-4-31b-jang-crack-Q3_K_M.gguf (background process)", "type": "technical"}
+    {"description": "Systematic segmentation faults in llama.cpp (both manual build CUDA and Homebrew Vulkan) during 'load_tensors'.", "type": "technical", "workaround": "Possible system reboot or strictly audited CUDA build verification."}
   ],
   "human_actions_pending": [
-    {"action": "Wait for download to finish, then start llama-server with the downloaded model.", "context": "The user tried to run llama-server but the model file was not found because the download to .cache is not yet complete.", "blocking": true}
+    {"action": "Run 'llama-server' in testing mode or reboot computer to clear driver state.", "context": "Both CUDA and Vulkan environments crashed right at tensor loading, suggesting potential kernel/driver invalid states (ERR showed in nvidia-smi earlier).", "blocking": true}
   ],
   "decisions": [
-    {"decision": "Switched from ollama to llama.cpp", "rationale": "Ollama ran out of memory loading gemma4:31b. We are downloading Q3_K_M GGUF directly for llama.cpp.", "phase": "4"}
+    {"decision": "Abandoned Gemma-4 in favor of Qwen 3.6 fallback", "rationale": "Both failed identically, ruling out model corruption and pointing squarely at inference engine build/driver bugs.", "phase": "4"}
   ],
   "uncommitted_files": [],
-  "next_action": "Check if model download is complete and start llama-server.",
-  "context_notes": "All Python implementations for Phase 4 are done and tested up to the LLM interaction. We reverted LLM URL to 8081 for llama.cpp and removed the model enforcement in the JSON payload."
+  "next_action": "Investigate specific backtrace of the segfault or perform a clean reboot to reset GPU kernel states, then launch using Qwen.",
+  "context_notes": "Phase 4 logic is 100% code-complete. We successfully updated llama.cpp to 9100 (supporting gemma4) and downloaded Qwen 3.6 (16GB rescue finished). However, both models now Segfault at Vulkan device fence destruction. Driver is likely in corrupted state."
 }
