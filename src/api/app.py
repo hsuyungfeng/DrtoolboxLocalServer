@@ -83,6 +83,7 @@ def _register_routes(app):
     from api.routes.patient_intake import patient_intake_bp
     from api.routes.patient_dashboard import patient_dashboard_bp
     from api.routes.staff_dashboard import staff_dashboard_bp
+    from api.routes.staff_conversation import staff_conversation_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -141,6 +142,9 @@ def _register_routes(app):
 
     # Staff Inbox routes (message aggregation, polling)
     app.register_blueprint(staff_inbox_bp)
+
+    # Staff Conversation Thread view (Task 4.3)
+    app.register_blueprint(staff_conversation_bp)
 
     # LINE user to patient linking routes (manual staff linking)
     app.register_blueprint(line_linking_bp)

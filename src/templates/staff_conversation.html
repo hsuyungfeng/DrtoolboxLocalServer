@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>患者對話記錄 - {{ patient.name }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --bot-color: #e9ecef;
+            --patient-color: #cce5ff;
+            --staff-color: #d4edda;
+            --danger-color: #dc3545;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+
+        .header {
+            background-color: white;
+            padding: 15px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .patient-info h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .patient-meta {
+            color: #666;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .back-btn {
+            text-decoration: none;
+            color: #666;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        
+        .back-btn:hover {
+            color: var(--primary-color);
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message-row {
+            display: flex;
+            margin-bottom: 5px;
+        }
+
+        .message-row.patient {
+            justify-content: flex-end;
+        }
+
+        .message-row.bot {
+            justify-content: flex-start;
+        }
+        
+        .message-row.staff {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .patient .message-bubble {
+            background-color: var(--patient-color);
+            color: #004085;
+            border-bottom-right-radius: 2px;
+        }
+
+        .bot .message-bubble {
+            background-color: var(--bot-color);
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+        
+        .staff .message-bubble {
+            background-color: var(--staff-color);
+            color: #155724;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message-text {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #666;
+            gap: 15px;
+        }
+
+        .rag-badge {
+            background-color: #6c757d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .escalated-badge {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .sender-label {
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #555;
+        }
+        
+        .patient .sender-label {
+            display: none; /* Usually obvious */
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            margin-top: 50px;
+        }
+        
+        /* Auto-scroll anchor */
+        #chat-anchor {
+            height: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="/dashboard/staff/inbox?staff_id={{ staff_id }}" class="back-btn">
+            &larr; 返回收件箱
+        </a>
+        <div class="patient-info text-center">
+            <h2>{{ patient.name }}</h2>
+            <div class="patient-meta">ID: {{ patient.patient_id }} | ☎️ {{ patient.phone }}</div>
+        </div>
+        <div style="width: 80px;"></div> <!-- Spacer for flex alignment -->
+    </div>
+
+    <div class="chat-container" id="chat-container">
+        {% if not messages %}
+            <div class="empty-state">
+                <p>目前沒有對話記錄</p>
+            </div>
+        {% else %}
+            {% for msg in messages %}
+                <div class="message-row {{ msg.sender }}">
+                    <div class="message-bubble">
+                        {% if msg.sender == 'bot' %}
+                            <div class="sender-label">🤖 AI 助理</div>
+                        {% elif msg.sender == 'staff' %}
+                            <div class="sender-label">👨‍⚕️ 診所人員</div>
+                        {% endif %}
+                        
+                        <p class="message-text">{{ msg.text }}</p>
+                        
+                        <div class="message-meta">
+                            <span class="timestamp">{{ msg.timestamp }}</span>
+                            <div>
+                                {% if msg.rag_confidence %}
+                                    <span class="rag-badge" title="RAG 信心分數">RAG: {{ "%.2f"|format(msg.rag_confidence) }}</span>
+                                {% endif %}
+                                {% if msg.escalated_flag %}
+                                    <span class="escalated-badge">⚠️ 需要人工回覆</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+        <div id="chat-anchor"></div>
+    </div>
+
+    <script>
+        let staffId = '{{ staff_id }}';
+        let patientId = '{{ patient.patient_id }}';
+        let lastTimestamp = '';
+        
+        // Auto scroll to bottom on load
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Format timestamp helper
+        function formatTimestamp(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return date.toLocaleString('zh-TW', {
+                month: 'numeric', day: 'numeric', 
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+        
+        // Format all existing timestamps
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.timestamp').forEach(el => {
+                const text = el.textContent.trim();
+                // If it looks like ISO or valid date, format it
+                if (text.includes('T') || text.includes('-')) {
+                    el.textContent = formatTimestamp(text);
+                    lastTimestamp = text; // track last timestamp
+                }
+            });
+            scrollToBottom();
+            
+            // Setup polling every 3 seconds
+            setInterval(pollNewMessages, 3000);
+        });
+        
+        function pollNewMessages() {
+            if (!lastTimestamp) return; // Need an initial timestamp
+            
+            const url = `/api/staff/conversation/${patientId}?since=${encodeURIComponent(lastTimestamp)}&staff_id=${encodeURIComponent(staffId)}`;
+            
+            fetch(url, {
+                headers: { 'X-Staff-ID': staffId }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.messages && data.messages.length > 0) {
+                    appendNewMessages(data.messages);
+                    lastTimestamp = data.messages[data.messages.length - 1].timestamp;
+                    scrollToBottom();
+                }
+            })
+            .catch(err => console.error("Polling error:", err));
+        }
+        
+        function appendNewMessages(messages) {
+            const container = document.getElementById('chat-container');
+            const anchor = document.getElementById('chat-anchor');
+            
+            // Remove empty state if present
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+            
+            messages.forEach(msg => {
+                const row = document.createElement('div');
+                row.className = `message-row ${msg.sender}`;
+                
+                let senderLabel = '';
+                if (msg.sender === 'bot') {
+                    senderLabel = '<div class="sender-label">🤖 AI 助理</div>';
+                } else if (msg.sender === 'staff') {
+                    senderLabel = '<div class="sender-label">👨‍⚕️ 診所人員</div>';
+                }
+                
+                let badges = '';
+                if (msg.rag_confidence) {
+                    badges += `<span class="rag-badge" title="RAG 信心分數">RAG: ${parseFloat(msg.rag_confidence).toFixed(2)}</span> `;
+                }
+                if (msg.escalated_flag) {
+                    badges += `<span class="escalated-badge">⚠️ 需要人工回覆</span>`;
+                }
+                
+                // Escape text securely
+                const div = document.createElement('div');
+                div.textContent = msg.text;
+                const safeText = div.innerHTML;
+                
+                row.innerHTML = `
+                    <div class="message-bubble">
+                        ${senderLabel}
+                        <p class="message-text">${safeText}</p>
+                        <div class="message-meta">
+                            <span class="timestamp">${formatTimestamp(msg.timestamp)}</span>
+                            <div>${badges}</div>
+                        </div>
+                    </div>
+                `;
+                
+                container.insertBefore(row, anchor);
+            });
+        }
+    </script>
+</body>
+</html>
