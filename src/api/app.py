@@ -86,6 +86,7 @@ def _register_routes(app):
     from api.routes.staff_conversation import staff_conversation_bp
     from api.routes.analytics import analytics_bp
     from api.routes.staff_actions import staff_actions_bp
+    from api.routes.cloud_sync import cloud_sync_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -169,6 +170,9 @@ def _register_routes(app):
     # Staff Actions routes (approvals, appointments, messages)
     app.register_blueprint(staff_actions_bp)
 
+    # Cloud Sync routes
+    app.register_blueprint(cloud_sync_bp)
+
     # Root route
     @app.route('/', methods=['GET'])
     def root():
@@ -195,6 +199,9 @@ def _register_routes(app):
                 "analytics": "/api/v1/analytics/*",
                 "analytics_page": "/dashboard/analytics/",
                 "line_webhook": "/api/line/webhook",
+                "sync_patient": "/api/v1/sync/patient",
+                "sync_analytics": "/api/v1/sync/analytics",
+                "sync_status": "/api/v1/sync/status",
                 "line_health": "/api/line/health",
             }
         })

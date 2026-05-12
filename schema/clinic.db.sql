@@ -609,3 +609,57 @@ CREATE INDEX IF NOT EXISTS idx_timestamp
 -- Support escalation tracking
 CREATE INDEX IF NOT EXISTS idx_escalated_flag
     ON patient_conversations(escalated_flag, timestamp);
+-- Phase 4: Hermes Auto-Skills Tables
+
+CREATE TABLE IF NOT EXISTS auto_skills (
+    skill_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    command_pattern TEXT,
+    script_path TEXT,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS skill_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    skill_id TEXT NOT NULL,
+    execution_time_ms INTEGER,
+    is_successful BOOLEAN,
+    executed_by TEXT,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(skill_id) REFERENCES auto_skills(skill_id) ON DELETE CASCADE
+);
+
+-- ============================================================================
+-- Cloud Sync Tables (雲端同步 - Phase 5 Wave 3)
+-- ============================================================================
+
+-- 同步記錄表
+CREATE TABLE IF NOT EXISTS sync_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sync_type TEXT NOT NULL,  -- 'patient', 'analytics', 'appointment'
+    direction TEXT NOT NULL,   -- 'push' (local->cloud), 'pull' (cloud->local)
+    status TEXT NOT NULL,     -- 'pending', 'completed', 'failed'
+    record_id TEXT,           -- 同步記錄的 ID
+    payload_json TEXT,        -- 同步資料的 JSON
+    error_message TEXT,       -- 錯誤訊息（失敗時）
+    retry_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP
+);
+
+-- 同步狀態索引
+CREATE INDEX IF NOT EXISTS idx_sync_logs_status ON sync_logs(status);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_type ON sync_logs(sync_type);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_created ON sync_logs(created_at);
+
+-- 同步配置表
+CREATE TABLE IF NOT EXISTS sync_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_key TEXT NOT NULL UNIQUE,
+    config_value TEXT,
+    description TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
