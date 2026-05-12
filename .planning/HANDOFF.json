@@ -1,35 +1,39 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-11T20:30:00+08:00",
-  "phase": "4",
-  "phase_name": "Hermes Agent & Auto-Skills",
+  "timestamp": "2026-05-12T04:09:57+08:00",
+  "phase": "5",
+  "phase_name": "Enterprise Features — Dashboard & Cloud Sync",
   "phase_dir": ".planning",
   "plan": 1,
-  "task": 4,
-  "total_tasks": 4,
-  "status": "completed",
+  "task": 0,
+  "total_tasks": 5,
+  "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Implement hermes_core.py with llama.cpp integration and RAG", "status": "done", "commit": "78dada6"},
-    {"id": 2, "name": "Implement pattern_learner.py for skill candidates", "status": "done", "commit": "78dada6"},
-    {"id": 3, "name": "Implement auto-skills SQLite tables, manager, and generator", "status": "done", "commit": "78dada6"},
-    {"id": 4, "name": "Develop and build llama.cpp for Qwen 3.6", "status": "done", "commit": "78dada6"}
+    {"id": 0, "name": "Phase 4 commit — hermes_core, pattern_learner, intent_router, hermes_cli, verify_phase4", "status": "done", "commit": "8db4cfb"},
+    {"id": 0, "name": "GPU optimization test — llama-server binary missing from /tmp, deferred", "status": "skipped"}
   ],
-  "remaining_tasks": [],
-  "blockers": [],
-  "human_actions_pending": [],
+  "remaining_tasks": [
+    {"id": 1, "name": "Clarify doctor-toolbox.com API contract (user will provide API spec)", "status": "not_started"},
+    {"id": 2, "name": "Design Phase 5 architecture: analytics dashboard + cloud sync routes", "status": "in_progress", "progress": "Explore agent complete — codebase fully mapped"},
+    {"id": 3, "name": "Build base template / shared nav for dashboard pages", "status": "not_started"},
+    {"id": 4, "name": "Implement analytics dashboard (clinic metrics, patient stats, Hermes usage)", "status": "not_started"},
+    {"id": 5, "name": "Implement cloud sync API stubs (SYNC-01, SYNC-02) — API contract TBD", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "doctor-toolbox.com API spec not yet provided — cloud sync implementation blocked", "type": "human_action", "workaround": "Build dashboard first; stub out sync endpoints"},
+    {"description": "llama-server binary gone from /tmp (ephemeral) — GPU optimization deferred", "type": "technical", "workaround": "Re-run scripts/build_llama_cuda.sh when needed; current --gpu-layers 20 is stable"}
+  ],
+  "human_actions_pending": [
+    {"action": "Provide doctor-toolbox.com API documentation or endpoint spec for cloud sync", "context": "SYNC-01 and SYNC-02 require knowing the API shape (auth method, endpoints, payload format)", "blocking": true}
+  ],
   "decisions": [
-    {"decision": "Used Qwen3.6-35B-A3B (Q3_K_M) with --gpu-layers 20 for VRAM stability", "rationale": "--gpu-layers 50 caused CUDA invalid argument error. 20 layers fits comfortably in 22GB VRAM (7.6GB model + 0.7GB KV/context).", "phase": "4"},
-    {"decision": "Added keyword-based intent classification as fast path", "rationale": "Qwen 3.6 thinking mode consumes tokens before content output, making small max_tokens LLM classification unreliable. Keywords provide instant classification with LLM fallback.", "phase": "4"},
-    {"decision": "Fixed HIS query from non-existent 'patients' table to clinic_info + clinic_daily_log", "rationale": "Database has clinic_info (with staff_count, num_beds, specialties) and clinic_daily_log tables. patients table never created.", "phase": "4"},
-    {"decision": "Added DeepSeek as cloud provider (deepseek-chat model)", "rationale": "DeepSeek API key was available. API is OpenAI-compatible. Model: deepseek-chat, base: https://api.deepseek.com/v1.", "phase": "4"},
-    {"decision": "Installed sqlite3 CLI v3.49.1 to ~/.local/bin (from sqlite.org binary)", "rationale": "libsqlite3-0 was installed but CLI tool missing. Downloaded prebuilt binary since sudo not available.", "phase": "4"}
+    {"decision": "Build dashboard UI first, cloud sync API stubs second", "rationale": "API spec for doctor-toolbox.com not yet available; dashboard has no external dependency", "phase": "5"},
+    {"decision": "GPU optimization deferred — llama-server binary ephemeral in /tmp", "rationale": "Binary disappears across sessions since /tmp is not persisted. Optimization needs a permanent install location.", "phase": "5"},
+    {"decision": "Phase 5 scope: analytics dashboard + integration functions (not just cloud sync)", "rationale": "User explicitly requested dashboard UI and interaction functions beyond the ROADMAP SYNC-01/02", "phase": "5"}
   ],
   "uncommitted_files": [
-    "src/llm/cloud_backend.py (NEW - DeepSeek/OpenAI/Anthropic support)",
-    ".gitignore (NEW)",
-    ".planning/.continue-here.md (UPDATE)",
-    ".planning/HANDOFF.json (UPDATE)"
+    "scripts/gpu_layer_optimization.sh (NEW)"
   ],
-  "next_action": "Proceed to Phase 5: Cloud Sync & Analytics. Start with SYNC-01: Bidirectional sync of patient data with doctor-toolbox.com.",
-  "context_notes": "Phase 4 fully verified. llama-server (PID 67852) running on port 8081 with Qwen 3.6. Hermes agent chat works end-to-end (local LLM + cloud DeepSeek fallback). All 6 verify_phase4.sh checks pass. Cloud backend supports deepseek/openai/anthropic providers. DEEPSEEK_API_KEY configured in .env (not committed)."
+  "next_action": "Resume Phase 5 plan: design analytics dashboard (clinic_daily_log, patient_conversations, auto_skills tables → chart data), then build base template + shared nav. API spec for cloud sync TBD.",
+  "context_notes": "Explore agent has fully mapped the codebase. Key findings: 5 existing templates (Bootstrap 5, Traditional Chinese, no shared nav), auth is stub (X-Staff-ID), clinic.db has clinic_daily_log/clinic_info/auto_skills/patient_conversations tables perfect for analytics. Phase 5 user want = dashboard with analytics + interaction functions (not just SYNC). Cloud sync blocked on API spec. Plan mode was entered but not completed when /gsd-pause-work was invoked."
 }
