@@ -43,6 +43,18 @@ def get_db_connection():
     return conn
 
 
+class DBContext:
+    """Context manager for database connections - ensures proper cleanup"""
+    def __enter__(self):
+        self.conn = get_db_connection()
+        return self.conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.conn:
+            self.conn.close()
+        return False
+
+
 def require_staff_auth():
     """驗證員工身份"""
     staff_id = request.headers.get('X-Staff-ID')
@@ -67,41 +79,39 @@ def list_escalations():
         return error, status
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 取得所有已升級的對話
-        cursor.execute('''
-            SELECT
-                pc.id,
-                pc.patient_id,
-                pc.message_id,
-                pc.text,
-                pc.timestamp,
-                pc.rag_confidence,
-                p.name as patient_name,
-                p.phone as patient_phone
-            FROM patient_conversations pc
-            LEFT JOIN patients p ON pc.patient_id = p.patient_id
-            WHERE pc.escalated_flag = 1
-            ORDER BY pc.timestamp DESC
-            LIMIT 100
-        ''')
-        rows = cursor.fetchall()
+            # 取得所有已升級的對話
+            cursor.execute('''
+                SELECT
+                    pc.id,
+                    pc.patient_id,
+                    pc.message_id,
+                    pc.text,
+                    pc.timestamp,
+                    pc.rag_confidence,
+                    p.name as patient_name,
+                    p.phone as patient_phone
+                FROM patient_conversations pc
+                LEFT JOIN patients p ON pc.patient_id = p.patient_id
+                WHERE pc.escalated_flag = 1
+                ORDER BY pc.timestamp DESC
+                LIMIT 100
+            ''')
+            rows = cursor.fetchall()
 
-        escalations = []
-        for row in rows:
-            escalations.append({
-                'id': row['id'],
-                'patient_id': row['patient_id'],
-                'patient_name': row['patient_name'] or '未知患者',
-                'patient_phone': row['patient_phone'] or '--',
-                'message': row['text'],
-                'confidence': row['rag_confidence'],
-                'created_at': row['timestamp']
-            })
-
-        conn.close()
+            escalations = []
+            for row in rows:
+                escalations.append({
+                    'id': row['id'],
+                    'patient_id': row['patient_id'],
+                    'patient_name': row['patient_name'] or '未知患者',
+                    'patient_phone': row['patient_phone'] or '--',
+                    'message': row['text'],
+                    'confidence': row['rag_confidence'],
+                    'created_at': row['timestamp']
+                })
 
         return jsonify({
             'success': True,
@@ -131,18 +141,17 @@ def approve_escalation(escalation_id):
         data = request.get_json() or {}
         notes = data.get('notes', '')
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 更新為已處理
-        cursor.execute('''
-            UPDATE patient_conversations
-            SET escalated_flag = 0
-            WHERE id = ?
-        ''', (escalation_id,))
+            # 更新為已處理
+            cursor.execute('''
+                UPDATE patient_conversations
+                SET escalated_flag = 0
+                WHERE id = ?
+            ''', (escalation_id,))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         logger.info(f"Escalation {escalation_id} approved by staff {staff_id}")
 
@@ -176,18 +185,17 @@ def reject_escalation(escalation_id):
         data = request.get_json() or {}
         notes = data.get('notes', '')
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 標記為已處理（不解釋原因）
-        cursor.execute('''
-            UPDATE patient_conversations
-            SET escalated_flag = 0
-            WHERE id = ?
-        ''', (escalation_id,))
+            # 標記為已處理（不解釋原因）
+            cursor.execute('''
+                UPDATE patient_conversations
+                SET escalated_flag = 0
+                WHERE id = ?
+            ''', (escalation_id,))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         logger.info(f"Escalation {escalation_id} rejected by staff {staff_id}")
 
@@ -265,54 +273,52 @@ def list_appointments():
         end_date = request.args.get('end_date')
         status_filter = request.args.get('status')
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        query = '''
-            SELECT
-                a.appointment_id,
-                a.patient_id,
-                a.appointment_date,
-                a.status,
-                a.created_at,
-                p.name as patient_name,
-                p.phone as patient_phone
-            FROM appointments a
-            LEFT JOIN patients p ON a.patient_id = p.patient_id
-            WHERE 1=1
-        '''
-        params = []
+            query = '''
+                SELECT
+                    a.appointment_id,
+                    a.patient_id,
+                    a.appointment_date,
+                    a.status,
+                    a.created_at,
+                    p.name as patient_name,
+                    p.phone as patient_phone
+                FROM appointments a
+                LEFT JOIN patients p ON a.patient_id = p.patient_id
+                WHERE 1=1
+            '''
+            params = []
 
-        if start_date:
-            query += ' AND date(a.appointment_date) >= ?'
-            params.append(start_date)
+            if start_date:
+                query += ' AND date(a.appointment_date) >= ?'
+                params.append(start_date)
 
-        if end_date:
-            query += ' AND date(a.appointment_date) <= ?'
-            params.append(end_date)
+            if end_date:
+                query += ' AND date(a.appointment_date) <= ?'
+                params.append(end_date)
 
-        if status_filter:
-            query += ' AND a.status = ?'
-            params.append(status_filter)
+            if status_filter:
+                query += ' AND a.status = ?'
+                params.append(status_filter)
 
-        query += ' ORDER BY a.appointment_date ASC LIMIT 100'
+            query += ' ORDER BY a.appointment_date ASC LIMIT 100'
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
 
-        appointments = []
-        for row in rows:
-            appointments.append({
-                'appointment_id': row['appointment_id'],
-                'patient_id': row['patient_id'],
-                'patient_name': row['patient_name'] or '未知患者',
-                'patient_phone': row['patient_phone'] or '--',
-                'appointment_date': row['appointment_date'],
-                'status': row['status'],
-                'created_at': row['created_at']
-            })
-
-        conn.close()
+            appointments = []
+            for row in rows:
+                appointments.append({
+                    'appointment_id': row['appointment_id'],
+                    'patient_id': row['patient_id'],
+                    'patient_name': row['patient_name'] or '未知患者',
+                    'patient_phone': row['patient_phone'] or '--',
+                    'appointment_date': row['appointment_date'],
+                    'status': row['status'],
+                    'created_at': row['created_at']
+                })
 
         return jsonify({
             'success': True,
@@ -349,25 +355,59 @@ def create_appointment():
 
         patient_id = data.get('patient_id')
         appointment_date = data.get('appointment_date')
-        notes = data.get('notes', '')
+        notes = data.get('notes', '').strip()
 
-        if not patient_id or not appointment_date:
+        # Validate patient_id
+        if not patient_id:
             return jsonify({
                 'success': False,
-                'error': '需要患者 ID 和預約日期'
+                'error': '患者 ID 必須提供'
             }), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        if not isinstance(patient_id, int) or patient_id <= 0:
+            return jsonify({
+                'success': False,
+                'error': '患者 ID 必須是正整數'
+            }), 400
 
-        cursor.execute('''
-            INSERT INTO appointments (patient_id, appointment_date, status, created_by, updated_by)
-            VALUES (?, ?, 'pending', ?, ?)
-        ''', (patient_id, appointment_date, staff_id, staff_id))
+        # Validate appointment_date format and value
+        if not appointment_date:
+            return jsonify({
+                'success': False,
+                'error': '預約日期必須提供'
+            }), 400
 
-        appointment_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
+        try:
+            appt_date = datetime.strptime(appointment_date, '%Y-%m-%d')
+            if appt_date.date() <= datetime.now().date():
+                return jsonify({
+                    'success': False,
+                    'error': '預約日期必須為未來日期'
+                }), 400
+        except (ValueError, TypeError):
+            return jsonify({
+                'success': False,
+                'error': '預約日期格式無效，請使用 YYYY-MM-DD'
+            }), 400
+
+        with DBContext() as conn:
+            cursor = conn.cursor()
+
+            # Verify patient exists
+            cursor.execute('SELECT patient_id FROM patients WHERE patient_id = ?', (patient_id,))
+            if not cursor.fetchone():
+                return jsonify({
+                    'success': False,
+                    'error': f'患者 {patient_id} 不存在'
+                }), 404
+
+            cursor.execute('''
+                INSERT INTO appointments (patient_id, appointment_date, status, created_by, updated_by)
+                VALUES (?, ?, 'pending', ?, ?)
+            ''', (patient_id, appointment_date, staff_id, staff_id))
+
+            appointment_id = cursor.lastrowid
+            conn.commit()
 
         logger.info(f"Appointment {appointment_id} created by staff {staff_id}")
 
@@ -408,32 +448,53 @@ def update_appointment(appointment_id):
                 'error': '需要提供更新資料'
             }), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        # Whitelist allowed fields to prevent injection
+        ALLOWED_FIELDS = {'appointment_date', 'status'}
+        update_fields = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
 
-        # 構建更新語句
-        updates = []
-        params = []
+        if not update_fields:
+            return jsonify({
+                'success': False,
+                'error': '沒有有效的欄位要更新'
+            }), 400
 
-        if 'appointment_date' in data:
-            updates.append('appointment_date = ?')
-            params.append(data['appointment_date'])
+        # Validate status if provided
+        if 'status' in update_fields:
+            valid_statuses = {'pending', 'confirmed', 'completed', 'cancelled'}
+            if update_fields['status'] not in valid_statuses:
+                return jsonify({
+                    'success': False,
+                    'error': f'無效的狀態。允許：{", ".join(valid_statuses)}'
+                }), 400
 
-        if 'status' in data:
-            updates.append('status = ?')
-            params.append(data['status'])
+        # Validate appointment_date if provided
+        if 'appointment_date' in update_fields:
+            try:
+                appt_date = datetime.strptime(update_fields['appointment_date'], '%Y-%m-%d')
+                if appt_date.date() <= datetime.now().date():
+                    return jsonify({
+                        'success': False,
+                        'error': '預約日期必須為未來日期'
+                    }), 400
+            except (ValueError, TypeError):
+                return jsonify({
+                    'success': False,
+                    'error': '預約日期格式無效，請使用 YYYY-MM-DD'
+                }), 400
 
-        if updates:
-            updates.append('updated_by = ?')
-            params.append(staff_id)
-            updates.append('updated_at = CURRENT_TIMESTAMP')
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-            params.append(appointment_id)
-            query = f'UPDATE appointments SET {", ".join(updates)} WHERE appointment_id = ?'
+            # Build parameterized query safely
+            set_clauses = [f'{key} = ?' for key in update_fields.keys()]
+            set_clauses.append('updated_by = ?')
+            set_clauses.append('updated_at = CURRENT_TIMESTAMP')
+
+            params = list(update_fields.values()) + [staff_id, appointment_id]
+
+            query = f'UPDATE appointments SET {", ".join(set_clauses)} WHERE appointment_id = ?'
             cursor.execute(query, params)
             conn.commit()
-
-        conn.close()
 
         logger.info(f"Appointment {appointment_id} updated by staff {staff_id}")
 
@@ -464,17 +525,16 @@ def cancel_appointment(appointment_id):
         return error, status
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute('''
-            UPDATE appointments
-            SET status = 'cancelled', updated_by = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE appointment_id = ?
-        ''', (staff_id, appointment_id))
+            cursor.execute('''
+                UPDATE appointments
+                SET status = 'cancelled', updated_by = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE appointment_id = ?
+            ''', (staff_id, appointment_id))
 
-        conn.commit()
-        conn.close()
+            conn.commit()
 
         logger.info(f"Appointment {appointment_id} cancelled by staff {staff_id}")
 
@@ -528,6 +588,12 @@ def send_message():
                 'error': '需要患者 ID 和訊息內容'
             }), 400
 
+        if not isinstance(patient_id, int) or patient_id <= 0:
+            return jsonify({
+                'success': False,
+                'error': '患者 ID 必須是正整數'
+            }), 400
+
         if len(message_text) > 1000:
             return jsonify({
                 'success': False,
@@ -535,18 +601,17 @@ def send_message():
             }), 400
 
         # 儲存訊息到對話歷史
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        cursor.execute('''
-            INSERT INTO patient_conversations
-            (patient_id, sender, text, rag_confidence, escalated_flag)
-            VALUES (?, 'staff', ?, NULL, 0)
-        ''', (patient_id, message_text))
+            cursor.execute('''
+                INSERT INTO patient_conversations
+                (patient_id, sender, text, rag_confidence, escalated_flag)
+                VALUES (?, 'staff', ?, NULL, 0)
+            ''', (patient_id, message_text))
 
-        message_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
+            message_id = cursor.lastrowid
+            conn.commit()
 
         logger.info(f"Message {message_id} sent to patient {patient_id} by staff {staff_id}")
 
@@ -595,24 +660,29 @@ def broadcast_message():
                 'error': '需要廣播內容'
             }), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        if len(message_text) > 1000:
+            return jsonify({
+                'success': False,
+                'error': '廣播內容不能超過 1000 字'
+            }), 400
 
-        # 取得所有患者
-        cursor.execute('SELECT patient_id FROM patients')
-        patients = cursor.fetchall()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        broadcast_count = 0
-        for patient in patients:
-            cursor.execute('''
-                INSERT INTO patient_conversations
-                (patient_id, sender, text, rag_confidence, escalated_flag)
-                VALUES (?, 'staff', ?, NULL, 0)
-            ''', (patient['patient_id'], message_text))
-            broadcast_count += 1
+            # 取得所有患者
+            cursor.execute('SELECT patient_id FROM patients')
+            patients = cursor.fetchall()
 
-        conn.commit()
-        conn.close()
+            broadcast_count = 0
+            for patient in patients:
+                cursor.execute('''
+                    INSERT INTO patient_conversations
+                    (patient_id, sender, text, rag_confidence, escalated_flag)
+                    VALUES (?, 'staff', ?, NULL, 0)
+                ''', (patient['patient_id'], message_text))
+                broadcast_count += 1
+
+            conn.commit()
 
         logger.info(f"Broadcast sent to {broadcast_count} patients by staff {staff_id}")
 

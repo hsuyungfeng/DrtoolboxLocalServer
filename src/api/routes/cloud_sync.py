@@ -15,6 +15,7 @@ Endpoints:
 
 import os
 import sys
+import sqlite3
 import logging
 import uuid
 from flask import Blueprint, jsonify, request
@@ -31,6 +32,29 @@ cloud_sync_bp = Blueprint('cloud_sync', __name__)
 
 # Initialize service
 cloud_sync_service = get_cloud_sync_service()
+
+# Database path
+DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../db/clinic.db'))
+
+
+def get_db_connection():
+    """Get database connection"""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+class DBContext:
+    """Context manager for guaranteed database connection cleanup"""
+    def __enter__(self):
+        self.conn = get_db_connection()
+        return self.conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.conn:
+            self.conn.close()
+        return False
 
 
 # ============================================================================
@@ -99,16 +123,10 @@ def sync_patients_bulk():
 
         # 如果沒有指定患者 ID，則同步所有患者
         if not patient_ids:
-            from src.services.patient_service import PatientService
-            patient_service = PatientService()
-            # 取得所有患者 ID
-            import sqlite3
-            db_path = os.environ.get('CLINIC_DB_PATH', 'db/clinic.db')
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute('SELECT patient_id FROM patients')
-            patient_ids = [row[0] for row in cursor.fetchall()]
-            conn.close()
+            with DBContext() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT patient_id FROM patients')
+                patient_ids = [row[0] for row in cursor.fetchall()]
 
         synced_count = 0
         failed_count = 0

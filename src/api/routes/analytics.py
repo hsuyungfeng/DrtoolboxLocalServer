@@ -35,39 +35,49 @@ def get_db_connection():
     return conn
 
 
+class DBContext:
+    """Context manager for guaranteed database connection cleanup"""
+    def __enter__(self):
+        self.conn = get_db_connection()
+        return self.conn
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.conn:
+            self.conn.close()
+        return False
+
+
 @analytics_bp.route('/api/v1/analytics/overview', methods=['GET'])
 def get_overview():
     """取得診所概覽數據"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 總患者數
-        cursor.execute('SELECT COUNT(*) as count FROM patients')
-        total_patients = cursor.fetchone()['count']
+            # 總患者數
+            cursor.execute('SELECT COUNT(*) as count FROM patients')
+            total_patients = cursor.fetchone()['count']
 
-        # 本月新患者
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM patients
-            WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
-        ''')
-        new_patients_this_month = cursor.fetchone()['count']
+            # 本月新患者
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM patients
+                WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+            ''')
+            new_patients_this_month = cursor.fetchone()['count']
 
-        # 本月訊息數
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM patient_conversations
-            WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
-        ''')
-        messages_this_month = cursor.fetchone()['count']
+            # 本月訊息數
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM patient_conversations
+                WHERE strftime('%Y-%m', timestamp) = strftime('%Y-%m', 'now')
+            ''')
+            messages_this_month = cursor.fetchone()['count']
 
-        # 待處理升級數
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM patient_conversations
-            WHERE escalated_flag = 1
-        ''')
-        pending_escalations = cursor.fetchone()['count']
-
-        conn.close()
+            # 待處理升級數
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM patient_conversations
+                WHERE escalated_flag = 1
+            ''')
+            pending_escalations = cursor.fetchone()['count']
 
         return jsonify({
             'success': True,
@@ -93,31 +103,29 @@ def get_overview():
 def get_message_trends():
     """取得訊息趨勢數據（過去7天）"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 過去7天的每日訊息數
-        days_data = []
-        for i in range(6, -1, -1):
-            date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
-            cursor.execute('''
-                SELECT COUNT(*) as count FROM patient_conversations
-                WHERE date(timestamp) = ?
-            ''', (date,))
-            count = cursor.fetchone()['count']
-            days_data.append({
-                'date': date,
-                'count': count
-            })
+            # 過去7天的每日訊息數
+            days_data = []
+            for i in range(6, -1, -1):
+                date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+                cursor.execute('''
+                    SELECT COUNT(*) as count FROM patient_conversations
+                    WHERE date(timestamp) = ?
+                ''', (date,))
+                count = cursor.fetchone()['count']
+                days_data.append({
+                    'date': date,
+                    'count': count
+                })
 
-        # 頻道分布（LINE vs 網頁）
-        # 預設都是網頁，因為系統沒有明確的頻道欄位
-        channel_distribution = {
-            'web': sum(d['count'] for d in days_data),
-            'line': 0
-        }
-
-        conn.close()
+            # 頻道分布（LINE vs 網頁）
+            # 預設都是網頁，因為系統沒有明確的頻道欄位
+            channel_distribution = {
+                'web': sum(d['count'] for d in days_data),
+                'line': 0
+            }
 
         return jsonify({
             'success': True,
@@ -141,53 +149,51 @@ def get_message_trends():
 def get_patient_stats():
     """取得患者統計數據"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        # 患者總數
-        cursor.execute('SELECT COUNT(*) as count FROM patients')
-        total = cursor.fetchone()['count']
+            # 患者總數
+            cursor.execute('SELECT COUNT(*) as count FROM patients')
+            total = cursor.fetchone()['count']
 
-        # 計算年齡分布
-        # 這裡我們使用一個簡化的方法，假設有 birthday 欄位
-        age_distribution = {
-            '0-17': 0,
-            '18-30': 0,
-            '31-45': 0,
-            '46-60': 0,
-            '60+': 0
-        }
+            # 計算年齡分布
+            # 這裡我們使用一個簡化的方法，假設有 birthday 欄位
+            age_distribution = {
+                '0-17': 0,
+                '18-30': 0,
+                '31-45': 0,
+                '46-60': 0,
+                '60+': 0
+            }
 
-        # 依賴度分布（基於訊息數量估算）
-        # 高依賴：10+ 訊息, 中依賴：3-9 訊息, 低依賴：0-2 訊息
-        dependency_distribution = {
-            'high': 0,
-            'medium': 0,
-            'low': total  # 預設為低
-        }
+            # 依賴度分布（基於訊息數量估算）
+            # 高依賴：10+ 訊息, 中依賴：3-9 訊息, 低依賴：0-2 訊息
+            dependency_distribution = {
+                'high': 0,
+                'medium': 0,
+                'low': total  # 預設為低
+            }
 
-        cursor.execute('''
-            SELECT patient_id FROM patients
-        ''')
-        patients = cursor.fetchall()
-
-        for patient in patients:
-            patient_id = patient['patient_id']
             cursor.execute('''
-                SELECT COUNT(*) as count FROM patient_conversations
-                WHERE patient_id = ?
-            ''', (str(patient_id),))
-            msg_count = cursor.fetchone()['count']
+                SELECT patient_id FROM patients
+            ''')
+            patients = cursor.fetchall()
 
-            if msg_count >= 10:
-                dependency_distribution['high'] += 1
-            elif msg_count >= 3:
-                dependency_distribution['medium'] += 1
+            for patient in patients:
+                patient_id = patient['patient_id']
+                cursor.execute('''
+                    SELECT COUNT(*) as count FROM patient_conversations
+                    WHERE patient_id = ?
+                ''', (str(patient_id),))
+                msg_count = cursor.fetchone()['count']
 
-        # 調整低依賴度
-        dependency_distribution['low'] = total - dependency_distribution['high'] - dependency_distribution['medium']
+                if msg_count >= 10:
+                    dependency_distribution['high'] += 1
+                elif msg_count >= 3:
+                    dependency_distribution['medium'] += 1
 
-        conn.close()
+            # 調整低依賴度
+            dependency_distribution['low'] = total - dependency_distribution['high'] - dependency_distribution['medium']
 
         return jsonify({
             'success': True,
@@ -212,39 +218,37 @@ def get_patient_stats():
 def get_appointment_stats():
     """取得預約統計"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        with DBContext() as conn:
+            cursor = conn.cursor()
 
-        today = datetime.now().strftime('%Y-%m-%d')
-        week_end = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+            today = datetime.now().strftime('%Y-%m-%d')
+            week_end = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
 
-        # 今日預約
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM appointments
-            WHERE date(appointment_date) = ?
-        ''', (today,))
-        today_appointments = cursor.fetchone()['count']
+            # 今日預約
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM appointments
+                WHERE date(appointment_date) = ?
+            ''', (today,))
+            today_appointments = cursor.fetchone()['count']
 
-        # 本週預約
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM appointments
-            WHERE date(appointment_date) >= ? AND date(appointment_date) <= ?
-        ''', (today, week_end))
-        week_appointments = cursor.fetchone()['count']
+            # 本週預約
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM appointments
+                WHERE date(appointment_date) >= ? AND date(appointment_date) <= ?
+            ''', (today, week_end))
+            week_appointments = cursor.fetchone()['count']
 
-        # 已完成 vs 總預約（完成率）
-        cursor.execute('SELECT COUNT(*) as count FROM appointments')
-        total_appointments = cursor.fetchone()['count']
+            # 已完成 vs 總預約（完成率）
+            cursor.execute('SELECT COUNT(*) as count FROM appointments')
+            total_appointments = cursor.fetchone()['count']
 
-        cursor.execute('''
-            SELECT COUNT(*) as count FROM appointments
-            WHERE status = 'completed'
-        ''')
-        completed_appointments = cursor.fetchone()['count']
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM appointments
+                WHERE status = 'completed'
+            ''')
+            completed_appointments = cursor.fetchone()['count']
 
-        completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
-
-        conn.close()
+            completion_rate = (completed_appointments / total_appointments * 100) if total_appointments > 0 else 0
 
         return jsonify({
             'success': True,
