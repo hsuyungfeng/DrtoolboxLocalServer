@@ -75,7 +75,7 @@ def create_app(config=None):
 
 def _register_routes(app):
     """Register all API routes."""
-    from api.routes import inference, rag, hybrid, clinic_his
+    from api.routes import inference, rag, hybrid, clinic_his, cloud_llm
     from api.routes.line_bot import line_bp
     from api.routes.staff_api import staff_bp
     from api.routes.staff_inbox import staff_inbox_bp
@@ -84,6 +84,7 @@ def _register_routes(app):
     from api.routes.patient_dashboard import patient_dashboard_bp
     from api.routes.staff_dashboard import staff_dashboard_bp
     from api.routes.staff_conversation import staff_conversation_bp
+    from api.routes.analytics import analytics_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -122,6 +123,9 @@ def _register_routes(app):
         
         return jsonify(checks)
     
+    # Cloud LLM routes (OpenAI-compatible /v1/chat/completions)
+    app.register_blueprint(cloud_llm.bp)
+
     # Inference routes
     app.register_blueprint(inference.bp)
 
@@ -158,6 +162,9 @@ def _register_routes(app):
     # Staff Dashboard routes (CRUD operations)
     app.register_blueprint(staff_dashboard_bp)
 
+    # Analytics routes
+    app.register_blueprint(analytics_bp)
+
     # Root route
     @app.route('/', methods=['GET'])
     def root():
@@ -181,6 +188,8 @@ def _register_routes(app):
                 "hybrid_medical_search": "/api/v1/hybrid/medical/search",
                 "hybrid_medical_condition": "/api/v1/hybrid/medical/condition",
                 "hybrid_health": "/api/v1/hybrid/health",
+                "analytics": "/api/v1/analytics/*",
+                "analytics_page": "/dashboard/analytics/",
                 "line_webhook": "/api/line/webhook",
                 "line_health": "/api/line/health",
             }

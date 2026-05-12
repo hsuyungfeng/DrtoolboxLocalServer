@@ -1,0 +1,432 @@
+{% extends 'base.html' %}
+
+{% block title %}診所分析儀表板{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #333;
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        color: #666;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .stat-card.primary .stat-value { color: var(--primary-color); }
+    .stat-card.success .stat-value { color: var(--success-color); }
+    .stat-card.warning .stat-value { color: var(--warning-color); }
+    .stat-card.danger .stat-value { color: var(--danger-color); }
+
+    .chart-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .chart-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+
+    .last-update {
+        color: #999;
+        font-size: 0.75rem;
+        text-align: right;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📊 診所分析儀表板</h1>
+
+<!-- Overview Cards -->
+<div class="row g-4 mb-4" id="overview-cards">
+    <div class="col-md-3">
+        <div class="stat-card primary">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="total-patients">--</div>
+            <div class="stat-label">總患者數</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="stat-icon">✨</div>
+            <div class="stat-value" id="new-patients">--</div>
+            <div class="stat-label">本月新患者</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="stat-icon">💬</div>
+            <div class="stat-value" id="messages">--</div>
+            <div class="stat-label">本月訊息數</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card danger">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-value" id="escalations">--</div>
+            <div class="stat-label">待處理升級</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <h5 class="chart-title">📈 訊息趨勢（過去7天）</h5>
+            <div class="chart-container">
+                <canvas id="messageChart"></canvas>
+            </div>
+            <div class="last-update">最後更新：<span id="message-update-time">--:--:--</span></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h5 class="chart-title">👥 患者依賴度分布</h5>
+            <div class="chart-container">
+                <canvas id="dependencyChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h5 class="chart-title">📅 預約統計</h5>
+            <div class="chart-container">
+                <canvas id="appointmentChart"></canvas>
+            </div>
+            <div class="last-update">最後更新：<span id="appointment-update-time">--:--:--</span></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h5 class="chart-title">🔔 今日預約概覽</h5>
+            <div class="row g-3">
+                <div class="col-6">
+                    <div class="stat-card primary">
+                        <div class="stat-value" id="today-appointments">--</div>
+                        <div class="stat-label">今日預約</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card success">
+                        <div class="stat-value" id="week-appointments">--</div>
+                        <div class="stat-label">本週預約</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="completion-rate">--%</div>
+                        <div class="stat-label">完成率</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Chart instances
+    let messageChart = null;
+    let dependencyChart = null;
+    let appointmentChart = null;
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchAllData();
+        // Auto-refresh every 60 seconds
+        setInterval(fetchAllData, 60000);
+    });
+
+    async function fetchAllData() {
+        try {
+            await Promise.all([
+                fetchOverview(),
+                fetchMessageTrends(),
+                fetchPatientStats(),
+                fetchAppointmentStats()
+            ]);
+        } catch (error) {
+            console.error('Error fetching analytics data:', error);
+            showError('無法載入分析數據');
+        }
+    }
+
+    async function fetchOverview() {
+        try {
+            const response = await fetch('/api/v1/analytics/overview');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+                document.getElementById('total-patients').textContent = data.total_patients;
+                document.getElementById('new-patients').textContent = data.new_patients_this_month;
+                document.getElementById('messages').textContent = data.messages_this_month;
+                document.getElementById('escalations').textContent = data.pending_escalations;
+            }
+        } catch (error) {
+            console.error('Error fetching overview:', error);
+        }
+    }
+
+    async function fetchMessageTrends() {
+        try {
+            const response = await fetch('/api/v1/analytics/messages');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+                updateMessageChart(data.daily_messages);
+
+                // Update last update time
+                const now = new Date();
+                document.getElementById('message-update-time').textContent =
+                    now.toLocaleTimeString('zh-TW');
+            }
+        } catch (error) {
+            console.error('Error fetching message trends:', error);
+        }
+    }
+
+    async function fetchPatientStats() {
+        try {
+            const response = await fetch('/api/v1/analytics/patients');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+                updateDependencyChart(data.dependency_distribution);
+            }
+        } catch (error) {
+            console.error('Error fetching patient stats:', error);
+        }
+    }
+
+    async function fetchAppointmentStats() {
+        try {
+            const response = await fetch('/api/v1/analytics/appointments');
+            const result = await response.json();
+
+            if (result.success) {
+                const data = result.data;
+
+                document.getElementById('today-appointments').textContent = data.today_appointments;
+                document.getElementById('week-appointments').textContent = data.week_appointments;
+                document.getElementById('completion-rate').textContent = data.completion_rate + '%';
+
+                updateAppointmentChart(data);
+
+                // Update last update time
+                const now = new Date();
+                document.getElementById('appointment-update-time').textContent =
+                    now.toLocaleTimeString('zh-TW');
+            }
+        } catch (error) {
+            console.error('Error fetching appointment stats:', error);
+        }
+    }
+
+    function updateMessageChart(dailyData) {
+        const ctx = document.getElementById('messageChart').getContext('2d');
+
+        const labels = dailyData.map(d => {
+            const date = new Date(d.date);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
+        });
+
+        const values = dailyData.map(d => d.count);
+
+        if (messageChart) {
+            messageChart.data.labels = labels;
+            messageChart.data.datasets[0].data = values;
+            messageChart.update();
+        } else {
+            messageChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '訊息數',
+                        data: values,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function updateDependencyChart(dependencyData) {
+        const ctx = document.getElementById('dependencyChart').getContext('2d');
+
+        if (dependencyChart) {
+            dependencyChart.data.datasets[0].data = [
+                dependencyData.high,
+                dependencyData.medium,
+                dependencyData.low
+            ];
+            dependencyChart.update();
+        } else {
+            dependencyChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['高依賴', '中依賴', '低依賴'],
+                    datasets: [{
+                        data: [
+                            dependencyData.high,
+                            dependencyData.medium,
+                            dependencyData.low
+                        ],
+                        backgroundColor: [
+                            '#dc3545',
+                            '#ffc107',
+                            '#198754'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function updateAppointmentChart(data) {
+        const ctx = document.getElementById('appointmentChart').getContext('2d');
+
+        if (appointmentChart) {
+            appointmentChart.data.datasets[0].data = [
+                data.completed_appointments,
+                data.total_appointments - data.completed_appointments
+            ];
+            appointmentChart.update();
+        } else {
+            appointmentChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['已完成', '未完成'],
+                    datasets: [{
+                        label: '預約數',
+                        data: [
+                            data.completed_appointments,
+                            data.total_appointments - data.completed_appointments
+                        ],
+                        backgroundColor: [
+                            '#198754',
+                            '#ffc107'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function showError(message) {
+        // Create error alert if not exists
+        let alertEl = document.querySelector('.alert-danger');
+        if (!alertEl) {
+            alertEl = document.createElement('div');
+            alertEl.className = 'alert alert-danger alert-dismissible fade show';
+            alertEl.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.page-title').after(alertEl);
+        }
+    }
+</script>
+{% endblock %}
