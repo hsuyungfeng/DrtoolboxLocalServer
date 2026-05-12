@@ -60,10 +60,10 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - COMM-03: Maintain conversation history per patient
 
 **Outcomes**:
-- ✓ HIS database accessible for analytical queries
-- ✓ LINE bot receives and responds to patient messages
-- ✓ Conversation history persisted per patient
-- ✓ Query results cached for performance
+- ✓ HIS database accessible for analytical queries (COMPLETED)
+- ✓ LINE bot receives and responds to patient messages (COMPLETED)
+- ✓ Conversation history persisted per patient (COMPLETED)
+- ✓ Query results cached for performance (COMPLETED)
 
 **Success Criteria**:
 1. HIS read-only connection stable with no data leaks
@@ -77,7 +77,10 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Conversation history storage and retrieval
 - Performance monitoring for queries
 
-**Estimated Effort**: 2-3 weeks
+**Plans:**
+- [x] Phase 2 Execution — COMPLETED ✓
+
+**Estimated Effort**: 2-3 weeks (COMPLETED)
 
 ---
 
@@ -93,10 +96,10 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - COMM-05: Unified inbox for staff (manage LINE + web chat in one interface)
 
 **Outcomes**:
-- ✓ Web form collects patient intake data securely
-- ✓ Form submissions auto-populate HIS database
-- ✓ Patient dashboard displays current records
-- ✓ Staff can manage all patient communication in one interface
+- ✓ Web form collects patient intake data securely (COMPLETED)
+- ✓ Form submissions auto-populate HIS database (COMPLETED)
+- ✓ Patient dashboard displays current records (COMPLETED)
+- ✓ Staff can manage all patient communication in one interface (COMPLETED)
 
 **Success Criteria**:
 1. Form submissions persist to HIS without data loss
@@ -111,7 +114,10 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Unified staff inbox UI
 - doctor-toolbox.com/chats integration
 
-**Estimated Effort**: 2-3 weeks
+**Plans:**
+- [x] Phase 3 Execution — COMPLETED ✓
+
+**Estimated Effort**: 2-3 weeks (COMPLETED)
 
 ---
 
@@ -176,6 +182,9 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Analytics dashboard
 - Production hardening and monitoring
 - Performance tuning and optimization
+
+**Plans:**
+- [ ] 05-enterprise-features/05-PLAN.md — 企業功能與雲端同步
 
 **Estimated Effort**: 2-3 weeks
 
