@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}升級審批{% endblock %}
+
+{% block nav_extra %}
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/approvals">審批</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/appointments">預約</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/messages/send">發送訊息</a>
+</li>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .tab-nav {
+        margin-bottom: 1.5rem;
+    }
+
+    .escalation-table {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .escalation-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .escalation-table td {
+        vertical-align: middle;
+    }
+
+    .confidence-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+
+    .confidence-low {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .patient-link {
+        color: var(--primary-color);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .patient-link:hover {
+        text-decoration: underline;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #999;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">⚖️ 升級審批</h1>
+    <div>
+        <span class="badge bg-danger fs-6">待處理: <span id="pending-count">--</span></span>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs tab-nav" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pending" type="button">
+            待處理
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#history" type="button">
+            歷史記錄
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Pending Tab -->
+    <div class="tab-pane fade show active" id="pending">
+        <div id="error-alert" class="alert alert-danger" style="display: none;"></div>
+
+        <div class="escalation-table">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>患者姓名</th>
+                        <th>患者電話</th>
+                        <th>升級原因</th>
+                        <th>信心度</th>
+                        <th>申請時間</th>
+                        <th style="width: 180px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="escalations-tbody">
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <span class="ms-2">正在載入...</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-pane fade" id="history">
+        <div class="alert alert-info">
+            歷史記錄功能即將推出...
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const STAFF_ID = 'staff-001';  // 預設員工 ID
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadEscalations();
+    });
+
+    async function loadEscalations() {
+        try {
+            const response = await fetch('/api/v1/escalations/list', {
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('無法取得升級列表');
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                renderEscalations(result.data.escalations);
+                document.getElementById('pending-count').textContent = result.data.total;
+            } else {
+                showError(result.error || '載入失敗');
+            }
+        } catch (error) {
+            console.error('Error loading escalations:', error);
+            showError('無法載入升級列表，請稍後再試');
+        }
+    }
+
+    function renderEscalations(escalations) {
+        const tbody = document.getElementById('escalations-tbody');
+
+        if (!escalations || escalations.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-icon">✅</div>
+                            <p class="mb-0">目前沒有待處理的升級</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = escalations.map(e => `
+            <tr data-escalation-id="${e.id}">
+                <td>
+                    <a href="/dashboard/staff/patient/${e.patient_id}" class="patient-link">
+                        ${escapeHtml(e.patient_name)}
+                    </a>
+                </td>
+                <td>${escapeHtml(e.patient_phone)}</td>
+                <td>
+                    <span title="${escapeHtml(e.message)}">
+                        ${escapeHtml(truncate(e.message, 30))}
+                    </span>
+                </td>
+                <td>
+                    <span class="confidence-badge confidence-low">
+                        ${e.confidence !== null ? (e.confidence * 100).toFixed(0) + '%' : 'N/A'}
+                    </span>
+                </td>
+                <td>${formatDateTime(e.created_at)}</td>
+                <td>
+                    <button class="btn btn-sm btn-success me-1" onclick="approveEscalation(${e.id})">
+                        ✅ 批准
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="rejectEscalation(${e.id})">
+                        ❌ 拒絕
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function approveEscalation(escalationId) {
+        if (!confirm('確定要批准此升級嗎？')) return;
+
+        try {
+            const response = await fetch(`/api/v1/escalations/${escalationId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notes: '' })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // 移除該行
+                const row = document.querySelector(`tr[data-escalation-id="${escalationId}"]`);
+                if (row) row.remove();
+
+                // 更新計數
+                const count = parseInt(document.getElementById('pending-count').textContent) - 1;
+                document.getElementById('pending-count').textContent = Math.max(0, count);
+
+                showToast('升級已批准');
+            } else {
+                showError(result.error || '批准失敗');
+            }
+        } catch (error) {
+            console.error('Error approving escalation:', error);
+            showError('批准失敗，請稍後再試');
+        }
+    }
+
+    async function rejectEscalation(escalationId) {
+        if (!confirm('確定要拒絕此升級嗎？')) return;
+
+        try {
+            const response = await fetch(`/api/v1/escalations/${escalationId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notes: '' })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // 移除該行
+                const row = document.querySelector(`tr[data-escalation-id="${escalationId}"]`);
+                if (row) row.remove();
+
+                // 更新計數
+                const count = parseInt(document.getElementById('pending-count').textContent) - 1;
+                document.getElementById('pending-count').textContent = Math.max(0, count);
+
+                showToast('升級已拒絕');
+            } else {
+                showError(result.error || '拒絕失敗');
+            }
+        } catch (error) {
+            console.error('Error rejecting escalation:', error);
+            showError('拒絕失敗，請稍後再試');
+        }
+    }
+
+    function showError(message) {
+        const alert = document.getElementById('error-alert');
+        alert.textContent = message;
+        alert.style.display = 'block';
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 5000);
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.innerHTML = `
+            <div class="toast show" role="alert">
+                <div class="toast-body bg-success text-white rounded">
+                    ${message}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"};
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function truncate(text, length) {
+        if (!text || text.length <= length) return text;
+        return text.substring(0, length) + '...';
+    }
+
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '--';
+        const date = new Date(dateStr);
+        return date.toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+</script>
+{% endblock %}

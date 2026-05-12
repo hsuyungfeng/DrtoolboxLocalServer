@@ -1,0 +1,426 @@
+{% extends 'base.html' %}
+
+{% block title %}預約管理{% endblock %}
+
+{% block nav_extra %}
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/approvals">審批</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/dashboard/staff/appointments">預約</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/messages/send">發送訊息</a>
+</li>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-section {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+    }
+
+    .appointments-table {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .status-confirmed {
+        background-color: #cfe2ff;
+        color: #084298;
+    }
+
+    .status-completed {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .status-cancelled {
+        background-color: #f8d7da;
+        color: #842029;
+    }
+
+    .patient-link {
+        color: var(--primary-color);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .patient-link:hover {
+        text-decoration: underline;
+    }
+
+    .modal-header {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">📅 預約管理</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newAppointmentModal">
+        + 新增預約
+    </button>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label">開始日期</label>
+            <input type="date" class="form-control" id="start-date" value="">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">結束日期</label>
+            <input type="date" class="form-control" id="end-date" value="">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">狀態</label>
+            <select class="form-select" id="status-filter">
+                <option value="">全部</option>
+                <option value="pending">待確認</option>
+                <option value="confirmed">已確認</option>
+                <option value="completed">已完成</option>
+                <option value="cancelled">已取消</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-secondary w-100" onclick="loadAppointments()">
+                🔍 篩選
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Appointments Table -->
+<div id="error-alert" class="alert alert-danger" style="display: none;"></div>
+
+<div class="appointments-table">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>患者姓名</th>
+                <th>患者電話</th>
+                <th>預約日期</th>
+                <th>狀態</th>
+                <th>建立時間</th>
+                <th style="width: 180px;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="appointments-tbody">
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <span class="ms-2">正在載入...</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- New Appointment Modal -->
+<div class="modal fade" id="newAppointmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增預約</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newAppointmentForm">
+                    <div class="mb-3">
+                        <label class="form-label">患者</label>
+                        <select class="form-select" id="new-patient-id" required>
+                            <option value="">請選擇患者</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">預約日期</label>
+                        <input type="date" class="form-control" id="new-appointment-date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">備註</label>
+                        <textarea class="form-control" id="new-notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createAppointment()">建立預約</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const STAFF_ID = 'staff-001';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAppointments();
+        loadPatients();
+    });
+
+    async function loadAppointments() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const status = document.getElementById('status-filter').value;
+
+        let url = '/api/v1/appointments/list?';
+        if (startDate) url += `start_date=${startDate}&`;
+        if (endDate) url += `end_date=${endDate}&`;
+        if (status) url += `status=${status}&`;
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) throw new Error('無法取得預約列表');
+
+            const result = await response.json();
+
+            if (result.success) {
+                renderAppointments(result.data.appointments);
+            } else {
+                showError(result.error || '載入失敗');
+            }
+        } catch (error) {
+            console.error('Error loading appointments:', error);
+            showError('無法載入預約列表，請稍後再試');
+        }
+    }
+
+    async function loadPatients() {
+        try {
+            const response = await fetch('/api/patients');
+            if (!response.ok) return;
+
+            const result = await response.json();
+            const patients = result.data || [];
+
+            const select = document.getElementById('new-patient-id');
+            patients.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.patient_id;
+                option.textContent = `${p.name} (${p.phone})`;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading patients:', error);
+        }
+    }
+
+    function renderAppointments(appointments) {
+        const tbody = document.getElementById('appointments-tbody');
+
+        if (!appointments || appointments.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <div style="color: #999;">
+                            <div style="font-size: 3rem; opacity: 0.3;">📅</div>
+                            <p class="mb-0">目前沒有預約記錄</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = appointments.map(a => `
+            <tr data-appointment-id="${a.appointment_id}">
+                <td>
+                    <a href="/dashboard/staff/patient/${a.patient_id}" class="patient-link">
+                        ${escapeHtml(a.patient_name)}
+                    </a>
+                </td>
+                <td>${escapeHtml(a.patient_phone)}</td>
+                <td>${formatDate(a.appointment_date)}</td>
+                <td>
+                    <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                </td>
+                <td>${formatDateTime(a.created_at)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editAppointment(${a.appointment_id}, '${a.status}')">
+                        編輯
+                    </button>
+                    ${a.status !== 'cancelled' && a.status !== 'completed' ? `
+                    <button class="btn btn-sm btn-outline-danger" onclick="cancelAppointment(${a.appointment_id})">
+                        取消
+                    </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function createAppointment() {
+        const patientId = document.getElementById('new-patient-id').value;
+        const date = document.getElementById('new-appointment-date').value;
+
+        if (!patientId || !date) {
+            alert('請填寫必填欄位');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/v1/appointments/create', {
+                method: 'POST',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    patient_id: parseInt(patientId),
+                    appointment_date: date
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                bootstrap.Modal.getInstance(document.getElementById('newAppointmentModal')).hide();
+                document.getElementById('newAppointmentForm').reset();
+                loadAppointments();
+                showToast('預約已建立');
+            } else {
+                alert(result.error || '建立失敗');
+            }
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            alert('建立失敗，請稍後再試');
+        }
+    }
+
+    async function editAppointment(id, currentStatus) {
+        const newStatus = prompt('輸入新狀態 (pending/confirmed/completed/cancelled):', currentStatus);
+        if (!newStatus || newStatus === currentStatus) return;
+
+        try {
+            const response = await fetch(`/api/v1/appointments/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                loadAppointments();
+                showToast('預約已更新');
+            } else {
+                alert(result.error || '更新失敗');
+            }
+        } catch (error) {
+            console.error('Error updating appointment:', error);
+            alert('更新失敗，請稍後再試');
+        }
+    }
+
+    async function cancelAppointment(id) {
+        if (!confirm('確定要取消此預約嗎？')) return;
+
+        try {
+            const response = await fetch(`/api/v1/appointments/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                loadAppointments();
+                showToast('預約已取消');
+            } else {
+                alert(result.error || '取消失敗');
+            }
+        } catch (error) {
+            console.error('Error cancelling appointment:', error);
+            alert('取消失敗，請稍後再試');
+        }
+    }
+
+    function getStatusText(status) {
+        const map = {
+            'pending': '待確認',
+            'confirmed': '已確認',
+            'completed': '已完成',
+            'cancelled': '已取消'
+        };
+        return map[status] || status;
+    }
+
+    function showError(message) {
+        const alert = document.getElementById('error-alert');
+        alert.textContent = message;
+        alert.style.display = 'block';
+        setTimeout(() => { alert.style.display = 'none'; }, 5000);
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.innerHTML = `<div class="toast show"><div class="toast-body bg-success text-white rounded">${message}</div></div>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"};
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '--';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('zh-TW');
+    }
+
+    function formatDateTime(dateStr) {
+        if (!dateStr) return '--';
+        const date = new Date(dateStr);
+        return date.toLocaleString('zh-TW', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+</script>
+{% endblock %}

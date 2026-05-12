@@ -85,6 +85,7 @@ def _register_routes(app):
     from api.routes.staff_dashboard import staff_dashboard_bp
     from api.routes.staff_conversation import staff_conversation_bp
     from api.routes.analytics import analytics_bp
+    from api.routes.staff_actions import staff_actions_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -164,6 +165,9 @@ def _register_routes(app):
 
     # Analytics routes
     app.register_blueprint(analytics_bp)
+
+    # Staff Actions routes (approvals, appointments, messages)
+    app.register_blueprint(staff_actions_bp)
 
     # Root route
     @app.route('/', methods=['GET'])

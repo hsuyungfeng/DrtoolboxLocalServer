@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+
+{% block title %}發送訊息{% endblock %}
+
+{% block nav_extra %}
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/approvals">審批</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="/dashboard/staff/appointments">預約</a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="/dashboard/staff/messages/send">發送訊息</a>
+</li>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .message-form {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 2rem;
+    }
+
+    .form-card {
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .char-count {
+        text-align: right;
+        font-size: 0.875rem;
+        color: #999;
+    }
+
+    .char-count.warning {
+        color: var(--warning-color);
+    }
+
+    .char-count.danger {
+        color: var(--danger-color);
+    }
+
+    .channel-option {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        border: 2px solid var(--gray-border);
+        border-radius: 8px;
+        margin-right: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .channel-option:hover {
+        border-color: var(--primary-color);
+    }
+
+    .channel-option.selected {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .channel-option input {
+        display: none;
+    }
+
+    .preview-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+
+    .preview-header {
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .preview-content {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid var(--gray-border);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">💬 發送訊息</h1>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="message-form">
+            <div id="error-alert" class="alert alert-danger" style="display: none;"></div>
+            <div id="success-alert" class="alert alert-success" style="display: none;"></div>
+
+            <!-- Patient Selection -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">選擇患者 <span class="text-danger">*</span></label>
+                <div class="form-floating">
+                    <select class="form-select" id="patient-select" required>
+                        <option value="">請選擇患者</option>
+                    </select>
+                    <label for="patient-select">選擇患者</label>
+                </div>
+            </div>
+
+            <!-- Message Content -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">訊息內容 <span class="text-danger">*</span></label>
+                <div class="form-floating">
+                    <textarea class="form-control"
+                              id="message-text"
+                              placeholder="輸入訊息內容"
+                              style="height: 150px"
+                              maxlength="1000"
+                              required></textarea>
+                    <label for="message-text">輸入訊息內容</label>
+                </div>
+                <div class="char-count mt-2">
+                    <span id="char-count">0</span> / 1000
+                </div>
+            </div>
+
+            <!-- Channel Selection -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">發送頻道</label>
+                <div class="channel-option selected" data-channel="web">
+                    <input type="radio" name="channel" value="web" checked>
+                    <span>🌐 網頁</span>
+                </div>
+                <div class="channel-option" data-channel="line">
+                    <input type="radio" name="channel" value="line">
+                    <span>💬 LINE</span>
+                </div>
+                <div class="channel-option" data-channel="both">
+                    <input type="radio" name="channel" value="both">
+                    <span>📱 兩者皆發送</span>
+                </div>
+            </div>
+
+            <!-- Reply Tracking -->
+            <div class="form-check mb-4">
+                <input class="form-check-input" type="checkbox" id="require-reply">
+                <label class="form-check-label" for="require-reply">
+                    需要回覆追蹤
+                </label>
+            </div>
+
+            <!-- Send Button -->
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-primary btn-lg" onclick="sendMessage()">
+                    發送訊息
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="col-lg-4">
+        <div class="preview-card sticky-top" style="top: 1rem;">
+            <div class="preview-header">📱 訊息預覽</div>
+            <div class="preview-content" id="message-preview">
+                <p class="text-muted mb-0">選擇患者並輸入訊息內容以查看預覽...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const STAFF_ID = 'staff-001';
+
+    // Character count
+    const messageText = document.getElementById('message-text');
+    const charCount = document.getElementById('char-count');
+    const charCountContainer = document.querySelector('.char-count');
+
+    messageText.addEventListener('input', function() {
+        const count = this.value.length;
+        charCount.textContent = count;
+
+        charCountContainer.classList.remove('warning', 'danger');
+        if (count > 900) {
+            charCountContainer.classList.add('danger');
+        } else if (count > 750) {
+            charCountContainer.classList.add('warning');
+        }
+
+        updatePreview();
+    });
+
+    // Channel selection
+    document.querySelectorAll('.channel-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.channel-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            this.querySelector('input').checked = true;
+        });
+    });
+
+    // Load patients on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPatients();
+    });
+
+    async function loadPatients() {
+        try {
+            const response = await fetch('/api/patients');
+            if (!response.ok) throw new Error('無法取得患者列表');
+
+            const result = await response.json();
+            const patients = result.data || [];
+
+            const select = document.getElementById('patient-select');
+            patients.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.patient_id;
+                option.textContent = `${p.name} (${p.phone})`;
+                select.appendChild(option);
+            });
+
+            // Add change event to update preview
+            select.addEventListener('change', updatePreview);
+        } catch (error) {
+            console.error('Error loading patients:', error);
+        }
+    }
+
+    function updatePreview() {
+        const patientSelect = document.getElementById('patient-select');
+        const selectedOption = patientSelect.options[patientSelect.selectedIndex];
+        const patientName = selectedOption ? selectedOption.textContent.split(' (')[0] : '';
+        const message = messageText.value || '';
+
+        const preview = document.getElementById('message-preview');
+
+        if (!patientName && !message) {
+            preview.innerHTML = '<p class="text-muted mb-0">選擇患者並輸入訊息內容以查看預覽...</p>';
+            return;
+        }
+
+        preview.innerHTML = `
+            <div style="margin-bottom: 0.5rem;">
+                <strong>收件人：</strong>${escapeHtml(patientName)}
+            </div>
+            <div style="white-space: pre-wrap;">${escapeHtml(message) || '<span class="text-muted">（空訊息）</span>'}</div>
+        `;
+    }
+
+    async function sendMessage() {
+        const patientId = document.getElementById('patient-select').value;
+        const message = messageText.value.trim();
+        const channelOptions = document.querySelectorAll('input[name="channel"]');
+        let channel = 'web';
+        channelOptions.forEach(opt => {
+            if (opt.checked) channel = opt.value;
+        });
+        const requireReply = document.getElementById('require-reply').checked;
+
+        // Validation
+        if (!patientId) {
+            showError('請選擇患者');
+            return;
+        }
+
+        if (!message) {
+            showError('請輸入訊息內容');
+            return;
+        }
+
+        // Confirm
+        if (!confirm('確定要發送此訊息嗎？')) return;
+
+        try {
+            const response = await fetch('/api/v1/messages/send', {
+                method: 'POST',
+                headers: {
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    patient_id: parseInt(patientId),
+                    text: message,
+                    channel: channel,
+                    require_reply: requireReply
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showSuccess('訊息已發送成功！');
+                // Reset form
+                messageText.value = '';
+                charCount.textContent = '0';
+                updatePreview();
+            } else {
+                showError(result.error || '發送失敗');
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
+            showError('發送失敗，請稍後再試');
+        }
+    }
+
+    function showError(message) {
+        const errorAlert = document.getElementById('error-alert');
+        const successAlert = document.getElementById('success-alert');
+        successAlert.style.display = 'none';
+        errorAlert.textContent = message;
+        errorAlert.style.display = 'block';
+        setTimeout(() => { errorAlert.style.display = 'none'; }, 5000);
+    }
+
+    function showSuccess(message) {
+        const errorAlert = document.getElementById('error-alert');
+        const successAlert = document.getElementById('success-alert');
+        errorAlert.style.display = 'none';
+        successAlert.textContent = message;
+        successAlert.style.display = 'block';
+        setTimeout(() => { successAlert.style.display = 'none'; }, 5000);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"};
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+</script>
+{% endblock %}
