@@ -168,32 +168,26 @@ def get_patient_stats():
 
             # 依賴度分布（基於訊息數量估算）
             # 高依賴：10+ 訊息, 中依賴：3-9 訊息, 低依賴：0-2 訊息
+            cursor.execute('''
+                SELECT patient_id, COUNT(*) as msg_count
+                FROM patient_conversations
+                GROUP BY patient_id
+            ''')
+            msg_counts = {row['patient_id']: row['msg_count'] for row in cursor.fetchall()}
+
             dependency_distribution = {
                 'high': 0,
                 'medium': 0,
-                'low': total  # 預設為低
+                'low': total
             }
 
-            cursor.execute('''
-                SELECT patient_id FROM patients
-            ''')
-            patients = cursor.fetchall()
-
-            for patient in patients:
-                patient_id = patient['patient_id']
-                cursor.execute('''
-                    SELECT COUNT(*) as count FROM patient_conversations
-                    WHERE patient_id = ?
-                ''', (str(patient_id),))
-                msg_count = cursor.fetchone()['count']
-
+            for patient_id, msg_count in msg_counts.items():
                 if msg_count >= 10:
                     dependency_distribution['high'] += 1
+                    dependency_distribution['low'] -= 1
                 elif msg_count >= 3:
                     dependency_distribution['medium'] += 1
-
-            # 調整低依賴度
-            dependency_distribution['low'] = total - dependency_distribution['high'] - dependency_distribution['medium']
+                    dependency_distribution['low'] -= 1
 
         return jsonify({
             'success': True,
