@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-13T15:45:00+08:00",
+  "phase": 7,
+  "phase_name": "ecosystem-integration",
+  "phase_dir": ".planning/phases/07-ecosystem-integration/",
+  "plan": 1,
+  "task": 12,
+  "total_tasks": 12,
+  "status": "completed",
+  "completed_tasks": [
+    {"id": 1, "name": "Task 1.1: 建立中央設定 API 路由", "status": "done"},
+    {"id": 2, "name": "Task 1.2: 建立系統設定儀表板頁面", "status": "done"},
+    {"id": 3, "name": "Task 1.3: 建立 setup_logs 資料表與註冊路由", "status": "done"},
+    {"id": 4, "name": "Task 2.1: 建立統一 docker-compose.yml", "status": "done"},
+    {"id": 5, "name": "Task 2.2: 建立 AstrBot API 橋接服務", "status": "done"},
+    {"id": 6, "name": "Task 2.3: 建立 AstrBot 管理儀表板頁面 → 改為對話監控", "status": "done"},
+    {"id": 7, "name": "Task 3.1: 擴充 docker-compose.yml (FileBrowser)", "status": "done"},
+    {"id": 8, "name": "Task 3.2: 建立 Nginx 反向代理 (FileBrowser SSO)", "status": "done"},
+    {"id": 9, "name": "Task 3.3: 建立 FileBrowser SSO 橋接服務與內嵌頁面", "status": "done"},
+    {"id": 10, "name": "Task 4.1: 建立 Hermes Cron 排程初始化腳本", "status": "done"},
+    {"id": 11, "name": "Task 4.2: 建立 CRM 分析管線服務", "status": "done"},
+    {"id": 12, "name": "Task 4.3: 建立 CRM 報告儀表板頁面", "status": "done"}
+  ],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "啟動 AstrBot", "context": "cd AstrBot && uv run main.py (需獨立終端)", "blocking": false},
+    {"action": "啟動 FileBrowser", "context": "docker start filebrowser-dev", "blocking": false},
+    {"action": "啟動 Hermes Agent", "context": "hermes gateway run (需獨立終端)", "blocking": false},
+    {"action": "執行 Hermes Cron 初始化", "context": "python scripts/setup_hermes_cron.py", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "開發模式不使用 Docker 主 compose，服務獨立啟動", "rationale": "靈活開發，無需重建容器", "phase": 7},
+    {"decision": "AstrBot 整合改為 Chat Monitor 對話監控", "rationale": "用戶需要監控 LLM-患者對話，非完整 AstrBot 平台", "phase": 7},
+    {"decision": "FileBrowser 在 dev 模式直接指向 localhost:8081", "rationale": "無需 Nginx，iframe 直連", "phase": 7},
+    {"decision": "所有資料庫遷移至 data/db/", "rationale": "統一儲存位置，使用 CLINIC_DB_PATH 環境變數", "phase": 7},
+    {"decision": "移除 DeepSeek API Key 欄位，使用本地 LLM", "rationale": "llama.cpp + Qwen 本地推理", "phase": 7},
+    {"decision": "API 金鑰頁面改為社群通訊渠道管理", "rationale": "LINE/Facebook/WhatsApp 等平台將連接 LLM chatbot", "phase": 7}
+  ],
+  "uncommitted_files": 213,
+  "next_action": "訪問 http://localhost:8080 驗證所有新頁面，然後 docker compose 或手動啟動生態系服務",
+  "context_notes": "Phase 7 全部 12 個 Tasks 完成。4 個新儀表板頁面 (系統設定/對話監控/檔案管理/CRM報告)、20+ 新 API 端點、資料庫重構至 data/db/、檔案系統清理。開發模式三服務需各自啟動。"
+}
