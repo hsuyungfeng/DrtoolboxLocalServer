@@ -61,7 +61,7 @@ class SemanticSearch:
     
     def __init__(
         self,
-        chroma_dir: str = "data/rag/chroma_new/",
+        chroma_dir: str = "data/rag/chroma/",
         collection_name: str = "medical_documents",
         default_top_k: int = 5,
     ):
@@ -95,7 +95,7 @@ class SemanticSearch:
                 path=self.chroma_dir,
                 settings=Settings(
                     anonymized_telemetry=False,
-                    allow_reset=False,
+                    allow_reset=True,
                 )
             )
             

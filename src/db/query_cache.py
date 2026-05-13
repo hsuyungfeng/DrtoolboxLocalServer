@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class QueryCache:
     """Cache manager for HIS queries with 1-hour TTL."""
 
-    def __init__(self, db_path: str = "data/clinic.db"):
+    def __init__(self, db_path: str = "data/local_db/clinic.db"):
         self.db_path = db_path
         self._init_table()
 

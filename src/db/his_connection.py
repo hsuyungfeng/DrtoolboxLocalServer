@@ -50,7 +50,7 @@ class HISConfig:
         """Load HIS config from environment variables."""
         return HISConfig(
             db_type=os.getenv("HIS_DB_TYPE", "sqlite"),
-            db_path=os.getenv("HIS_DB_PATH"),
+            db_path=os.getenv("HIS_DB_PATH", "data/local_db/clinic.db"),
             db_host=os.getenv("HIS_DB_HOST"),
             db_port=int(os.getenv("HIS_DB_PORT", "3306")),
             db_user=os.getenv("HIS_DB_USER"),
@@ -140,7 +140,7 @@ class HISConnection:
         """Initialize HIS connection with environment fallback."""
         self.config = HISConfig(
             db_type=db_type or os.getenv("HIS_DB_TYPE", "sqlite"),
-            db_path=db_path or os.getenv("HIS_DB_PATH"),
+            db_path=db_path or os.getenv("HIS_DB_PATH", "data/local_db/clinic.db"),
             db_host=host or os.getenv("HIS_DB_HOST"),
             db_port=port,
             db_user=user or os.getenv("HIS_DB_USER"),

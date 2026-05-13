@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-08T04:28:26.190Z"
+last_updated: "2026-05-13T00:25:18.047Z"
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 5
+  completed_phases: 5
+  total_plans: 8
+  completed_plans: 11
   percent: 100
 ---
 
@@ -16,8 +16,8 @@ progress:
 
 ## Initialization Context
 
-**Date**: 2026-05-06  
-**Status**: Phase 1 complete (4/4 plans, 12/12 tasks) — Ready for document ingestion before production  
+**Date**: 2026-05-11  
+**Status**: Phase 3 complete — Ready for Phase 4 (Hermes Agent integration)  
 **Mode**: YOLO (coarse-grained, parallel execution)  
 
 ## Project Discovery Synthesis
@@ -97,6 +97,13 @@ Clinic intelligence platform enabling local-first medical decision support witho
 - **Rationale**: Coarse-grained phases reduce ceremony; each phase stands alone; parallel Phase 4 possible
 - **Implication**: Team can pivot between phases based on dependency completion
 
+### Decision: Dual Knowledge Base (Federated RAG)
+
+- **Date**: 2026-05-11
+- **Status**: Confirmed & Implemented
+- **Rationale**: To prevent AI from hallucinating generic medical text for clinic-specific operational questions.
+- **Implication**: All future RAG interactions must respect `general_medical` vs `clinic_specific` collections. Intent classification handles the routing via `collection="auto"`.
+
 ---
 
 ## Team & Communication
@@ -136,7 +143,7 @@ Clinic intelligence platform enabling local-first medical decision support witho
 **Risk 3: HIS Database Connectivity Fragility**
 
 - **Impact**: Hermes agent failures, clinic operations blocked
-- **Probability**: Medium (clinic IT infrastructure often legacy/unstable)
+- **Probability**: Low (Already resolved in Phase 2 with strict read-only pooling)
 - **Mitigation**: Comprehensive error handling, query caching, fallback mode, clinic IT coordination
 - **Owner**: Phase 2 lead, clinic IT
 
@@ -218,7 +225,14 @@ When continuing from this initialization state:
 └── STATE.md             ← This file: memory, risks, dependencies
 ```
 
+## Session Continuity
+
+Last session: 2026-05-13
+Stopped at: Successfully repaired and ran the full test suite (133 tests passed). Test failures were caused by outdated mock implementations rather than logic errors.
+Next action: Perform Git commit to conclude Phase 5, then transition to Phase 6 (Security Hardening).
+
 ---
 
-*Last updated: 2026-05-06 after Phase 1 complete (Plan 04 human verification)*
-*Next step: Ingest clinic documents before production deployment*
+*Last updated: 2026-05-13 after Phase 05 code-review-fixes complete*
+*Next step: Run test suite and merge CR-01 / proceed to next plan*
+

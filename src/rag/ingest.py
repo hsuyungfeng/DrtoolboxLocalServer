@@ -33,6 +33,12 @@ try:
 except ImportError:
     DOCX_AVAILABLE = False
 
+try:
+    import pptx
+    PPTX_AVAILABLE = True
+except ImportError:
+    PPTX_AVAILABLE = False
+
 # Vector database
 try:
     import chromadb
@@ -84,7 +90,7 @@ class DocumentIngestor:
     
     def __init__(
         self,
-        chroma_dir: str = "data/rag/chroma_new/",
+        chroma_dir: str = "data/rag/chroma/",
         collection_name: str = "medical_documents",
         chunk_size: int = 512,
         chunk_overlap: int = 50,
@@ -113,7 +119,7 @@ class DocumentIngestor:
         self._ids: List[str] = []
 
         # Supported formats
-        self.supported_formats = {'.txt', '.pdf', '.docx', '.json'}
+        self.supported_formats = {'.txt', '.pdf', '.docx', '.pptx', '.json'}
         
         logger.info(f"DocumentIngestor initialized: collection={collection_name}")
     
@@ -183,6 +189,9 @@ class DocumentIngestor:
             elif ext == '.docx' and DOCX_AVAILABLE:
                 text = self._parse_docx(file_path)
 
+            elif ext == '.pptx' and PPTX_AVAILABLE:
+                text = self._parse_pptx(file_path)
+
             elif ext == '.json':
                 text = self._parse_json(file_path)
 
@@ -223,6 +232,35 @@ class DocumentIngestor:
                     text_parts.append(row_text)
 
         return "\n\n".join(text_parts)
+
+    def _parse_pptx(self, file_path: str) -> str:
+        """Parse PowerPoint document."""
+        prs = pptx.Presentation(file_path)
+        text_parts = []
+
+        for i, slide in enumerate(prs.slides, start=1):
+            slide_text = []
+            
+            # Extract text from shapes
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text.strip():
+                    slide_text.append(shape.text.strip())
+                elif shape.has_table:
+                    for row in shape.table.rows:
+                        row_text = " | ".join(cell.text_frame.text.strip() for cell in row.cells)
+                        if row_text.strip():
+                            slide_text.append(row_text)
+                            
+            # Extract notes if available
+            if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
+                notes = slide.notes_slide.notes_text_frame.text.strip()
+                if notes:
+                    slide_text.append(f"Notes: {notes}")
+                    
+            if slide_text:
+                text_parts.append(f"[Slide {i}]\n" + "\n".join(slide_text))
+
+        return "\n\n---\n\n".join(text_parts)
 
     def _parse_json(self, file_path: str) -> str:
         """Parse JSON file (array or JSONL format). Extract Q&A pairs for SFT datasets."""

@@ -32,47 +32,43 @@ A unified clinic platform that:
 | **Hermes agent for growth** | Auto-skills learn from clinic patterns, CLI tools adapt | Agent expands with clinic needs |
 | **Multi-channel communication** | Patients use preferred platform; staff manage from one place | LINE + doctor-toolbox.com/chats integration |
 | **HIS + Cloud sync** | Local analysis for speed/privacy; cloud for backup/advanced analytics | Bidirectional sync with doctor-toolbox.com |
-| **RAG for knowledge access** | Clinic-specific medical documents (PDF, Word, text) become searchable | Instant answers from clinic knowledge base |
+| **Federated RAG (Dual KB)** | Separate general medical vs clinic operational data | Intent Router directs query to `general_medical` or `clinic_specific` to prevent hallucination |
 
 ## Requirements
 
-### Validated
+### Validated (Completed in Phase 1, 2, 3)
 
-(None yet — ship to validate)
+**RAG Medical Chatbot (Federated RAG)**
+- [x] Ingest clinic medical documents (PDF, Word, text files) into `general_medical`
+- [x] Index operational documents into `clinic_specific` using OCR scripts
+- [x] Answer patient queries using Dual RAG pipeline with Intent Classification
+- [x] Provide confidence scores and source citations
+
+**HIS & Web Integration**
+- [x] Connect to local HIS database (Read-Only access)
+- [x] Execute analytical queries on patient/clinic data
+- [x] Patient intake web form and Patient record dashboard (Read-only UI)
+- [x] Conflict resolution endpoint
+
+**Patient Communication**
+- [x] LINE bot integration for patient queries
+- [x] Unified message queue (staff interface with CRUD)
+- [x] Conversation history and context retention
 
 ### Active
 
-**RAG Medical Chatbot**
-- [ ] Ingest clinic medical documents (PDF, Word, text files)
-- [ ] Index documents for semantic search
-- [ ] Answer patient queries using RAG pipeline
-- [ ] Provide confidence scores and source citations
-- [ ] Support voice input/output (future phase)
-
-**Hermes Agent + Database Analysis**
-- [ ] Connect to local HIS database
-- [ ] Execute analytical queries on patient/clinic data
+**Hermes Agent & Auto-Skills**
+- [ ] Connect Hermes Agent to local HIS database
 - [ ] Auto-skill discovery: learn from clinic data patterns
 - [ ] Cloud sync: bidirectional data flow with doctor-toolbox.com
 - [ ] CRM features: patient record management
 
-**Patient Communication**
-- [ ] LINE bot integration for patient queries
-- [ ] doctor-toolbox.com/chats integration
-- [ ] Unified message queue (single staff interface, multi-channel delivery)
-- [ ] Conversation history and context retention
-
 **Local LLM Infrastructure**
-- [ ] llama.cpp setup and optimization for 2080Ti
+- [ ] Support voice input/output (future phase)
+- [ ] llama.cpp setup and optimization for 2080Ti (Ongoing)
 - [ ] Model management (Qwen 3.6, Gemma 4 support)
 - [ ] Inference serving (API endpoint for RAG and agent)
 - [ ] Performance monitoring and resource management
-
-**Web Data Entry & CRM**
-- [ ] Web forms for patient intake and follow-up data
-- [ ] Auto-populate clinic DB with form responses
-- [ ] Patient record dashboard in doctor-toolbox.com CRM
-- [ ] Form submission validation and error handling
 
 **CLI & Auto-Skills**
 - [ ] Hermes CLI with clinic-specific commands

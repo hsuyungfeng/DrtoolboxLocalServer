@@ -37,7 +37,7 @@ def load_config():
             logger.warning(f"Could not load config: {e}, using defaults")
             _config = {
                 "chroma": {
-                    "path": "data/rag/chroma_new/",
+                    "path": "data/rag/chroma/",
                     "collections": {
                         "general_medical": "general_medical",
                         "clinic_specific": "clinic_specific",
@@ -59,7 +59,7 @@ def get_ingestor(collection: str = "general_medical") -> DocumentIngestor:
 
     if collection not in _ingestors:
         _ingestors[collection] = DocumentIngestor(
-            chroma_dir=config.get("chroma", {}).get("path", "data/rag/chroma_new/"),
+            chroma_dir=config.get("chroma", {}).get("path", "data/rag/chroma/"),
             collection_name=collection_name,
             chunk_size=config.get("chunking", {}).get("chunk_size", 512),
             chunk_overlap=config.get("chunking", {}).get("chunk_overlap", 50),
@@ -81,7 +81,7 @@ def get_query_answer(collection: str = "both") -> QueryAnswer:
 
     if collection not in _query_answers:
         config = load_config()
-        chroma_path = config.get("chroma", {}).get("path", "data/rag/chroma_new/")
+        chroma_path = config.get("chroma", {}).get("path", "data/rag/chroma/")
 
         if collection == "both":
             # Dual collection mode
@@ -163,7 +163,23 @@ def query():
 
     prompt = data['prompt']
     n_results = data.get('n_results', 5)
-    collection = data.get('collection', 'both')  # 'general_medical', 'clinic_specific', or 'both'
+    collection_param = data.get('collection', 'auto')  # 'general_medical', 'clinic_specific', 'both', or 'auto'
+
+    # Auto-route intent if collection is auto
+    if collection_param == 'auto':
+        from services.intent_router import get_intent_router
+        router = get_intent_router()
+        intent = router.classify(prompt)
+        
+        logger.info(f"Intent Router classified query '{prompt[:20]}...' as: {intent}")
+        if intent == "MEDICAL":
+            collection = "general_medical"
+        elif intent == "CLINICAL":
+            collection = "clinic_specific"
+        else:
+            collection = "both"
+    else:
+        collection = collection_param
 
     try:
         # Use QueryAnswer for proper confidence and citation handling

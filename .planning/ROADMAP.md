@@ -184,7 +184,8 @@ Five coarse-grained phases deliver value incrementally while building toward ful
 - Performance tuning and optimization
 
 **Plans:**
-- [ ] 05-enterprise-features/05-PLAN.md — 企業功能與雲端同步
+ - [x] 04-hermes-agent/04-PLAN.md — 智慧成長：Hermes Agent 與自動技能
+ - [ ] 05-enterprise-features/05-PLAN.md — 企業功能與雲端同步
 
 **Estimated Effort**: 2-3 weeks
 

@@ -440,6 +440,23 @@ Based on a deep review of the workspace and current architecture, the following 
 **Observation (觀察)**: The 15-week timeline is sequential, but `.planning/STATE.md` notes potential parallelization.
 **Advice (建議)**: Update the "Timeline" section to show that Phase 3 (Web Forms/Desktop) and Phase 4 (Hermes Agent) can be executed concurrently once Phase 2 (HIS Integration) is stable, potentially reducing the total timeline from 15 weeks to 10-12 weeks.
 
+### 9.6 Dual Knowledge Base Architecture (Federated RAG) | 雙知識庫架構
+**Observation (觀察)**: The system needs to handle both generic medical questions and clinic-specific operational questions.
+**Advice (建議)**: Implement a strict structural separation of knowledge into two distinct domains:
+1. **Medical Domain (通用醫療庫)**: `medical.db` + `general_medical` RAG collection. Contains common disease info, symptom checkers, and standard medical guidelines. This is static, highly reusable, and safe for all users.
+2. **Clinical Domain (診所專屬庫)**: `clinic.db` + `clinic_specific` RAG collection. Contains operational data, clinic introductions, doctor schedules, and pricing. This is dynamic and strictly local to the clinic.
+**Routing**: Introduce an intent classifier (or use Hermes Agent) to route user queries. "What is diabetes?" goes to the Medical Domain; "When can I see the doctor for diabetes?" queries Both. This prevents the LLM from hallucinating clinic services based on generic medical texts.
+
+### 9.7 Phase 6: Security Hardening & Authentication | 第6階段：安全加固與身份驗證
+**Observation (觀察)**: The recent code reviews in Phase 5 successfully addressed critical connection leaks and SQL injection risks. However, client-side authentication bypass vulnerabilities (e.g., CR-01) require architectural shifts to server-side session management, which were deferred.
+**Advice (建議)**: Officially establish a **Phase 6** dedicated to security hardening. This phase should implement robust server-side session validation, role-based access control (RBAC), and conduct full security audits across all API endpoints (analytics, cloud_sync, staff_actions) to ensure enterprise-grade safety.
+**建議**: 正式設立**第6階段**專注於安全加固。該階段應實施穩健的服務器端會話驗證、基於角色的訪問控制 (RBAC)，並對所有 API 端點（分析、雲端同步、員工操作）進行全面的安全審計，以確保企業級的安全性。
+
+### 9.8 Continuous Testing & Integration Pipeline | 持續測試與整合流程
+**Observation (觀察)**: As endpoints are updated with defensive patterns like `DBContext` and query optimizations, manual verification becomes a bottleneck and introduces regression risks.
+**Advice (建議)**: Introduce automated test suites (e.g., using `pytest`) that cover all updated endpoints. Integrating a robust testing pipeline ensures that future database and API refactoring won't break existing functionalities, allowing for safer merges.
+**建議**: 引入自動化測試套件（如使用 `pytest`）覆蓋所有已更新的端點。整合強大的測試流程可確保未來的數據庫和 API 重構不會破壞現有功能，讓代碼合併更安全。
+
 ---
 
 ## Document History | 文檔歷史
@@ -447,9 +464,10 @@ Based on a deep review of the workspace and current architecture, the following 
 - **2026-05-06**: Initial project plan (user concept)
 - **2026-05-06**: Expanded with full architecture, phases, tech stack, and bilingual documentation
 - **2026-05-06**: Added Strategic Advice & Plan Improvements section based on deep workspace research.
+- **2026-05-13**: Added strategic advice for Phase 6 (Security Hardening) and Testing Pipeline based on Phase 5 code review resolutions.
 
 ---
 
-*Last updated: 2026-05-06*  
-*Project Status: Initialized, ready for Phase 1 execution*  
+*Last updated: 2026-05-13*  
+*Project Status: Phase 5 completed, ready for testing and Phase 6 planning*  
 *For detailed planning, see `.planning/PROJECT.md`, `.planning/ROADMAP.md`*
