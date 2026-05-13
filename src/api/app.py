@@ -75,7 +75,7 @@ def create_app(config=None):
 
 def _register_routes(app):
     """Register all API routes."""
-    from api.routes import inference, rag, hybrid, clinic_his, cloud_llm
+    from api.routes import inference, rag, hybrid, clinic_his
     from api.routes.line_bot import line_bp
     from api.routes.staff_api import staff_bp
     from api.routes.staff_inbox import staff_inbox_bp
@@ -87,6 +87,7 @@ def _register_routes(app):
     from api.routes.analytics import analytics_bp
     from api.routes.staff_actions import staff_actions_bp
     from api.routes.cloud_sync import cloud_sync_bp
+    from api.routes.rag_dashboard import rag_dashboard_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -125,9 +126,6 @@ def _register_routes(app):
         
         return jsonify(checks)
     
-    # Cloud LLM routes (OpenAI-compatible /v1/chat/completions)
-    app.register_blueprint(cloud_llm.bp)
-
     # Inference routes
     app.register_blueprint(inference.bp)
 
@@ -166,6 +164,9 @@ def _register_routes(app):
 
     # Analytics routes
     app.register_blueprint(analytics_bp)
+
+    # RAG Dashboard routes
+    app.register_blueprint(rag_dashboard_bp)
 
     # Staff Actions routes (approvals, appointments, messages)
     app.register_blueprint(staff_actions_bp)

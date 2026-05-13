@@ -1,0 +1,528 @@
+{% extends 'base.html' %}
+
+{% block title %}RAG 文件管理儀表板{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .collection-tab {
+        padding: 2rem 0;
+    }
+
+    .collection-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .collection-icon {
+        font-size: 2.5rem;
+    }
+
+    .collection-title {
+        margin: 0;
+        color: #333;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-box {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+        margin: 0.5rem 0;
+    }
+
+    .stat-label {
+        color: #666;
+        font-size: 0.875rem;
+    }
+
+    .upload-zone {
+        border: 2px dashed #0d6efd;
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        background: #f0f7ff;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 2rem;
+    }
+
+    .upload-zone:hover {
+        border-color: #0056b3;
+        background: #e7f1ff;
+    }
+
+    .upload-zone.dragover {
+        border-color: #0056b3;
+        background: #e7f1ff;
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .upload-text {
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-hint {
+        color: #999;
+        font-size: 0.875rem;
+    }
+
+    .file-input {
+        display: none;
+    }
+
+    .query-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+
+    .query-section h5 {
+        margin-bottom: 1rem;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .query-input {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .query-input input {
+        flex: 1;
+    }
+
+    .query-result {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .query-result.show {
+        display: block;
+    }
+
+    .answer-text {
+        margin-bottom: 1rem;
+        line-height: 1.6;
+    }
+
+    .citations {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 4px;
+        border-left: 3px solid #0d6efd;
+    }
+
+    .citation-item {
+        margin: 0.5rem 0;
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    .history-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .history-section h5 {
+        margin-bottom: 1rem;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .history-table {
+        width: 100%;
+        font-size: 0.875rem;
+    }
+
+    .history-table th {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 1px solid #eee;
+    }
+
+    .history-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .status-badge.success {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #0d6efd;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .alert-info, .alert-success, .alert-danger {
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+
+    .nav-tabs {
+        border-bottom: 2px solid #eee;
+        margin-bottom: 2rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #666;
+        padding: 0.75rem 1.5rem;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-bottom-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+    .nav-tabs .nav-link.active {
+        border-bottom-color: #0d6efd;
+        color: #0d6efd;
+        background: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📚 RAG 文件管理儀表板</h1>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general-panel" type="button" role="tab">
+            📖 通用醫療知識庫
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="clinic-tab" data-bs-toggle="tab" data-bs-target="#clinic-panel" type="button" role="tab">
+            🏥 診所特定檔案
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- General Medical Collection -->
+    <div class="tab-pane fade show active" id="general-panel" role="tabpanel">
+        <div class="collection-tab">
+            <div class="collection-header">
+                <div class="collection-icon">📖</div>
+                <div>
+                    <h2 class="collection-title">通用醫療知識庫</h2>
+                    <p class="text-muted">醫療指南、研究論文、臨床標準</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">文件數量</div>
+                    <div class="stat-number" id="general-count">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">狀態</div>
+                    <div id="general-status" style="font-size: 1.5rem; margin: 0.5rem 0;">⏳</div>
+                </div>
+            </div>
+
+            <!-- Upload Zone -->
+            <div class="upload-zone" onclick="document.getElementById('general-file-input').click()">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text"><strong>點擊或拖放文件</strong></div>
+                <div class="upload-hint">支持: TXT, PDF, MD, DOCX (最大 50MB)</div>
+            </div>
+            <input type="file" id="general-file-input" class="file-input" accept=".txt,.pdf,.md,.docx" data-collection="general_medical">
+
+            <!-- Query Testing -->
+            <div class="query-section">
+                <h5>🔍 測試查詢</h5>
+                <div class="query-input">
+                    <input type="text" id="general-query-input" class="form-control" placeholder="輸入查詢...">
+                    <button class="btn btn-primary" onclick="testQuery('general_medical')">查詢</button>
+                </div>
+                <div id="general-query-result" class="query-result"></div>
+            </div>
+
+            <!-- Ingestion History -->
+            <div class="history-section">
+                <h5>📝 上傳歷史</h5>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>時間</th>
+                            <th>狀態</th>
+                            <th>區塊數</th>
+                        </tr>
+                    </thead>
+                    <tbody id="general-history">
+                        <tr><td colspan="4" class="text-center text-muted">載入中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clinic Specific Collection -->
+    <div class="tab-pane fade" id="clinic-panel" role="tabpanel">
+        <div class="collection-tab">
+            <div class="collection-header">
+                <div class="collection-icon">🏥</div>
+                <div>
+                    <h2 class="collection-title">診所特定檔案</h2>
+                    <p class="text-muted">診所協議、患者記錄、內部程序</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">文件數量</div>
+                    <div class="stat-number" id="clinic-count">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">狀態</div>
+                    <div id="clinic-status" style="font-size: 1.5rem; margin: 0.5rem 0;">⏳</div>
+                </div>
+            </div>
+
+            <!-- Upload Zone -->
+            <div class="upload-zone" onclick="document.getElementById('clinic-file-input').click()">
+                <div class="upload-icon">📤</div>
+                <div class="upload-text"><strong>點擊或拖放文件</strong></div>
+                <div class="upload-hint">支持: TXT, PDF, MD, DOCX (最大 50MB)</div>
+            </div>
+            <input type="file" id="clinic-file-input" class="file-input" accept=".txt,.pdf,.md,.docx" data-collection="clinic_specific">
+
+            <!-- Query Testing -->
+            <div class="query-section">
+                <h5>🔍 測試查詢</h5>
+                <div class="query-input">
+                    <input type="text" id="clinic-query-input" class="form-control" placeholder="輸入查詢...">
+                    <button class="btn btn-primary" onclick="testQuery('clinic_specific')">查詢</button>
+                </div>
+                <div id="clinic-query-result" class="query-result"></div>
+            </div>
+
+            <!-- Ingestion History -->
+            <div class="history-section">
+                <h5>📝 上傳歷史</h5>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>文件名</th>
+                            <th>時間</th>
+                            <th>狀態</th>
+                            <th>區塊數</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clinic-history">
+                        <tr><td colspan="4" class="text-center text-muted">載入中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadHistory('general_medical');
+        loadHistory('clinic_specific');
+
+        // File input handlers
+        document.getElementById('general-file-input').addEventListener('change', handleFileSelect);
+        document.getElementById('clinic-file-input').addEventListener('change', handleFileSelect);
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(loadStats, 30000);
+    });
+
+    function loadStats() {
+        fetch('/api/v1/rag/dashboard/stats')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const stats = data.data;
+
+                    // Update general collection
+                    document.getElementById('general-count').textContent = stats.general_medical.document_count;
+                    document.getElementById('general-status').textContent =
+                        stats.general_medical.status === 'healthy' ? '✅' : '❌';
+
+                    // Update clinic collection
+                    document.getElementById('clinic-count').textContent = stats.clinic_specific.document_count;
+                    document.getElementById('clinic-status').textContent =
+                        stats.clinic_specific.status === 'healthy' ? '✅' : '❌';
+                }
+            })
+            .catch(err => console.error('Error loading stats:', err));
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const collection = event.target.dataset.collection;
+        uploadFile(file, collection);
+    }
+
+    function uploadFile(file, collection) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('collection', collection);
+
+        const prefix = collection.split('_')[0];
+        const resultDiv = document.getElementById(`${prefix}-query-result`);
+
+        fetch('/api/v1/rag/dashboard/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ 上傳成功！建立了 ${data.chunks_created} 個區塊。`);
+                    loadStats();
+                    loadHistory(collection);
+                } else {
+                    alert(`❌ 上傳失敗: ${data.error}`);
+                }
+            })
+            .catch(err => {
+                console.error('Upload error:', err);
+                alert('❌ 上傳出錯');
+            });
+    }
+
+    function testQuery(collection) {
+        const prefix = collection.split('_')[0];
+        const queryInput = document.getElementById(`${prefix}-query-input`);
+        const query = queryInput.value.trim();
+
+        if (!query) {
+            alert('請輸入查詢');
+            return;
+        }
+
+        const resultDiv = document.getElementById(`${prefix}-query-result`);
+        resultDiv.innerHTML = '<div class="loading-spinner"></div> 查詢中...';
+        resultDiv.classList.add('show');
+
+        fetch('/api/v1/rag/dashboard/test-query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, collection })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const citations = data.citations
+                        .map(c => `<div class="citation-item">📄 ${c}</div>`)
+                        .join('');
+
+                    resultDiv.innerHTML = `
+                        <div class="answer-text"><strong>回答：</strong><br>${data.answer}</div>
+                        <div class="citations">
+                            <strong>引用來源：</strong><br>
+                            ${citations || '<div class="citation-item">無引用</div>'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                }
+            })
+            .catch(err => {
+                resultDiv.innerHTML = `<div class="alert alert-danger">查詢出錯: ${err.message}</div>`;
+            });
+    }
+
+    function loadHistory(collection) {
+        fetch(`/api/v1/rag/dashboard/history?collection=${collection}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const prefix = collection.split('_')[0];
+                    const tbody = document.getElementById(`${prefix}-history`);
+
+                    if (data.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">無上傳記錄</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = data.data.map(h => `
+                        <tr>
+                            <td>${h.filename}</td>
+                            <td>${new Date(h.timestamp).toLocaleString('zh-TW')}</td>
+                            <td><span class="status-badge ${h.status}">${h.status === 'success' ? '✓ 成功' : '✗ 失敗'}</span></td>
+                            <td>${h.chunks}</td>
+                        </tr>
+                    `).join('');
+                }
+            })
+            .catch(err => console.error('Error loading history:', err));
+    }
+</script>
+{% endblock %}
