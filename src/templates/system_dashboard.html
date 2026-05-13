@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}系統監控儀表板 - Dr. Toolbox{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-speedometer2 me-2"></i>系統監控儀表板</h2>
+        <div>
+            <span class="badge bg-secondary me-2" id="last-updated">更新中...</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="fetchMetrics()">
+                <i class="bi bi-arrow-clockwise"></i> 立即更新
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert for errors -->
+    <div id="error-alert" class="alert alert-danger d-none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        無法取得系統狀態，請確認後端服務是否正常運作。
+    </div>
+
+    <div class="row g-4">
+        <!-- Database Metrics -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" id="db-card">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="card-title text-muted mb-0"><i class="bi bi-database me-2"></i>資料庫連線池</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="display-4 fw-bold mb-3" id="db-available">-</h2>
+                    <p class="text-muted mb-1">可用連線數 / 最大連線數: <span id="db-max" class="fw-bold">-</span></p>
+                    <p class="text-muted mb-0">已建立連線數: <span id="db-created" class="fw-bold">-</span></p>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-4">
+                    <span class="badge bg-secondary" id="db-health">狀態讀取中</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cache Metrics -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" id="cache-card">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="card-title text-muted mb-0"><i class="bi bi-memory me-2"></i>查詢快取</h5>
+                </div>
+                <div class="card-body">
+                    <h2 class="display-4 fw-bold mb-3" id="cache-items">-</h2>
+                    <p class="text-muted mb-1">總快取項目數</p>
+                    <p class="text-muted mb-0">總命中次數: <span id="cache-hits" class="fw-bold text-success">-</span></p>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-4">
+                    <span class="badge bg-info">即時統計</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sync Metrics -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" id="sync-card">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="card-title text-muted mb-0"><i class="bi bi-cloud-sync me-2"></i>雲端同步狀態</h5>
+                </div>
+                <div class="card-body">
+                    <h3 class="fw-bold mb-3 text-truncate" id="sync-time">-</h3>
+                    <p class="text-muted mb-1">最後同步時間</p>
+                    <p class="text-muted mb-0">待處理佇列: <span id="sync-pending" class="fw-bold text-warning">-</span></p>
+                </div>
+                <div class="card-footer bg-transparent border-0 pb-4">
+                    <span class="badge bg-secondary" id="sync-status">狀態讀取中</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function fetchMetrics() {
+        try {
+            const response = await fetch('/api/v1/system/metrics');
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            
+            // Hide error alert
+            document.getElementById('error-alert').classList.add('d-none');
+            
+            // Update Database Metrics
+            document.getElementById('db-available').textContent = data.database.available_connections;
+            document.getElementById('db-max').textContent = data.database.max_connections;
+            document.getElementById('db-created').textContent = data.database.pool_size;
+            
+            const dbHealth = document.getElementById('db-health');
+            const dbCard = document.getElementById('db-card');
+            if (data.database.health === 'healthy') {
+                dbHealth.className = 'badge bg-success';
+                dbHealth.textContent = '運作正常';
+                dbCard.classList.remove('border-warning');
+            } else {
+                dbHealth.className = 'badge bg-warning text-dark';
+                dbHealth.textContent = '資源緊張';
+                dbCard.classList.add('border-warning', 'border-2');
+            }
+
+            // Update Cache Metrics
+            document.getElementById('cache-items').textContent = data.cache.total_items;
+            document.getElementById('cache-hits').textContent = data.cache.total_hits;
+
+            // Update Sync Metrics
+            document.getElementById('sync-time').textContent = data.sync.last_sync_time ? 
+                new Date(data.sync.last_sync_time + 'Z').toLocaleString('zh-TW') : '無紀錄';
+            document.getElementById('sync-pending').textContent = data.sync.pending_records;
+            
+            const syncStatus = document.getElementById('sync-status');
+            if (data.sync.last_sync_status === 'completed') {
+                syncStatus.className = 'badge bg-success';
+                syncStatus.textContent = '同步成功';
+            } else if (data.sync.last_sync_status === 'failed') {
+                syncStatus.className = 'badge bg-danger';
+                syncStatus.textContent = '同步失敗';
+            } else if (data.sync.last_sync_status === 'pending') {
+                syncStatus.className = 'badge bg-warning text-dark';
+                syncStatus.textContent = '同步中';
+            } else {
+                syncStatus.className = 'badge bg-secondary';
+                syncStatus.textContent = '未設定或未知';
+            }
+
+            // Update timestamp
+            document.getElementById('last-updated').textContent = `最後更新: ${new Date().toLocaleTimeString('zh-TW')}`;
+            
+        } catch (error) {
+            console.error('Failed to fetch metrics:', error);
+            document.getElementById('error-alert').classList.remove('d-none');
+        }
+    }
+
+    // Initial fetch
+    fetchMetrics();
+    
+    // Poll every 5 seconds
+    setInterval(fetchMetrics, 5000);
+</script>
+{% endblock %}

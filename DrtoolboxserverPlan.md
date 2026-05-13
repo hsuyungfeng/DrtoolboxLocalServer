@@ -457,6 +457,16 @@ Based on a deep review of the workspace and current architecture, the following 
 **Advice (建議)**: Introduce automated test suites (e.g., using `pytest`) that cover all updated endpoints. Integrating a robust testing pipeline ensures that future database and API refactoring won't break existing functionalities, allowing for safer merges.
 **建議**: 引入自動化測試套件（如使用 `pytest`）覆蓋所有已更新的端點。整合強大的測試流程可確保未來的數據庫和 API 重構不會破壞現有功能，讓代碼合併更安全。
 
+### 9.9 Phase 7: System Setup & Ecosystem Integration | 第7階段：系統設定與生態系整合
+**Goal**: Local server configuration UI, Chatbot platform, File Manager, and Automated CRM analysis
+**目標**: 本地伺服器設定介面、聊天機器人平台、檔案管理器與自動化 CRM 分析
+
+**Deliverables & Integrations (交付成果與整合方案)**:
+1. **Setup Dashboard (系統初始設定中心)**: 建立一個集中式的設定頁面，允許管理員輸入診所名稱、API 金鑰及各項全域參數。
+2. **AstrBot Integration (Robotbot 聊天機器人)**: 整合 `AstrBot` 作為診所對外 (如 LINE/Telegram) 的通訊機器人引擎，可透過 Flask 後端直接寫入設定檔與進行程序監控。
+3. **FileBrowser Integration (檔案管理中心)**: 整合 `filebrowser` 並實作無縫登入 (SSO)，使診所員工可於網頁介面直接預覽與管理伺服器上的醫療文件。
+4. **Hermes-Desktop (終端 CRM 分析應用)**: 部署客製化的 Hermes-Desktop client `.exe`，作為夜間自動化分析的 Worker。該客戶端將於夜間自動運行，針對 HIS 資料庫進行深入的 CRM 分析 (例如：病患回診追蹤、健康趨勢預測、名單自動標記等)。
+
 ---
 
 ## Document History | 文檔歷史
@@ -465,6 +475,7 @@ Based on a deep review of the workspace and current architecture, the following 
 - **2026-05-06**: Expanded with full architecture, phases, tech stack, and bilingual documentation
 - **2026-05-06**: Added Strategic Advice & Plan Improvements section based on deep workspace research.
 - **2026-05-13**: Added strategic advice for Phase 6 (Security Hardening) and Testing Pipeline based on Phase 5 code review resolutions.
+- **2026-05-13**: Added Phase 7 for System Setup and Ecosystem Integration (AstrBot, FileBrowser, Hermes-Desktop as Nightly CRM Analyzer).
 
 ---
 

@@ -88,6 +88,7 @@ def _register_routes(app):
     from api.routes.staff_actions import staff_actions_bp
     from api.routes.cloud_sync import cloud_sync_bp
     from api.routes.rag_dashboard import rag_dashboard_bp
+    from api.routes.system_metrics import system_metrics_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -174,6 +175,9 @@ def _register_routes(app):
     # Cloud Sync routes
     app.register_blueprint(cloud_sync_bp)
 
+    # System Metrics Dashboard routes
+    app.register_blueprint(system_metrics_bp)
+
     # Root route
     @app.route('/', methods=['GET'])
     def root():
@@ -203,6 +207,8 @@ def _register_routes(app):
                 "sync_patient": "/api/v1/sync/patient",
                 "sync_analytics": "/api/v1/sync/analytics",
                 "sync_status": "/api/v1/sync/status",
+                "system_metrics": "/api/v1/system/metrics",
+                "system_dashboard": "/dashboard/system/",
                 "line_health": "/api/line/health",
             }
         })
