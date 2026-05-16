@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drtoolbox - Training Dashboard</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+<body>
+    <header>
+        <h1>Training Dashboard</h1>
+        <button class="export-btn" id="exportBtn">Export JSONL</button>
+    </header>
+    
+    <main>
+        <div class="glass-panel">
+            <div class="log-list" id="logList">
+                <!-- Logs will be injected here via JS -->
+            </div>
+        </div>
+        
+        <div class="glass-panel editor-panel" id="editorPanel" style="display: none;">
+            <h2>Correction Editor</h2>
+            <div class="field-group">
+                <label>User Prompt</label>
+                <div class="readonly-text" id="editorPrompt"></div>
+            </div>
+            <div class="field-group">
+                <label>LLM Response (Edit to Correct)</label>
+                <textarea id="editorResponse"></textarea>
+            </div>
+            <button class="save-btn" id="saveBtn">Verify & Save Pair</button>
+        </div>
+    </main>
+    
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
