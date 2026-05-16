@@ -12,6 +12,7 @@ Error handling: 409 Conflict on duplicate, 404 if not found, 400 for validation
 """
 
 import logging
+import os
 import sqlite3
 from datetime import datetime
 from functools import wraps
@@ -29,7 +30,7 @@ def _get_db_connection():
     """Get database connection (uses clinic.db)."""
     try:
         # Try to connect to clinic database (used by other services)
-        conn = sqlite3.connect("/home/hsu/DrtoolboxLocalServer/clinic.db")
+        conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), '../../../data/db/clinic.db'))
         conn.row_factory = sqlite3.Row
         return conn
     except sqlite3.Error as e:

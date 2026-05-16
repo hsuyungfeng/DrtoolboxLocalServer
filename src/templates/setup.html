@@ -1,0 +1,532 @@
+{% extends 'base.html' %}
+
+{% block title %}系統設定管理中心 - 診所管理系統{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="page-title">系統設定管理中心</h2>
+        <div>
+            <button class="btn btn-outline-success btn-sm me-2" onclick="exportConfig()">匯出設定備份</button>
+            <button class="btn btn-outline-warning btn-sm" onclick="document.getElementById('import-file').click()">匯入設定備份</button>
+            <input type="file" id="import-file" accept=".json" style="display:none" onchange="importConfig(this)">
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="setup-toast" class="alert alert-success d-none position-fixed top-0 end-0 m-3" style="z-index:9999" role="alert"></div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" id="setupTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab">一般設定</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="apikey-tab" data-bs-toggle="tab" data-bs-target="#apikey" type="button" role="tab">API 金鑰</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="service-tab" data-bs-toggle="tab" data-bs-target="#service" type="button" role="tab">服務設定</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ecosystem-tab" data-bs-toggle="tab" data-bs-target="#ecosystem" type="button" role="tab">生態系服務</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">變更記錄</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="setupTabContent">
+        <!-- 一般設定 Tab -->
+        <div class="tab-pane fade show active" id="general" role="tabpanel">
+            <div class="card">
+                <div class="card-header">診所基本資訊</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">診所名稱</label>
+                            <input type="text" class="form-control" id="env-CLINIC_NAME" placeholder="例：仁愛診所">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">時區</label>
+                            <select class="form-select" id="env-TZ">
+                                <option value="Asia/Taipei">Asia/Taipei (台灣)</option>
+                                <option value="Asia/Shanghai">Asia/Shanghai (中國)</option>
+                                <option value="Asia/Tokyo">Asia/Tokyo (日本)</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">預設 LLM 模型</label>
+                            <input type="text" class="form-control" id="env-LLM_MODEL" placeholder="例：qwen-3.6">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">伺服器 Port</label>
+                            <input type="number" class="form-control" id="env-PORT" placeholder="8080">
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-primary" onclick="saveAllEnv()">儲存所有一般設定</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API 金鑰 Tab -->
+        <div class="tab-pane fade" id="apikey" role="tabpanel">
+            <!-- 社群通訊渠道 API -->
+            <div class="card">
+                <div class="card-header">社群通訊渠道 API <small class="text-muted">— 患者可透過這些平台與 LLM 聊天機器人對話</small></div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2">LINE</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">LINE Channel Secret</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-LINE_CHANNEL_SECRET" placeholder="...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-LINE_CHANNEL_SECRET')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('LINE_CHANNEL_SECRET')">儲存</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">LINE Channel Access Token</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-LINE_CHANNEL_ACCESS_TOKEN" placeholder="...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-LINE_CHANNEL_ACCESS_TOKEN')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('LINE_CHANNEL_ACCESS_TOKEN')">儲存</button>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-3">
+                            <h6 class="border-bottom pb-2">DrToolbox Chat</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Chat API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-DRTOOLBOX_CHAT_API_KEY" placeholder="dt-chat-...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-DRTOOLBOX_CHAT_API_KEY')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('DRTOOLBOX_CHAT_API_KEY')">儲存</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Chat Webhook URL</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="env-DRTOOLBOX_CHAT_WEBHOOK_URL" placeholder="https://doctor-toolbox.com/chats/webhook">
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('DRTOOLBOX_CHAT_WEBHOOK_URL')">儲存</button>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-3">
+                            <h6 class="border-bottom pb-2">Facebook Messenger</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Page Access Token</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-FB_PAGE_ACCESS_TOKEN" placeholder="EAA...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-FB_PAGE_ACCESS_TOKEN')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('FB_PAGE_ACCESS_TOKEN')">儲存</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Verify Token</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-FB_VERIFY_TOKEN" placeholder="自訂驗證字串">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-FB_VERIFY_TOKEN')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('FB_VERIFY_TOKEN')">儲存</button>
+                            </div>
+                        </div>
+
+                        <div class="col-12 mt-3">
+                            <h6 class="border-bottom pb-2">其他渠道 <small class="text-muted">（未來擴充）</small></h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">WhatsApp Business API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-WHATSAPP_API_KEY" placeholder="預留...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-WHATSAPP_API_KEY')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('WHATSAPP_API_KEY')">儲存</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Instagram API Key</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="env-INSTAGRAM_API_KEY" placeholder="預留...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('env-INSTAGRAM_API_KEY')">顯示</button>
+                                <button class="btn btn-primary" type="button" onclick="saveEnvKey('INSTAGRAM_API_KEY')">儲存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 服務設定 Tab -->
+        <div class="tab-pane fade" id="service" role="tabpanel">
+            <ul class="nav nav-pills mb-3" id="serviceSubTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#cfg-llama" type="button">llama.cpp</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#cfg-cuda" type="button">CUDA</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#cfg-memory" type="button">記憶體監控</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#cfg-ingest" type="button">文件攝取</button>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="cfg-llama">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            llama_config.json
+                            <button class="btn btn-primary btn-sm" onclick="saveConfigFile('llama')">儲存設定</button>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control font-monospace" id="config-llama" rows="20" style="font-size:0.85rem"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="cfg-cuda">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            llama_cuda_config.json
+                            <button class="btn btn-primary btn-sm" onclick="saveConfigFile('llama_cuda')">儲存設定</button>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control font-monospace" id="config-llama_cuda" rows="20" style="font-size:0.85rem"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="cfg-memory">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            memory_config.json
+                            <button class="btn btn-primary btn-sm" onclick="saveConfigFile('memory')">儲存設定</button>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control font-monospace" id="config-memory" rows="20" style="font-size:0.85rem"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="cfg-ingest">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            ingest_config.json
+                            <button class="btn btn-primary btn-sm" onclick="saveConfigFile('ingest')">儲存設定</button>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control font-monospace" id="config-ingest" rows="20" style="font-size:0.85rem"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 生態系服務 Tab -->
+        <div class="tab-pane fade" id="ecosystem" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card h-100" id="svc-filebrowser-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            FileBrowser 檔案管理
+                            <span class="badge bg-secondary" id="svc-filebrowser-status">檢查中...</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">網頁檔案管理器 (醫療文件預覽與管理)</p>
+                            <p class="mb-1"><small>URL: <code id="svc-filebrowser-url">-</code></small></p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-outline-danger btn-sm" onclick="restartService('filebrowser')">重啟服務</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100" id="svc-hermes-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            Hermes Agent
+                            <span class="badge bg-secondary" id="svc-hermes-status">檢查中...</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">AI 代理程式 (模式學習、自動技能、CRM 分析)</p>
+                            <p class="mb-1"><small>URL: <code id="svc-hermes-url">-</code></small></p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <button class="btn btn-outline-danger btn-sm" onclick="restartService('hermes-agent')">重啟服務</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-outline-secondary btn-sm" onclick="fetchServicesStatus()">重新檢查</button>
+            </div>
+        </div>
+
+        <!-- 變更記錄 Tab -->
+        <div class="tab-pane fade" id="history" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    設定變更記錄
+                    <button class="btn btn-outline-secondary btn-sm" onclick="fetchSetupLogs()">重新整理</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>時間</th>
+                                    <th>操作</th>
+                                    <th>區段</th>
+                                    <th>鍵名</th>
+                                    <th>舊值</th>
+                                    <th>新值</th>
+                                </tr>
+                            </thead>
+                            <tbody id="setup-logs-body">
+                                <tr><td colspan="6" class="text-center text-muted py-4">載入中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Toast 通知
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('setup-toast');
+        toast.textContent = message;
+        toast.className = `alert alert-${type} d-block position-fixed top-0 end-0 m-3`;
+        setTimeout(() => { toast.classList.add('d-none'); }, 3000);
+    }
+
+    // 切換密碼欄位顯示
+    function toggleVisibility(elementId) {
+        const el = document.getElementById(elementId);
+        el.type = el.type === 'password' ? 'text' : 'password';
+    }
+
+    // 載入所有設定
+    async function loadConfig() {
+        try {
+            const resp = await fetch('/api/v1/setup/config');
+            const result = await resp.json();
+            if (!result.success) {
+                showToast('無法載入設定: ' + result.error, 'danger');
+                return;
+            }
+            const data = result.data;
+
+            // 載入 env 變數到一般設定與 API 金鑰 Tab
+            for (const [key, value] of Object.entries(data.env)) {
+                const el = document.getElementById(`env-${key}`);
+                if (el) el.value = value || '';
+            }
+
+            // 載入 config JSON 到服務設定 Tab
+            for (const [name, config] of Object.entries(data.configs)) {
+                const el = document.getElementById(`config-${name}`);
+                if (el) el.value = JSON.stringify(config, null, 2);
+            }
+        } catch (e) {
+            showToast('載入設定失敗: ' + e.message, 'danger');
+        }
+    }
+
+    // 儲存單一 env key
+    async function saveEnvKey(key) {
+        const el = document.getElementById(`env-${key}`);
+        const value = el.value;
+        try {
+            const resp = await fetch('/api/v1/setup/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section: 'env', key: key, value: value })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showToast(`${key} 已儲存`);
+            } else {
+                showToast(`儲存失敗: ${result.error}`, 'danger');
+            }
+        } catch (e) {
+            showToast('儲存失敗: ' + e.message, 'danger');
+        }
+    }
+
+    // 儲存所有一般設定
+    async function saveAllEnv() {
+        const keys = ['CLINIC_NAME', 'TZ', 'LLM_MODEL', 'PORT'];
+        let saved = 0;
+        for (const key of keys) {
+            await saveEnvKey(key);
+            saved++;
+        }
+        showToast(`已儲存 ${saved} 項一般設定`);
+    }
+
+    // 儲存 config JSON 檔案
+    async function saveConfigFile(name) {
+        const el = document.getElementById(`config-${name}`);
+        let data;
+        try {
+            data = JSON.parse(el.value);
+        } catch (e) {
+            showToast('JSON 格式無效: ' + e.message, 'danger');
+            return;
+        }
+        try {
+            const resp = await fetch('/api/v1/setup/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section: name, data: data })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showToast(`${name}.json 已儲存`);
+            } else {
+                showToast(`儲存失敗: ${result.error}`, 'danger');
+            }
+        } catch (e) {
+            showToast('儲存失敗: ' + e.message, 'danger');
+        }
+    }
+
+    // 匯出設定
+    async function exportConfig() {
+        try {
+            const resp = await fetch('/api/v1/setup/export');
+            const result = await resp.json();
+            if (!result.success) {
+                showToast('匯出失敗', 'danger');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `drtoolbox-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('設定備份已下載');
+        } catch (e) {
+            showToast('匯出失敗: ' + e.message, 'danger');
+        }
+    }
+
+    // 匯入設定
+    async function importConfig(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                const resp = await fetch('/api/v1/setup/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showToast(result.message);
+                    loadConfig();
+                } else {
+                    showToast('匯入失敗: ' + result.error, 'danger');
+                }
+            } catch (err) {
+                showToast('匯入失敗: ' + err.message, 'danger');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // 取得生態系服務狀態
+    async function fetchServicesStatus() {
+        try {
+            const resp = await fetch('/api/v1/setup/services');
+            const result = await resp.json();
+            if (!result.success) return;
+            const services = result.data;
+
+            for (const [key, svc] of Object.entries(services)) {
+                const statusEl = document.getElementById(`svc-${key}-status`);
+                const urlEl = document.getElementById(`svc-${key}-url`);
+                if (urlEl) urlEl.textContent = svc.url;
+                if (statusEl) {
+                    if (svc.online) {
+                        statusEl.className = 'badge bg-success';
+                        statusEl.textContent = '連線正常';
+                    } else {
+                        statusEl.className = 'badge bg-danger';
+                        statusEl.textContent = '離線';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Service status fetch failed:', e);
+        }
+    }
+
+    // 重啟服務
+    async function restartService(name) {
+        if (!confirm(`確定要重啟 ${name} 服務嗎？`)) return;
+        try {
+            const resp = await fetch('/api/v1/setup/services/restart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ service: name })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                showToast(`${name} 已重啟`);
+                setTimeout(fetchServicesStatus, 3000);
+            } else {
+                showToast(`重啟失敗: ${result.error}`, 'danger');
+            }
+        } catch (e) {
+            showToast('重啟失敗: ' + e.message, 'danger');
+        }
+    }
+
+    // 取得變更記錄
+    async function fetchSetupLogs() {
+        try {
+            const resp = await fetch('/api/v1/setup/logs');
+            const result = await resp.json();
+            const tbody = document.getElementById('setup-logs-body');
+            if (!result.success || !result.data || result.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">尚無變更記錄</td></tr>';
+                return;
+            }
+            tbody.innerHTML = result.data.map(log => `
+                <tr>
+                    <td class="small">${new Date(log.timestamp).toLocaleString('zh-TW')}</td>
+                    <td><span class="badge bg-${log.action === 'update' ? 'info' : log.action === 'restart' ? 'warning' : 'secondary'}">${log.action}</span></td>
+                    <td><code>${log.section || '-'}</code></td>
+                    <td><code>${log.key || '-'}</code></td>
+                    <td class="small text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.old_value || '-'}</td>
+                    <td class="small text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${log.new_value || '-'}</td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error('Setup logs fetch failed:', e);
+        }
+    }
+
+    // 監聽 tab 切換以載入對應資料
+    document.addEventListener('DOMContentLoaded', () => {
+        loadConfig();
+        fetchServicesStatus();
+
+        document.getElementById('ecosystem-tab').addEventListener('shown.bs.tab', fetchServicesStatus);
+        document.getElementById('history-tab').addEventListener('shown.bs.tab', fetchSetupLogs);
+    });
+</script>
+{% endblock %}

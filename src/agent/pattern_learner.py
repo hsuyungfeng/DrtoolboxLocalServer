@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class PatternLearner:
     """Monitors chat history and suggests Auto-Skills with semantic pattern detection."""
     
-    def __init__(self, db_path: str = "data/local_db/clinic.db", 
+    def __init__(self, db_path: str = "data/db/clinic.db", 
                  pattern_threshold: int = 3, 
                  similarity_threshold: float = 0.8):
         self.db_path = db_path

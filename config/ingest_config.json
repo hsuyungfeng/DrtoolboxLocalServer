@@ -1,7 +1,7 @@
 {
   "chroma": {
     "type": "persistant",
-    "path": "data/rag/chroma_new/",
+    "path": "data/rag/chroma/",
     "collections": {
       "general_medical": "general_medical",
       "clinic_specific": "clinic_specific"

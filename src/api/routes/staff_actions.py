@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 staff_actions_bp = Blueprint('staff_actions', __name__)
 
 # Database path
-DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../db/clinic.db'))
+DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../clinic.db'))
 
 
 def get_db_connection():

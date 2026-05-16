@@ -28,7 +28,7 @@ patient_intake_bp = Blueprint('patient_intake', __name__, url_prefix='/api')
 _db_lock = Lock()
 
 # Database path from environment or default
-DB_PATH = os.getenv('CLINIC_DB_PATH', 'clinic.db')
+DB_PATH = os.getenv('CLINIC_DB_PATH', 'data/db/clinic.db')
 
 
 def _get_db_connection() -> sqlite3.Connection:

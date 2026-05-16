@@ -23,7 +23,7 @@ staff_conversation_bp = Blueprint("staff_conversation", __name__)
 
 def _get_db_connection():
     """Get database connection with row factory."""
-    conn = sqlite3.connect('clinic.db')
+    conn = sqlite3.connect('data/db/clinic.db')
     conn.row_factory = sqlite3.Row
     return conn
 

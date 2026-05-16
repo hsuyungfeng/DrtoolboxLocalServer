@@ -32,7 +32,7 @@ def require_staff_id(f):
     return decorated_function
 
 
-def check_escalation_status(patient_id: int, db_path: str = 'clinic.db') -> bool:
+def check_escalation_status(patient_id: int, db_path: str = 'data/db/clinic.db') -> bool:
     """
     Check if patient has recent escalated messages (within 7 days).
 
@@ -76,7 +76,7 @@ def list_patients(staff_id):
     per_page = 20
     offset = (page - 1) * per_page
 
-    db_path = 'clinic.db'
+    db_path = 'data/db/clinic.db'
     patients = []
     total_count = 0
 
@@ -149,7 +149,7 @@ def view_patient_detail(patient_id, staff_id):
     Returns:
         Rendered patient detail template
     """
-    db_path = 'clinic.db'
+    db_path = 'data/db/clinic.db'
 
     try:
         with sqlite3.connect(db_path) as conn:
@@ -213,7 +213,7 @@ def update_patient_detail(patient_id, staff_id):
     Returns:
         JSON response with success/error message
     """
-    db_path = 'clinic.db'
+    db_path = 'data/db/clinic.db'
 
     try:
         # Parse form data

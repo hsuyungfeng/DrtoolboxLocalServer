@@ -88,7 +88,7 @@ def view_patient_dashboard(patient_id: int):
 
         if not patient:
             # Fetch from PatientService
-            patient_service = PatientService(db_path='clinic.db')
+            patient_service = PatientService(db_path='data/db/clinic.db')
             patient = patient_service.get_patient_by_id(patient_id)
 
             if not patient:
@@ -100,7 +100,7 @@ def view_patient_dashboard(patient_id: int):
             set_patient_cache(patient_id, patient)
         else:
             # If we got from cache, still need to service instance for appointments
-            patient_service = PatientService(db_path='clinic.db')
+            patient_service = PatientService(db_path='data/db/clinic.db')
 
         # Fetch upcoming appointments (next 30 days)
         appointments = patient_service.get_upcoming_appointments(patient_id, days=30)
@@ -109,7 +109,7 @@ def view_patient_dashboard(patient_id: int):
 
         # Fetch conversation history (last 7 days)
         # Note: ConversationManager expects patient_id as string
-        conv_manager = ConversationManager(db_path='clinic.db')
+        conv_manager = ConversationManager(db_path='data/db/clinic.db')
         conversation_messages = conv_manager.get_conversation_history(str(patient_id), days=7)
 
         # Convert Message objects to dicts for template rendering

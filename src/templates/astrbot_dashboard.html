@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}聊天機器人管理中心 - 診所管理系統{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="page-title">聊天機器人管理中心</h2>
+        <div>
+            <span class="badge bg-secondary me-2" id="last-updated">更新中...</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="fetchAllData()">立即更新</button>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- AstrBot 狀態 -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0" id="status-card">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="card-title text-muted mb-0">AstrBot 服務狀態</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <span class="badge fs-5 px-4 py-2" id="bot-status" style="font-size:1.1rem">檢查中...</span>
+                    </div>
+                    <p class="text-muted small mb-0" id="bot-version">版本: -</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 平台數量 -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 stat-card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">已啟動平台</h6>
+                    <div class="stat-value" id="platform-count">-</div>
+                    <div class="stat-label">個平台</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 活躍會話 -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 stat-card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">活躍會話</h6>
+                    <div class="stat-value" id="session-count">-</div>
+                    <div class="stat-label">個會話</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 平台列表 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">平台列表</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>平台</th>
+                                    <th>Bot 名稱</th>
+                                    <th>狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody id="platform-list-body">
+                                <tr><td colspan="3" class="text-center text-muted py-4">載入中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速發送 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">快速發送訊息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">目標平台</label>
+                        <input type="text" class="form-control" id="send-platform" placeholder="例：qq_official, line">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">目標 ID</label>
+                        <input type="text" class="form-control" id="send-target" placeholder="使用者 ID 或群組 ID">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">訊息內容</label>
+                        <textarea class="form-control" id="send-content" rows="3" placeholder="輸入訊息..."></textarea>
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="sendMessage()">發送訊息</button>
+                    <div id="send-result" class="mt-2 small d-none"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 活躍會話表格 -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">活躍會話監控</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>會話 ID</th>
+                                    <th>平台</th>
+                                    <th>使用者</th>
+                                    <th>最後活動</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessions-body">
+                                <tr><td colspan="4" class="text-center text-muted py-4">載入中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function fetchStatus() {
+        try {
+            const resp = await fetch('/api/v1/astrbot/status');
+            const result = await resp.json();
+            if (!result.success) throw new Error(result.error);
+            const data = result.data;
+
+            // 服務狀態
+            const statusEl = document.getElementById('bot-status');
+            if (data.health.online) {
+                statusEl.className = 'badge bg-success fs-5 px-4 py-2';
+                statusEl.textContent = '連線正常';
+            } else {
+                statusEl.className = 'badge bg-danger fs-5 px-4 py-2';
+                statusEl.textContent = '離線';
+            }
+            document.getElementById('bot-version').textContent = '已連線';
+
+            // 平台列表
+            const bots = data.bots || [];
+            document.getElementById('platform-count').textContent = bots.length;
+            const tbody = document.getElementById('platform-list-body');
+            if (bots.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">尚無已啟動平台</td></tr>';
+            } else {
+                tbody.innerHTML = bots.map(b => {
+                    const name = b.name || b.platform || b.id || JSON.stringify(b).slice(0, 50);
+                    const platform = b.platform || '-';
+                    return `<tr>
+                        <td><code>${escapeHtml(platform)}</code></td>
+                        <td>${escapeHtml(String(name))}</td>
+                        <td><span class="badge bg-success">運行中</span></td>
+                    </tr>`;
+                }).join('');
+            }
+        } catch (e) {
+            console.error('AstrBot status fetch failed:', e);
+            document.getElementById('bot-status').className = 'badge bg-danger fs-5 px-4 py-2';
+            document.getElementById('bot-status').textContent = '無法連線';
+            document.getElementById('platform-count').textContent = '?';
+        }
+    }
+
+    async function fetchSessions() {
+        try {
+            const resp = await fetch('/api/v1/astrbot/sessions');
+            const result = await resp.json();
+            const tbody = document.getElementById('sessions-body');
+            if (!result.success || !result.data || result.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">尚無活躍會話</td></tr>';
+                document.getElementById('session-count').textContent = '0';
+                return;
+            }
+            const sessions = Array.isArray(result.data) ? result.data : [result.data];
+            document.getElementById('session-count').textContent = sessions.length;
+
+            tbody.innerHTML = sessions.slice(0, 20).map(s => `
+                <tr>
+                    <td><code class="small">${escapeHtml(String(s.id || s.session_id || '-')).slice(0, 20)}</code></td>
+                    <td>${escapeHtml(String(s.platform || '-'))}</td>
+                    <td>${escapeHtml(String(s.user || s.user_id || '-'))}</td>
+                    <td class="small text-muted">${s.last_active ? new Date(s.last_active).toLocaleString('zh-TW') : '-'}</td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error('Sessions fetch failed:', e);
+        }
+    }
+
+    async function sendMessage() {
+        const platform = document.getElementById('send-platform').value.trim();
+        const target = document.getElementById('send-target').value.trim();
+        const content = document.getElementById('send-content').value.trim();
+        const resultEl = document.getElementById('send-result');
+
+        if (!platform || !target || !content) {
+            resultEl.className = 'mt-2 small text-danger d-block';
+            resultEl.textContent = '請填寫所有欄位';
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/v1/astrbot/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform, target, content })
+            });
+            const result = await resp.json();
+            resultEl.className = 'mt-2 small d-block ' + (result.success ? 'text-success' : 'text-danger');
+            resultEl.textContent = result.success ? '訊息已發送' : ('發送失敗: ' + (result.error || '未知錯誤'));
+            if (result.success) document.getElementById('send-content').value = '';
+        } catch (e) {
+            resultEl.className = 'mt-2 small text-danger d-block';
+            resultEl.textContent = '發送失敗: ' + e.message;
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '-';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function fetchAllData() {
+        fetchStatus();
+        fetchSessions();
+        document.getElementById('last-updated').textContent = `最後更新: ${new Date().toLocaleTimeString('zh-TW')}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchAllData();
+        setInterval(fetchAllData, 10000);
+    });
+</script>
+{% endblock %}

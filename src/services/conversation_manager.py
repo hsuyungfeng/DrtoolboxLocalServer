@@ -59,7 +59,7 @@ class ConversationManager:
     Uses a single SQLite connection with a threading lock for concurrent writes.
     """
 
-    def __init__(self, db_path: str = "clinic.db"):
+    def __init__(self, db_path: str = "data/db/clinic.db"):
         """
         Initialize ConversationManager.
 

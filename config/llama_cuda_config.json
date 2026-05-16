@@ -1,0 +1,51 @@
+{
+  "model": {
+    "path": "models/Qwen3.6-35B-A3B.Q3_K_M.gguf",
+    "name": "Qwen3.6-35B-A3B-Q3_K_M",
+    "quantization": "Q3_K_M",
+    "estimated_vram_gb": 17,
+    "note": "Qwen 3.6 35B Q3_K_M - optimized for 22GB VRAM with CUDA"
+  },
+  "inference": {
+    "n_ctx": 4096,
+    "n_threads": 4,
+    "n_gpu_layers": 50,
+    "kv_cache_quantization": true,
+    "max_tokens": 1024,
+    "temperature": 0.3,
+    "top_p": 0.9,
+    "top_k": 40,
+    "repeat_penalty": 1.1
+  },
+  "batching": {
+    "initial_batch_size": 1,
+    "max_batch_size": 8,
+    "queue_timeout_seconds": 30,
+    "dynamic_scaling_threshold": 5
+  },
+  "memory": {
+    "vram_threshold_gb": 18,
+    "monitoring_interval_seconds": 30,
+    "safety_max_tokens": 1024
+  },
+  "gpu_monitoring": {
+    "enabled": true,
+    "poll_interval_seconds": 30,
+    "alert_threshold_gb": 18
+  },
+  "server": {
+    "binary_path": "/tmp/llama.cpp/build/bin/llama-server",
+    "host": "127.0.0.1",
+    "port": 8081,
+    "workers": 4,
+    "environment": {
+      "GGML_CUDA": "1",
+      "GGML_CUDA_PEER_MAX_BATCH_SIZE": "32"
+    }
+  },
+  "paths": {
+    "data_dir": "data/rag/",
+    "chroma_dir": "data/rag/chroma_new/",
+    "models_dir": "models/"
+  }
+}

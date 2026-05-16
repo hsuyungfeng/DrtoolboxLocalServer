@@ -40,7 +40,7 @@ class PatientService:
     Implements upsert pattern for idempotent patient creation.
     """
 
-    def __init__(self, db_path: str = "clinic.db"):
+    def __init__(self, db_path: str = "data/db/clinic.db"):
         """
         Initialize PatientService.
 

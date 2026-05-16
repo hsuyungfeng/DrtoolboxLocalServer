@@ -34,7 +34,7 @@ cloud_sync_bp = Blueprint('cloud_sync', __name__)
 cloud_sync_service = get_cloud_sync_service()
 
 # Database path
-DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../db/clinic.db'))
+DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../clinic.db'))
 
 
 def get_db_connection():

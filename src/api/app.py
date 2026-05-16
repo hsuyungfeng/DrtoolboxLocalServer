@@ -89,6 +89,10 @@ def _register_routes(app):
     from api.routes.cloud_sync import cloud_sync_bp
     from api.routes.rag_dashboard import rag_dashboard_bp
     from api.routes.system_metrics import system_metrics_bp
+    from api.routes.setup import setup_bp
+    from api.routes.chat_monitor import chat_monitor_bp
+    from api.routes.filebrowser_bridge import filebrowser_bridge_bp
+    from api.routes.crm_reports import crm_reports_bp
 
     # Health check routes
     @app.route('/health', methods=['GET'])
@@ -178,6 +182,18 @@ def _register_routes(app):
     # System Metrics Dashboard routes
     app.register_blueprint(system_metrics_bp)
 
+    # Setup Dashboard routes
+    app.register_blueprint(setup_bp)
+
+    # Chat Monitor routes
+    app.register_blueprint(chat_monitor_bp)
+
+    # FileBrowser Bridge routes
+    app.register_blueprint(filebrowser_bridge_bp)
+
+    # CRM Reports routes
+    app.register_blueprint(crm_reports_bp)
+
     # Root route
     @app.route('/', methods=['GET'])
     def root():
@@ -209,6 +225,8 @@ def _register_routes(app):
                 "sync_status": "/api/v1/sync/status",
                 "system_metrics": "/api/v1/system/metrics",
                 "system_dashboard": "/dashboard/system/",
+                "setup_config": "/api/v1/setup/config",
+                "setup_dashboard": "/dashboard/setup/",
                 "line_health": "/api/line/health",
             }
         })

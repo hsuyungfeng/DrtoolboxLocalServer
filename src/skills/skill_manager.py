@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SkillManager:
     """Manages Hermes Auto-Skills."""
     
-    def __init__(self, db_path: str = "data/local_db/clinic.db", skills_dir: str = "src/skills/auto_skills"):
+    def __init__(self, db_path: str = "data/db/clinic.db", skills_dir: str = "src/skills/auto_skills"):
         self.db_path = db_path
         self.skills_dir = skills_dir
         

@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+
+{% block title %}對話監控 - 診所管理系統{% endblock %}
+
+{% block extra_styles %}
+<style>
+    .conversation-list { max-height: 70vh; overflow-y: auto; }
+    .conversation-item { cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
+    .conversation-item:hover { background: #f0f7ff; }
+    .conversation-item.active { background: #e8f4fd; border-left-color: var(--primary-color, #0d6efd); }
+    .conversation-item.escalated { border-left-color: var(--danger-color, #dc3545); }
+    .msg-bubble { max-width: 80%; padding: 0.6rem 1rem; border-radius: 12px; margin-bottom: 0.5rem; font-size: 0.9rem; line-height: 1.5; }
+    .msg-bubble.patient { background: #e8f4fd; margin-right: auto; border-bottom-left-radius: 4px; }
+    .msg-bubble.bot { background: #f0f0f0; margin-left: auto; border-bottom-right-radius: 4px; }
+    .msg-bubble .confidence { font-size: 0.7rem; }
+    .msg-bubble.low-confidence { border: 1px solid var(--warning-color, #ffc107); }
+    .escalated-badge { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .detail-panel { border-left: 1px solid var(--gray-border, #eee); min-height: 60vh; }
+    .empty-state { color: #aaa; text-align: center; padding: 4rem 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- 統計卡片 -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm border-0 stat-card">
+                <div class="card-body text-center py-3">
+                    <div class="stat-label">活躍對話</div>
+                    <div class="stat-value" id="stat-patients">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm border-0 stat-card">
+                <div class="card-body text-center py-3">
+                    <div class="stat-label">總訊息</div>
+                    <div class="stat-value" id="stat-total">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm border-0 stat-card warning">
+                <div class="card-body text-center py-3">
+                    <div class="stat-label">需關注</div>
+                    <div class="stat-value" id="stat-escalated">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm border-0 stat-card">
+                <div class="card-body text-center py-3">
+                    <div class="stat-label">未讀</div>
+                    <div class="stat-value" id="stat-unread">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card h-100 shadow-sm border-0 stat-card success">
+                <div class="card-body text-center py-3">
+                    <div class="stat-label">平均信心度</div>
+                    <div class="stat-value" id="stat-confidence">-</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 text-end d-flex align-items-center justify-content-end">
+            <div>
+                <span class="badge bg-secondary me-2" id="last-updated">等待更新</span>
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshAll()">重新整理</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-0">
+        <!-- 左側：對話列表 -->
+        <div class="col-md-4 pe-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent d-flex justify-content-between">
+                    <h6 class="mb-0">對話列表</h6>
+                    <small class="text-muted" id="conversation-count"></small>
+                </div>
+                <div class="conversation-list" id="conversation-list">
+                    <div class="empty-state">
+                        <p class="mb-1 fs-4">💬</p>
+                        <p>尚無對話記錄</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：對話詳細 -->
+        <div class="col-md-8 detail-panel ps-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0" id="detail-title">選擇一個對話</h6>
+                    <span class="badge bg-secondary d-none" id="detail-status"></span>
+                </div>
+                <div class="card-body" id="detail-messages" style="overflow-y:auto;max-height:65vh;">
+                    <div class="empty-state">
+                        <p class="mb-1 fs-3">👈</p>
+                        <p>點擊左側對話查看內容</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPatient = null;
+    let allConversations = [];
+
+    async function fetchStats() {
+        try {
+            const r = await fetch('/api/v1/chat-monitor/stats');
+            const d = await r.json();
+            if (!d.success) return;
+            document.getElementById('stat-patients').textContent = d.data.active_patients;
+            document.getElementById('stat-total').textContent = d.data.total_messages;
+            document.getElementById('stat-escalated').textContent = d.data.escalated;
+            document.getElementById('stat-unread').textContent = d.data.unread;
+            document.getElementById('stat-confidence').textContent = d.data.avg_confidence + '%';
+        } catch(e) { console.error(e); }
+    }
+
+    async function fetchConversations() {
+        try {
+            const r = await fetch('/api/v1/chat-monitor/conversations');
+            const d = await r.json();
+            if (!d.success) return;
+            allConversations = d.data;
+            document.getElementById('conversation-count').textContent = d.data.length + ' 個對話';
+
+            const list = document.getElementById('conversation-list');
+            if (d.data.length === 0) {
+                list.innerHTML = '<div class="empty-state"><p class="mb-1 fs-4">✅</p><p>所有對話已處理</p></div>';
+                return;
+            }
+
+            list.innerHTML = d.data.map(c => {
+                const escalated = c.last_escalated ? ' escalated' : '';
+                const active = c.patient_id === currentPatient ? ' active' : '';
+                const time = c.last_msg_time ? new Date(c.last_msg_time + 'Z').toLocaleString('zh-TW') : '-';
+                const unread = c.unread_count > 0 ? `<span class="badge bg-danger rounded-pill ms-1">${c.unread_count}</span>` : '';
+                const escalatedIcon = c.last_escalated ? ' <span class="badge bg-warning text-dark escalated-badge ms-1">!</span>' : '';
+                const confLabel = c.last_confidence !== null 
+                    ? `<span class="text-muted small">信心: ${c.last_confidence}%</span>` 
+                    : '';
+
+                return `
+                <div class="conversation-item p-3 border-bottom${escalated}${active}" 
+                     onclick="selectConversation('${c.patient_id}')" 
+                     id="conv-${c.patient_id}">
+                    <div class="d-flex justify-content-between">
+                        <strong>${escapeHtml(c.patient_id)}${unread}${escalatedIcon}</strong>
+                        <small class="text-muted">${time}</small>
+                    </div>
+                    <div class="text-muted small mt-1 text-truncate">${escapeHtml(c.last_text || '(無訊息)')}</div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">${c.msg_count} 則訊息 · ${c.last_sender === 'bot' ? '🤖' : '👤'} ${c.last_sender}</small>
+                        <small>${confLabel}</small>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch(e) { console.error(e); }
+    }
+
+    async function selectConversation(patientId) {
+        currentPatient = patientId;
+        // 更新左側 active 狀態
+        document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('active'));
+        const el = document.getElementById('conv-' + patientId);
+        if (el) el.classList.add('active');
+
+        document.getElementById('detail-title').textContent = '對話：' + patientId;
+        document.getElementById('detail-messages').innerHTML = '<div class="text-center text-muted py-4"><div class="loading-spinner"></div></div>';
+
+        try {
+            const r = await fetch('/api/v1/chat-monitor/conversation/' + patientId);
+            const d = await r.json();
+            if (!d.success) return;
+
+            const messages = d.data;
+            if (messages.length === 0) {
+                document.getElementById('detail-messages').innerHTML = '<div class="empty-state"><p>尚無訊息</p></div>';
+                return;
+            }
+
+            document.getElementById('detail-messages').innerHTML = messages.map(m => {
+                const time = m.timestamp ? new Date(m.timestamp + 'Z').toLocaleTimeString('zh-TW') : '';
+                const confidence = m.rag_confidence !== null && m.sender === 'bot'
+                    ? `<div class="confidence ${m.rag_confidence < 0.6 ? 'text-warning' : 'text-muted'}">信心度: ${Math.round(m.rag_confidence * 100)}%</div>`
+                    : '';
+                const lowConf = m.sender === 'bot' && m.rag_confidence !== null && m.rag_confidence < 0.6 ? ' low-confidence' : '';
+                const escalated = m.escalated_flag ? ' <span class="badge bg-warning text-dark">已升級</span>' : '';
+
+                return `
+                <div class="msg-bubble ${m.sender}${lowConf}">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">${m.sender === 'bot' ? '🤖 Bot' : m.sender === 'staff' ? '🧑‍⚕️ 員工' : '👤 患者'} ${escalated}</small>
+                        <small class="text-muted">${time}</small>
+                    </div>
+                    <div class="mt-1">${escapeHtml(m.text)}</div>
+                    ${confidence}
+                </div>`;
+            }).join('');
+
+            // 滾動到底部
+            const msgContainer = document.getElementById('detail-messages');
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+        } catch(e) { console.error(e); }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function refreshAll() {
+        fetchStats();
+        fetchConversations();
+        document.getElementById('last-updated').textContent = '最後更新: ' + new Date().toLocaleTimeString('zh-TW');
+        if (currentPatient) selectConversation(currentPatient);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshAll();
+        setInterval(refreshAll, 8000);
+    });
+</script>
+{% endblock %}
