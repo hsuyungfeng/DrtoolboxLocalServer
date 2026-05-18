@@ -10,6 +10,21 @@ class HermesRouter:
         self.rag = RAGEngine()
         self.llm = llm_instance
         
+        # Ingest the data into PageIndex in the background so it doesn't freeze the server
+        import threading
+        def background_ingest():
+            from src.data_loader import get_special_data, get_general_data
+            logger.info("Starting background data ingestion...")
+            special_docs = get_special_data()
+            if special_docs:
+                self.rag.ingest_special_data(special_docs)
+            general_docs = get_general_data()
+            if general_docs:
+                self.rag.ingest_general_data(general_docs)
+            logger.info("Background data ingestion complete!")
+            
+        threading.Thread(target=background_ingest, daemon=True).start()
+        
     def determine_route(self, prompt: str) -> str:
         """
         Uses the local LLM (or a heuristic) to determine whether to query 

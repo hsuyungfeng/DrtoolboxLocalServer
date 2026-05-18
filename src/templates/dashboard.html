@@ -1,38 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drtoolbox - Training Dashboard</title>
-    <link rel="stylesheet" href="/static/css/index.css">
+    <title>Drtoolbox - 訓練控制面板</title>
+    <link rel="stylesheet" href="/static/css/index.css?v=4">
 </head>
 <body>
     <header>
-        <h1>Training Dashboard</h1>
-        <button class="export-btn" id="exportBtn">Export JSONL</button>
+        <div class="header-left">
+            <h1>訓練控制面板</h1>
+            <nav class="nav-tabs">
+                <button class="tab-btn active" data-tab="curation">資料校正</button>
+                <button class="tab-btn" data-tab="upload">上傳資料</button>
+                <button class="tab-btn" data-tab="chat">即時對話</button>
+            </nav>
+        </div>
+        <button class="export-btn" id="exportBtn">匯出 JSONL</button>
     </header>
     
     <main>
-        <div class="glass-panel">
-            <div class="log-list" id="logList">
-                <!-- Logs will be injected here via JS -->
+        <!-- Tab 1: Curation -->
+        <div id="tab-curation" class="tab-content active-tab">
+            <div class="glass-panel">
+                <div class="log-list" id="logList">
+                    <!-- Logs will be injected here via JS -->
+                </div>
+            </div>
+            
+            <div class="glass-panel editor-panel" id="editorPanel" style="display: none;">
+                <h2>校正編輯器</h2>
+                <div class="field-group">
+                    <label>使用者提問</label>
+                    <div class="readonly-text" id="editorPrompt"></div>
+                </div>
+                <div class="field-group">
+                    <label>AI 回覆 (編輯以進行校正)</label>
+                    <textarea id="editorResponse"></textarea>
+                </div>
+                <button class="save-btn" id="saveBtn">驗證並儲存</button>
             </div>
         </div>
         
-        <div class="glass-panel editor-panel" id="editorPanel" style="display: none;">
-            <h2>Correction Editor</h2>
-            <div class="field-group">
-                <label>User Prompt</label>
-                <div class="readonly-text" id="editorPrompt"></div>
+        <!-- Tab 2: Upload Data -->
+        <div id="tab-upload" class="tab-content">
+            <div class="glass-panel upload-panel">
+                <h2>上傳資料庫</h2>
+                <p>支援上傳 PDF, JPEG, PNG, PPT, TXT 或 WORD 檔案，文字將透過 OCR 或萃取加入知識庫。</p>
+                <div class="field-group" style="margin-bottom: 15px;">
+                    <label>資料分類</label>
+                    <select id="dataTypeSelect" style="width: 100%; padding: 12px 16px; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: inherit; font-size: 1rem; outline: none;">
+                        <option value="special" style="color: black;">診所專屬行銷/服務資料 (Clinic Special)</option>
+                        <option value="general" style="color: black;">一般醫療衛教知識 (General Medical)</option>
+                    </select>
+                </div>
+                <div class="dropzone" id="dropzone" style="margin-top: 10px; cursor: default;">
+                    <p>將檔案拖曳至此</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                        <button id="btnSelectFiles" class="tab-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border);">選擇多個檔案</button>
+                        <button id="btnSelectFolder" class="tab-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border);">選擇整個資料夾</button>
+                    </div>
+                    <input type="file" id="fileInput" multiple style="display: none;" accept=".pdf,.jpeg,.jpg,.png,.ppt,.pptx,.txt,.doc,.docx,.db">
+                    <input type="file" id="folderInput" multiple webkitdirectory directory style="display: none;">
+                </div>
+                <div id="uploadStatus" class="upload-status"></div>
             </div>
-            <div class="field-group">
-                <label>LLM Response (Edit to Correct)</label>
-                <textarea id="editorResponse"></textarea>
+        </div>
+        
+        <!-- Tab 3: Live Chat -->
+        <div id="tab-chat" class="tab-content">
+            <div class="glass-panel chat-panel">
+                <h2>測試 Hermes 代理程式</h2>
+                <div class="chat-history" id="chatHistory">
+                    <div class="message bot-msg">您好！我是 Hermes 路由代理程式。今天能為您提供什麼協助？</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="輸入訊息..." autocomplete="off">
+                    <button class="send-btn" id="chatSendBtn">傳送</button>
+                </div>
             </div>
-            <button class="save-btn" id="saveBtn">Verify & Save Pair</button>
         </div>
     </main>
     
-    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/dashboard.js?v=4"></script>
 </body>
 </html>

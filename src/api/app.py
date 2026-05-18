@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Add the project root to the python path so absolute imports work when running this script directly
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 from flask import Flask, render_template
 from flask_cors import CORS
 import logging
