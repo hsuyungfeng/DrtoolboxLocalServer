@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-18T18:34:40+08:00",
+  "phase": "default",
+  "phase_name": "Unstructured Work",
+  "phase_dir": "",
+  "plan": 0,
+  "task": 0,
+  "total_tasks": 0,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "上傳穩定性重構 (批次降為 5，加入快取版本控制)", "status": "done", "commit": "N/A"},
+    {"id": 2, "name": "RAG 檢索增強 (時間線與過期價格過濾)", "status": "done", "commit": "N/A"},
+    {"id": 3, "name": "Frontend Markdown 渲染 (使用 marked.js 與 CSS 排版)", "status": "done", "commit": "N/A"},
+    {"id": 4, "name": "資料路徑容器化 (轉換為專案相對路徑)", "status": "done", "commit": "N/A"},
+    {"id": 5, "name": "開發 query_integrated 函式 (整合 SQL 與 RAG)", "status": "done", "commit": "N/A"}
+  ],
+  "remaining_tasks": [
+    {"id": 6, "name": "在 app.py 路由中掛載 query_integrated", "status": "not_started"},
+    {"id": 7, "name": "測試 RAG 與 SQLite 整合後回答", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "確認是否要在 app.py 中啟用 query_integrated", "context": "因為整合查詢可以兼顧門診時間與衛教資料，但需要更改 API 路由調用", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "使用 Prompt 上下文注入法整合 SQL 與 RAG", "rationale": "因 LocalLLM 模型特性，透過建立 Python 工具層提取資料並組合至 Prompt 較穩定且易實作。", "phase": "default"}
+  ],
+  "uncommitted_files": [
+    "src/rag_engine.py",
+    "src/api/app.py",
+    "src/static/js/dashboard.js",
+    "src/static/css/index.css",
+    "config/settings.py",
+    "src/templates/dashboard.html"
+  ],
+  "next_action": "在 app.py 中將 /api/chat 的路由邏輯改為使用 rag_engine.query_integrated",
+  "context_notes": "完成了一系列 UI、穩定性與架構更新，並依照使用者要求實作了結構化與非結構化混合搜尋的函式（尚未在 Controller 啟用）。"
+}
