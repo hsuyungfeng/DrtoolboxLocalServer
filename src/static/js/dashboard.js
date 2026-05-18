@@ -136,33 +136,53 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleFiles(files) {
         if (!files.length) return;
         
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-            formData.append('file', files[i]);
-        }
+        const fileArray = Array.from(files);
+        const totalFiles = fileArray.length;
+        const batchSize = 50; // 分批次上傳，每次 50 個檔案
+        let successCount = 0;
+        let failCount = 0;
         
         const dataType = document.getElementById('dataTypeSelect').value;
-        formData.append('data_type', dataType);
+        uploadStatus.innerHTML = `<span style="color:var(--accent-color)">準備上傳 ${totalFiles} 個檔案...</span>`;
         
-        uploadStatus.innerHTML = `<span style="color:var(--accent-color)">正在處理與上傳 ${files.length} 個檔案...（OCR 轉換可能需要幾十秒）</span>`;
-        
-        try {
-            const res = await fetch('/api/dashboard/upload', {
-                method: 'POST',
-                body: formData
-            });
+        for (let i = 0; i < totalFiles; i += batchSize) {
+            const batch = fileArray.slice(i, i + batchSize);
+            const formData = new FormData();
             
-            const data = await res.json();
-            if (res.ok) {
-                uploadStatus.innerHTML = `<span style="color:#4ade80">成功上傳 ${data.files.length} 個檔案！</span>`;
-            } else {
-                uploadStatus.innerHTML = `<span style="color:#f87171">上傳失敗：${data.error}</span>`;
+            for (let j = 0; j < batch.length; j++) {
+                formData.append('file', batch[j]);
             }
-        } catch (e) {
-            uploadStatus.innerHTML = `<span style="color:#f87171">上傳時發生網路錯誤。</span>`;
+            formData.append('data_type', dataType);
+            
+            uploadStatus.innerHTML = `<span style="color:var(--accent-color)">正在處理與上傳檔案... (進度: ${Math.min(i + batchSize, totalFiles)} / ${totalFiles})</span>`;
+            
+            try {
+                const res = await fetch('/api/dashboard/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    successCount += data.files.length;
+                } else {
+                    failCount += batch.length;
+                    console.error("Batch upload failed:", data.error);
+                }
+            } catch (e) {
+                failCount += batch.length;
+                console.error("Network error on batch upload:", e);
+            }
+        }
+        
+        if (failCount === 0) {
+            uploadStatus.innerHTML = `<span style="color:#4ade80">成功上傳所有 ${successCount} 個檔案！</span>`;
+        } else {
+            uploadStatus.innerHTML = `<span style="color:#f87171">上傳完成。成功: ${successCount} 個，失敗: ${failCount} 個。</span>`;
         }
         
         fileInput.value = '';
+        folderInput.value = '';
     }
 
     // --- Tab 3: Live Chat ---
