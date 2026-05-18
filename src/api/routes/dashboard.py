@@ -61,8 +61,17 @@ def upload_files():
     
     for file in files:
         if file:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(target_dir, filename)
+            # 避免 secure_filename 吃掉中文檔名，手動清理路徑跳脫字元
+            original_filename = file.filename
+            if not original_filename:
+                continue
+                
+            safe_filename = os.path.basename(original_filename).replace("..", "").replace("/", "").replace("\\", "")
+            if not safe_filename:
+                import uuid
+                safe_filename = str(uuid.uuid4())
+                
+            filepath = os.path.join(target_dir, safe_filename)
             file.save(filepath)
             
             # Extract text
