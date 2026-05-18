@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
+    app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB limit for large files
     CORS(app)
     
     # Register Blueprints
@@ -28,6 +29,10 @@ def create_app():
     @app.route('/health', methods=['GET'])
     def health():
         return {"status": "ok", "service": "drtoolbox-local-server"}
+        
+    @app.route('/favicon.ico')
+    def favicon():
+        return "", 204
         
     return app
 
