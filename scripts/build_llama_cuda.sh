@@ -20,9 +20,9 @@ cd build
 echo "⚙️  Configuring CMake with CUDA..."
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
-  -DLLAMA_CUDA=ON \
+  -DGGML_CUDA=ON \
   -DCMAKE_CUDA_ARCHITECTURES=75 \
-  -DCMAKE_CUDA_COMPILER=/usr/bin/nvcc
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 
 # Build
 echo "🏗️  Building (this may take 30-60 minutes)..."

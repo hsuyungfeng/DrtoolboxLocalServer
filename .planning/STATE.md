@@ -20,14 +20,15 @@
 - **Background Auto-Ingestion:** Ingest documents into PageIndex on app startup asynchronously using threads to prevent freezing.
 
 ## Session Continuity
-- **Last Session:** 2026-05-16
-- **Stopped At:** Paused mid-integration of the file upload API, background auto-ingestion thread, and Live Chat testing panel in the UI.
-- **Uncommitted Extensions:** Files under `src/` modified with tabs, multimodal loaders, and routing changes.
+- **Last Session:** 2026-05-18 (Current Session Resumed & Resolved)
+- **Stopped At:** Resolved document upload permissions, implemented safe local falls under `./data/documents`, verified end-to-end routing with Gemma GPU loading, successfully ran the 4-case test suite, and committed all staged improvements.
+- **Uncommitted Extensions:** None.
 
 ## Blockers / Concerns
-- **None:** The transition to PageIndex reasoning-based RAG is fully functional and stable.
+- **None:** Storage permission blockers resolved; Flask server offloading layers correctly to RTX GPU.
 
 ## Pending Todos
-- [ ] Run the test suite to verify that mocked RAG, routing, and dashboard APIs pass.
-- [ ] Launch the Flask web server to interactively verify the new tabs (Curation, Upload, Chat) in the browser.
-- [ ] Stage and commit the uncommitted working tree changes to complete the feature set.
+- [x] Run the test suite to verify that mocked RAG, routing, and dashboard APIs pass. (Passed)
+- [x] Launch the Flask web server to interactively verify the new tabs (Curation, Upload, Chat) in the browser. (Verified via browser automation)
+- [x] Stage and commit the uncommitted working tree changes to complete the feature set. (Committed to feature/phase-05-enterprise-features)
+

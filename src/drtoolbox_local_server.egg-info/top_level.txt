@@ -1,3 +1,12 @@
+agent
 api
+data_loader
+db
 llm
+llm_server
 rag
+rag_engine
+services
+skills
+static
+templates
