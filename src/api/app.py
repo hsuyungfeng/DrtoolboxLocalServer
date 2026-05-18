@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.INFO)
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB limit for large files
+    app.config['MAX_FORM_MEMORY_SIZE'] = 1024 * 1024 * 1024 # 1 GB memory limit for form fields
+    app.config['MAX_FORM_PARTS'] = 10000 # Allow up to 10,000 files in a single folder upload request
     CORS(app)
     
     # Register Blueprints
