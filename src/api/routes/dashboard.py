@@ -89,6 +89,6 @@ def upload_files():
                     else:
                         router.rag.ingest_general_data([doc])
             
-            saved_files.append(filename)
+            saved_files.append(safe_filename)
             
     return jsonify({"status": "success", "files": saved_files})
