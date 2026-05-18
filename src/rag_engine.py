@@ -26,10 +26,28 @@ class SimpleIndex:
             for i in range(0, len(text), 500):
                 chunks.append(text[i:i+500])
                 
-        q_words = set(q.replace("?", "").replace("？", "").replace(" ", ""))
+        clean_q = q.replace("?", "").replace("？", "").replace(" ", "").replace("請問", "")
+        q_chars = set(clean_q)
+        
+        # 建立長度為 2 到 4 的連續字串 (N-grams)
+        ngrams = []
+        for n in range(2, 5):
+            if n <= len(clean_q):
+                for i in range(len(clean_q) - n + 1):
+                    ngrams.append(clean_q[i:i+n])
+                    
         scored_chunks = []
         for chunk in chunks:
-            score = sum(1 for char in q_words if char in chunk)
+            score = 0
+            # 單一字元基本分
+            score += sum(1 for char in q_chars if char in chunk)
+            
+            # 連續專有名詞巨大加分 (例如「水飛梭」配對成功直接加 90 分)
+            for ngram in ngrams:
+                count = chunk.count(ngram)
+                if count > 0:
+                    score += count * (len(ngram) ** 2) * 10
+                    
             if score > 0:
                 scored_chunks.append((score, chunk))
         return scored_chunks
@@ -58,8 +76,12 @@ class SimpleIndex:
             context = "無相關資料。"
             
         prompt = f"""<|im_start|>system
-你是一個專業的醫美與診所 AI 助理。請「嚴格」根據以下提供的【參考資料】來回答使用者的問題。
-如果參考資料中沒有明確的答案，請回答「對不起，目前的資料庫中沒有關於此問題的資訊」，絕對不可捏造、猜測或使用你原本的預訓練知識。
+你是一個專業的醫美與診所 AI 助理。請根據以下提供的【參考資料】來回答使用者的問題。
+
+【特別指示】
+1. 參考資料是從圖片辨識 (OCR) 轉出的文字，可能會有錯字、排版混亂，或者沒有寫出完整的「促銷組合」四個字。
+2. 只要你看到資料中有類似套餐名稱（如：XX組、XX專案）、價格標示（如：$38888），或是用加號（+）連接的多個療程項目（例如：水飛梭+肉毒），請主動將這些視為「搭配的促銷組合」並整理後回答使用者。
+3. 如果參考資料中真的完全找不到任何相關線索，才能回答「對不起，目前的資料庫中沒有關於此問題的資訊」。
 
 【參考資料開始】
 {context}

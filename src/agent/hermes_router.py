@@ -14,14 +14,14 @@ class HermesRouter:
         import threading
         def background_ingest():
             from src.data_loader import get_special_data, get_general_data
-            logger.info("Starting background data ingestion...")
-            special_docs = get_special_data()
+            logger.info("Starting fast data ingestion from existing .txt files...")
+            special_docs = get_special_data(self.rag)
             if special_docs:
                 self.rag.ingest_special_data(special_docs)
-            general_docs = get_general_data()
+            general_docs = get_general_data(self.rag)
             if general_docs:
                 self.rag.ingest_general_data(general_docs)
-            logger.info("Background data ingestion complete!")
+            logger.info(f"Fast data ingestion complete! (Loaded {len(special_docs)} special docs, {len(general_docs)} general docs)")
             
         threading.Thread(target=background_ingest, daemon=True).start()
         
