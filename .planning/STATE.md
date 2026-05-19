@@ -12,7 +12,8 @@
 
 ## Progress
 - **Roadmap Completion:** `[██████████] 100%` (Baseline roadmap complete)
-- **Working Tree Extensions:** `[██████░░░░] 60%` (Upload/Chat UI done, OCR loaders added; testing and verification in progress)
+- **Working Tree Extensions:** `[██████████] 100%` (Hybrid search integration, test verification, and Flask server active)
+
 
 ## Recent Decisions
 - **Unified Curation Web Dashboard:** Pivot from raw CLI/logs to an elegant, Taiwanese-localized Glassmorphism Dark Mode dashboard.

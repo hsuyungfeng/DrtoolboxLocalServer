@@ -133,28 +133,93 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', () => handleFiles(fileInput.files));
     folderInput.addEventListener('change', () => handleFiles(folderInput.files));
 
+    function shouldSkipFile(file) {
+        const name = file.name.toLowerCase();
+        const path = (file.webkitRelativePath || '').toLowerCase();
+        
+        // Blacklisted directories in relative path
+        const ignoreDirs = ['node_modules/', '.git/', '.venv/', '__pycache__/', '.idea/', '.vscode/', 'dist/', 'build/', 'temp/', 'tmp/'];
+        if (ignoreDirs.some(dir => path.includes(dir) || path.startsWith(dir))) {
+            return true;
+        }
+        
+        // Hidden files or temporary files
+        if (name.startsWith('.') || name.startsWith('~$')) {
+            return true;
+        }
+        
+        // System files
+        const ignoreFiles = ['thumbs.db', 'desktop.ini', '.ds_store'];
+        if (ignoreFiles.includes(name)) {
+            return true;
+        }
+        
+        return false;
+    }
+
     async function handleFiles(files) {
         if (!files.length) return;
         
         const fileArray = Array.from(files);
-        const totalFiles = fileArray.length;
-        const batchSize = 50; // 分批次上傳，每次 50 個檔案
+        const totalRaw = fileArray.length;
+        
+        // Filtering
+        const toUpload = [];
+        let skipCount = 0;
+        
+        for (const file of fileArray) {
+            if (shouldSkipFile(file)) {
+                skipCount++;
+            } else {
+                toUpload.push(file);
+            }
+        }
+        
+        const totalToUpload = toUpload.length;
         let successCount = 0;
         let failCount = 0;
         
         const dataType = document.getElementById('dataTypeSelect').value;
-        uploadStatus.innerHTML = `<span style="color:var(--accent-color)">準備上傳 ${totalFiles} 個檔案...</span>`;
         
-        for (let i = 0; i < totalFiles; i += batchSize) {
-            const batch = fileArray.slice(i, i + batchSize);
+        // UI Elements
+        const progressContainer = document.getElementById('uploadProgressContainer');
+        const progressBar = document.getElementById('uploadProgressBar');
+        const statsGrid = document.getElementById('uploadStatsGrid');
+        const statSuccess = document.getElementById('statSuccess');
+        const statFail = document.getElementById('statFail');
+        const statSkip = document.getElementById('statSkip');
+        const statPending = document.getElementById('statPending');
+        
+        // Reset and Show UI
+        uploadStatus.innerHTML = '';
+        progressBar.style.width = '0%';
+        progressContainer.style.display = 'block';
+        statsGrid.style.display = 'grid';
+        
+        statSuccess.textContent = '0';
+        statFail.textContent = '0';
+        statSkip.textContent = skipCount;
+        statPending.textContent = totalToUpload;
+        
+        if (totalToUpload === 0) {
+            uploadStatus.innerHTML = `<span style="color:#fbbf24">沒有需要上傳的檔案 (已跳過 ${skipCount} 個系統或無關檔案)。</span>`;
+            progressBar.style.width = '100%';
+            fileInput.value = '';
+            folderInput.value = '';
+            return;
+        }
+        
+        // Upload sequentially for 100% reliability
+        for (let i = 0; i < totalToUpload; i++) {
+            const file = toUpload[i];
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            
+            uploadStatus.innerHTML = `<span style="color:var(--accent-color)">正在處理與上傳 (${i + 1} / ${totalToUpload}): <strong>${file.name}</strong> (${fileSizeMB} MB)</span>`;
+            statPending.textContent = totalToUpload - i;
+            
             const formData = new FormData();
-            
-            for (let j = 0; j < batch.length; j++) {
-                formData.append('file', batch[j]);
-            }
+            formData.append('file', file);
             formData.append('data_type', dataType);
-            
-            uploadStatus.innerHTML = `<span style="color:var(--accent-color)">正在處理與上傳檔案... (進度: ${Math.min(i + batchSize, totalFiles)} / ${totalFiles})</span>`;
             
             try {
                 const res = await fetch('/api/dashboard/upload', {
@@ -162,23 +227,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: formData
                 });
                 
-                const data = await res.json();
                 if (res.ok) {
-                    successCount += data.files.length;
+                    const data = await res.json();
+                    successCount += 1;
+                    statSuccess.textContent = successCount;
                 } else {
-                    failCount += batch.length;
-                    console.error("Batch upload failed:", data.error);
+                    failCount += 1;
+                    statFail.textContent = failCount;
+                    console.error(`Upload failed for ${file.name}:`, res.statusText);
                 }
             } catch (e) {
-                failCount += batch.length;
-                console.error("Network error on batch upload:", e);
+                failCount += 1;
+                statFail.textContent = failCount;
+                console.error(`Network error uploading ${file.name}:`, e);
             }
+            
+            // Update Progress Bar
+            const percent = Math.round(((i + 1) / totalToUpload) * 100);
+            progressBar.style.width = `${percent}%`;
         }
         
+        statPending.textContent = '0';
+        
+        // Final Status
         if (failCount === 0) {
-            uploadStatus.innerHTML = `<span style="color:#4ade80">成功上傳所有 ${successCount} 個檔案！</span>`;
+            uploadStatus.innerHTML = `<span style="color:#4ade80; font-weight: 600;">🎉 成功上傳所有 ${successCount} 個檔案！ (已跳過 ${skipCount} 個無關檔案)</span>`;
         } else {
-            uploadStatus.innerHTML = `<span style="color:#f87171">上傳完成。成功: ${successCount} 個，失敗: ${failCount} 個。</span>`;
+            uploadStatus.innerHTML = `<span style="color:#f87171; font-weight: 600;">⚠️ 上傳完成。成功: ${successCount} 個，失敗: ${failCount} 個，已跳過: ${skipCount} 個。</span>`;
         }
         
         fileInput.value = '';
@@ -193,9 +268,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function addMessageToChat(role, text, route = null) {
         const div = document.createElement('div');
         div.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'}`;
-        div.textContent = text;
+        
+        // 使用 marked 解析 AI 的 Markdown 語法（粗體、清單、換行等）
+        if (role === 'bot') {
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'markdown-content';
+            contentDiv.innerHTML = marked.parse(text);
+            div.appendChild(contentDiv);
+        } else {
+            div.textContent = text;
+        }
+        
         if (route) {
-            div.innerHTML += `<span class="route-badge">經由 ${route}</span>`;
+            const badge = document.createElement('span');
+            badge.className = 'route-badge';
+            badge.textContent = `經由 ${route}`;
+            div.appendChild(badge);
         }
         chatHistory.appendChild(div);
         chatHistory.scrollTop = chatHistory.scrollHeight;

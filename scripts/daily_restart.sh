@@ -94,7 +94,7 @@ log "Starting Flask server..."
 cd "${PROJECT_DIR}"
 
 # Start server in background, save PID
-nohup python -m src.api.app > "${LOG_DIR}/server.log" 2>&1 &
+nohup env PYTHONPATH=. .venv/bin/python3 src/api/app.py > "${LOG_DIR}/server.log" 2>&1 &
 NEW_PID=$!
 echo "${NEW_PID}" > "${PID_FILE}"
 

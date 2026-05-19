@@ -54,10 +54,11 @@ You are a routing agent for a clinic. Decide if the user's query is about "Clini
         logger.info(f"Hermes routed query to: {route}")
         
         try:
-            # Query the RAGEngine directly. RAGEngine internally uses the reasoning LLM.
-            response = self.rag.query(prompt, source=route)
+            # Query the integrated hybrid engine (combining SQL and RAG)
+            response = self.rag.query_integrated(prompt)
         except Exception as e:
-            logger.error(f"RAG query failed: {e}")
+            logger.error(f"Integrated query failed: {e}")
             response = "Sorry, I encountered an error while processing your request."
             
         return response, route
+

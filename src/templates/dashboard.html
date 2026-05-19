@@ -64,6 +64,27 @@
                     <input type="file" id="folderInput" multiple webkitdirectory directory style="display: none;">
                 </div>
                 <div id="uploadStatus" class="upload-status"></div>
+                <div class="progress-container" id="uploadProgressContainer">
+                    <div class="progress-bar" id="uploadProgressBar"></div>
+                </div>
+                <div class="upload-stats-grid" id="uploadStatsGrid" style="display: none;">
+                    <div class="stat-card">
+                        <div>已成功</div>
+                        <div class="stat-value success" id="statSuccess">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div>已失敗</div>
+                        <div class="stat-value fail" id="statFail">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div>已跳過</div>
+                        <div class="stat-value skip" id="statSkip">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div>待處理</div>
+                        <div class="stat-value pending" id="statPending">0</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -81,7 +102,7 @@
             </div>
         </div>
     </main>
-    
-    <script src="/static/js/dashboard.js?v=4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/dashboard.js?v=6"></script>
 </body>
 </html>

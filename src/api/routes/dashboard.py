@@ -30,23 +30,20 @@ def export_training_data():
         
     return send_file(correction_file, as_attachment=True, download_name="verified_training_data.jsonl")
 
+import concurrent.futures
+# 建立一個最多 2 名工人的背景處理池，避免瞬間爆發太多執行緒把系統卡死
+ocr_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+
 @dashboard_bp.route('/upload', methods=['POST'])
 def upload_files():
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"Received upload request. Files: {request.files.keys()}, Form: {request.form.keys()}")
     
     if 'file' not in request.files:
-        logger.error("No 'file' in request.files")
         return jsonify({"error": "No file part"}), 400
     
     files = request.files.getlist('file')
-    if not files:
-        logger.error("request.files.getlist('file') is empty")
-        return jsonify({"error": "No selected file list"}), 400
-        
-    if files[0].filename == '':
-        logger.error("First file has an empty filename")
+    if not files or files[0].filename == '':
         return jsonify({"error": "No selected file"}), 400
         
     data_type = request.form.get('data_type', 'special')
@@ -59,9 +56,27 @@ def upload_files():
     from src.data_loader import extract_text_from_file
     from src.api.routes.chat import router
     
+    # 定義一個背景執行的 OCR 工作
+    def process_file_in_background(filepath, dt):
+        try:
+            extracted_text = extract_text_from_file(filepath)
+            if extracted_text and extracted_text.strip():
+                txt_path = filepath + ".txt"
+                with open(txt_path, 'w', encoding='utf-8') as f:
+                    f.write(extracted_text)
+                    
+                # 辨識完成後，即時塞入 RAG 記憶體
+                if router:
+                    doc = {"id": txt_path, "content": extracted_text}
+                    if dt == 'special':
+                        router.rag.ingest_special_data([doc])
+                    else:
+                        router.rag.ingest_general_data([doc])
+        except Exception as e:
+            logger.error(f"Background OCR failed for {filepath}: {e}")
+    
     for file in files:
         if file:
-            # 避免 secure_filename 吃掉中文檔名，手動清理路徑跳脫字元
             original_filename = file.filename
             if not original_filename:
                 continue
@@ -73,22 +88,10 @@ def upload_files():
                 
             filepath = os.path.join(target_dir, safe_filename)
             file.save(filepath)
-            
-            # Extract text
-            extracted_text = extract_text_from_file(filepath)
-            if extracted_text and extracted_text.strip():
-                txt_path = filepath + ".txt"
-                with open(txt_path, 'w', encoding='utf-8') as f:
-                    f.write(extracted_text)
-                    
-                # Dynamically update the RAG engine if router is initialized
-                if router:
-                    doc = {"id": txt_path, "content": extracted_text}
-                    if data_type == 'special':
-                        router.rag.ingest_special_data([doc])
-                    else:
-                        router.rag.ingest_general_data([doc])
-            
             saved_files.append(safe_filename)
             
+            # 將耗時的 OCR 辨識丟給背景工人去排隊處理
+            ocr_executor.submit(process_file_in_background, filepath, data_type)
+            
+    # 只要檔案儲存好，立刻回傳成功給網頁，避免前端等太久導致 Timeout (ERR_FAILED)
     return jsonify({"status": "success", "files": saved_files})

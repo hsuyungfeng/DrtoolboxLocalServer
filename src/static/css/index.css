@@ -285,13 +285,35 @@ textarea:focus {
     background: rgba(255,255,255,0.1);
     border: 1px solid var(--glass-border);
     border-bottom-left-radius: 4px;
+    position: relative;
+    padding-bottom: 25px; /* 給 badge 空間 */
+}
+
+/* Markdown 排版樣式 */
+.markdown-content p {
+    margin: 0 0 8px 0;
+}
+.markdown-content p:last-child {
+    margin-bottom: 0;
+}
+.markdown-content ul, .markdown-content ol {
+    margin: 4px 0 8px 20px;
+    padding: 0;
+}
+.markdown-content li {
+    margin-bottom: 4px;
+}
+.markdown-content strong {
+    color: var(--accent-color);
+    font-weight: 600;
 }
 
 .route-badge {
-    display: block;
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
     font-size: 0.75rem;
-    color: var(--accent-color);
-    margin-top: 4px;
+    color: var(--text-muted);
     text-transform: uppercase;
 }
 
@@ -336,3 +358,53 @@ textarea:focus {
 ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* Upload Progress Styles */
+.progress-container {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 9999px;
+    height: 10px;
+    margin-top: 20px;
+    overflow: hidden;
+    display: none;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    border-radius: 9999px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    transition: width 0.3s ease;
+}
+
+.upload-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+    font-size: 0.85rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-top: 4px;
+}
+
+.stat-value.success { color: #4ade80; }
+.stat-value.fail { color: #f87171; }
+.stat-value.skip { color: #fbbf24; }
+.stat-value.pending { color: #60a5fa; }

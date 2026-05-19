@@ -19,6 +19,7 @@ def test_chat_routing_and_logging(mock_rag_class, mock_llm_instance, client):
     # Setup mocks
     mock_rag = mock_rag_class.return_value
     mock_rag.query.return_value = "This is a mock RAG response."
+    mock_rag.query_integrated.return_value = "This is a mock RAG response."
     
     # Mock Hermes intent classification to return "special"
     mock_llm_instance.generate.return_value = "special"
@@ -34,8 +35,9 @@ def test_chat_routing_and_logging(mock_rag_class, mock_llm_instance, client):
     assert data["reply"] == "This is a mock RAG response."
     assert data["route_used"] == "special"
     
-    # Check that it called the correct RAG source
-    mock_rag.query.assert_called_once_with("Tell me about the new skin treatment.", source="special")
+    # Check that it called the correct integrated query
+    mock_rag.query_integrated.assert_called_once_with("Tell me about the new skin treatment.")
+
     
     # Verify Logging
     date_str = datetime.now().strftime("%Y-%m-%d")
