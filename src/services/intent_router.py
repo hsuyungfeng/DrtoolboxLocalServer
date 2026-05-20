@@ -18,7 +18,7 @@ IntentType = Literal["MEDICAL", "CLINICAL", "BOTH"]
 class IntentRouter:
     """Classifies queries using the local LLM to route RAG search."""
     
-    def __init__(self, llama_url: str = "http://127.0.0.1:8081/v1/chat/completions"):
+    def __init__(self, llama_url: str = "http://127.0.0.1:8080/v1/chat/completions"):
         self.llama_url = llama_url
         
     def classify(self, user_query: str) -> IntentType:

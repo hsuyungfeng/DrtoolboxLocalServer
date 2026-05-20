@@ -287,6 +287,7 @@ class QueryAnswer:
         query: str,
         context_chunks: List[SearchResult],
         use_llm: bool = True,
+        old_docs_warning: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """
         Generate answer from context chunks.
@@ -299,26 +300,76 @@ class QueryAnswer:
         Returns:
             Generated answer text
         """
+        import re
+        
+        # Build prompt with context, deterministically redacting prices
+        redacted_chunks = []
+        
+        for chunk in context_chunks:
+            text = chunk.text
+            
+            # Strict Policy: Unconditionally redact all prices UNLESS explicitly marked with valid_until
+            is_valid = False
+            if chunk.metadata and "valid_until" in chunk.metadata:
+                try:
+                    import time
+                    valid_date = time.strptime(chunk.metadata["valid_until"], "%Y-%m-%d")
+                    if valid_date >= time.localtime():
+                        is_valid = True
+                except Exception:
+                    pass
+                    
+            if not is_valid:
+                # Forcefully redact all prices and potential price formats
+                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', text)
+                text = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', text)
+                text = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                
+                # Catch standalone large numbers (>=1000) that aren't years (202x, 11x)
+                text = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', text)
+                text = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', text)
+                
+                # Catch CC/price, U/price, 瓶/price
+                text = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', text, flags=re.IGNORECASE)
+
+            redacted_chunks.append(text)
+
         if not use_llm or self.llm_server is None:
             # Simple concatenation fallback
             context_text = "\n\n".join(
-                f"[Context {i+1}]\n{chunk.text}"
-                for i, chunk in enumerate(context_chunks)
+                f"[Context {i+1}]\n{text}"
+                for i, text in enumerate(redacted_chunks)
             )
-            return f"Based on the retrieved context:\n\n{context_text[:500]}..."
-        
-        # Build prompt with context
+            return f"Based on the retrieved context:\n\n{context_text[:1000]}..."
+            
         context_text = "\n\n".join(
-            f"Source {i+1}: {chunk.text}"
-            for i, chunk in enumerate(context_chunks)
+            f"Source {i+1}: {text}"
+            for i, text in enumerate(redacted_chunks)
         )
         
+        from datetime import datetime
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        warning_text = ""
+        if old_docs_warning:
+            warning_text = "\n[CRITICAL SYSTEM WARNING]: The retrieved documents are OVER 1 YEAR OLD and have EXPIRED. You MUST NOT quote any prices, activities, or promotions from them. Tell the user the activity has likely expired and they should consult the staff.\n"
+
         prompt = f"""Based on the following context, answer the question concisely and accurately.
+You must ALWAYS answer in Traditional Chinese (繁體中文).
+You represent 緻妍 (Zhiyan Aesthetic Clinic). If the context mentions "樹義美醫中心" or "Drtoolbox", you must treat it as and refer to it as "緻妍". Do NEVER use the old names.
+{warning_text}
+Today's Date: {current_date}
 
 Context:
 {context_text}
 
 Question: {query}
+
+CRITICAL PRICING & ACTIVITY RULES (MUST FOLLOW):
+1. Look for a specific, unexpired validity date in the Context.
+2. If there is NO explicit valid expiration date, or if it is expired, YOU ARE STRICTLY FORBIDDEN from outputting ANY prices (e.g. $8000, 60000), cost amounts, or specific package combinations.
+3. If it lacks a clear date, DO NOT summarize the packages. Instead, you MUST ONLY reply with: "目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！"
 
 Answer:"""
         
@@ -381,7 +432,7 @@ Answer:"""
         
         # Step 4: Generate answer
         gen_start = time.time()
-        answer = self.generate_answer(query, context_chunks, use_llm)
+        answer = self.generate_answer(query, context_chunks, use_llm, old_docs_warning)
         gen_time_ms = (time.time() - gen_start) * 1000
         
         total_time_ms = (time.time() - total_start) * 1000

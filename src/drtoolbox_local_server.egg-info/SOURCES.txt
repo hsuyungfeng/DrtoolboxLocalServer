@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 src/data_loader.py
 src/llm_server.py

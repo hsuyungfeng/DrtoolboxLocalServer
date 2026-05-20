@@ -31,6 +31,25 @@ def export_training_data():
     return send_file(correction_file, as_attachment=True, download_name="verified_training_data.jsonl")
 
 import concurrent.futures
+import time
+
+ocr_logs = []
+
+@dashboard_bp.route('/ocr_logs', methods=['GET'])
+def get_ocr_logs():
+    after = int(request.args.get('after', 0))
+    return jsonify({
+        "logs": ocr_logs[after:],
+        "next_index": len(ocr_logs)
+    })
+
+def add_ocr_log(msg):
+    timestamp = time.strftime("%H:%M:%S")
+    ocr_logs.append(f"[{timestamp}] {msg}")
+    # Keep only the last 200 logs to prevent memory leak
+    if len(ocr_logs) > 200:
+        ocr_logs.pop(0)
+
 # 建立一個最多 2 名工人的背景處理池，避免瞬間爆發太多執行緒把系統卡死
 ocr_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
@@ -58,6 +77,8 @@ def upload_files():
     
     # 定義一個背景執行的 OCR 工作
     def process_file_in_background(filepath, dt):
+        filename = os.path.basename(filepath)
+        add_ocr_log(f"開始處理檔案: {filename}")
         try:
             extracted_text = extract_text_from_file(filepath)
             if extracted_text and extracted_text.strip():
@@ -72,8 +93,20 @@ def upload_files():
                         router.rag.ingest_special_data([doc])
                     else:
                         router.rag.ingest_general_data([doc])
+                add_ocr_log(f"✅ 處理完成並加入知識庫: {filename}")
+                
+                # 自動刪除原始佔用空間的檔案以節省硬碟容量
+                try:
+                    os.remove(filepath)
+                    add_ocr_log(f"🧹 自動瘦身: 已刪除原始檔 {filename}")
+                except Exception as del_e:
+                    add_ocr_log(f"⚠️ 自動瘦身失敗 {filename}: {str(del_e)}")
+            else:
+                add_ocr_log(f"⚠️ 無法萃取文字或內容為空: {filename}")
         except Exception as e:
-            logger.error(f"Background OCR failed for {filepath}: {e}")
+            err_msg = f"❌ 背景處理失敗 {filename}: {str(e)}"
+            logger.error(err_msg)
+            add_ocr_log(err_msg)
     
     for file in files:
         if file:

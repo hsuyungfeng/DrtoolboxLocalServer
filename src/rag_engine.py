@@ -11,12 +11,20 @@ class ReasonerWrapper:
     def reason(self, prompt):
         return self.llm.generate(prompt)
 
+    def reason_chat(self, messages):
+        return self.llm.chat_generate(messages)
+
 class SimpleIndex:
     def __init__(self, reasoner):
         self.reasoner = reasoner
         self.documents = []
         
     def add_document(self, doc):
+        # 如果上傳同名檔案，直接覆蓋舊的記憶，避免記憶體重複佔用
+        for i, existing_doc in enumerate(self.documents):
+            if existing_doc.get('id') == doc.get('id'):
+                self.documents[i] = doc
+                return
         self.documents.append(doc)
         
     def get_scored_chunks(self, q):
@@ -64,10 +72,24 @@ class SimpleIndex:
         top_chunks = []
         # 過濾掉完全相同的 chunk，避免重複
         seen = set()
+        
+        import re
+        
         for score, chunk in all_scored_chunks:
             if chunk not in seen:
                 seen.add(chunk)
-                top_chunks.append(chunk)
+                
+                # Apply unconditional price redaction
+                text = chunk
+                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', text)
+                text = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', text)
+                text = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                text = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', text)
+                text = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', text)
+                text = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', text, flags=re.IGNORECASE)
+                
+                top_chunks.append(text)
             if len(top_chunks) >= 3:
                 break
         
@@ -77,28 +99,31 @@ class SimpleIndex:
             
         import datetime
         current_date = datetime.date.today()
-        prompt = f"""<|im_start|>system
-你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。請根據以下提供的【參考資料】來回答使用者的問題。
+        messages = [
+            {
+                "role": "system",
+                "content": f"""你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。請根據以下提供的【參考資料】來回答使用者的問題。
 
 【特別指示】
-1. 參考資料是從圖片辨識 (OCR) 轉出的文字，可能會有錯字、排版混亂，或者沒有寫出完整的「促銷組合」四個字。
-2. 只要你看到資料中有類似套餐名稱（如：XX組、XX專案）、價格標示（如：$38888），或是用加號（+）連接的多個療程項目（例如：水飛梭+肉毒），請主動將這些視為「搭配的促銷組合」並整理後回答使用者。
-3. 如果參考資料中包含任何「時間線」相關的資訊（例如：治療期程、復原時間、活動優惠期間、術後追蹤時間等），請務必在回答中特別標示並詳細附上。
-4. 【價格與時效限制】請嚴格檢查參考資料中標示價格或活動的時間。如果該活動或價格的時間距離今天（{current_date}）已經超過 2 個月，請直接過濾掉不要提供給使用者。只提供 2 個月內的有效價格與促銷。
-5. 如果參考資料中真的完全找不到任何相關線索，才能回答「對不起，目前的資料庫中沒有關於此問題的資訊」。
+1. 語言與排版：必須完全且唯一使用「繁體中文 (Traditional Chinese)」進行回答，嚴禁使用簡體中文。請使用美化的 Markdown 語法（例如：粗體、條列式清單、適當的段落空白）來排版，讓內容專業且容易閱讀。
+2. 參考資料是從圖片辨識 (OCR) 轉出的文字，可能會有錯字、排版混亂，或者沒有寫出完整的「促銷組合」四個字。
+3. 嚴格禁止報價！若遇到任何詢問價格、活動、專案的問題，因為資料多已過期或缺乏時效性，你【絕對不能】輸出任何金錢數字、價格、或是單堂費用。
+4. 如果參考資料中包含任何「時間線」相關的資訊（例如：治療期程、復原時間、活動優惠期間、術後追蹤時間等），請務必在回答中特別標示並詳細附上。
+5. 【價格與時效限制】請一律回覆：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」
+6. 如果參考資料中真的完全找不到任何相關線索，才能回答「對不起，目前的資料庫中沒有關於此問題的資訊」。
 
 【參考資料開始】
 {context}
-【參考資料結束】
-<|im_end|>
-<|im_start|>user
-{q}
-<|im_end|>
-<|im_start|>assistant
-"""
-        response = self.reasoner.reason(prompt)
-        # 過濾掉多餘的特殊 token
-        return response.replace("<|im_end|>", "").strip()
+【參考資料結束】"""
+            },
+            {
+                "role": "user",
+                "content": q
+            }
+        ]
+        
+        response = self.reasoner.reason_chat(messages)
+        return response.strip()
 
 class RAGEngine:
     def __init__(self):
@@ -171,10 +196,23 @@ class RAGEngine:
         
         top_chunks = []
         seen = set()
+        
+        import re
+        
         for score, chunk in rag_scored_chunks:
             if chunk not in seen:
                 seen.add(chunk)
-                top_chunks.append(chunk)
+                
+                text = chunk
+                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', text)
+                text = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', text)
+                text = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
+                text = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', text)
+                text = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', text)
+                text = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', text, flags=re.IGNORECASE)
+                
+                top_chunks.append(text)
             if len(top_chunks) >= 3:
                 break
                 
@@ -186,8 +224,10 @@ class RAGEngine:
         # 3. 組合 Prompt 給 LLM 進行綜合推論
         # ----------------------------------------------------
         current_date = datetime.date.today()
-        prompt = f"""<|im_start|>system
-你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。
+        messages = [
+            {
+                "role": "system",
+                "content": f"""你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。
 請「綜合」以下兩種資料來源（內部資料庫與醫療知識庫）來回答使用者的問題。
 
 【資料來源一：內部診所資料庫 (如門診時間、排班、系統紀錄)】
@@ -197,16 +237,18 @@ class RAGEngine:
 {rag_context}
 
 【回答指示】
-1. 若使用者詢問診所營運（如門診時間、排班），請優先參考「內部診所資料庫」。
-2. 若使用者詢問療程、價格或術後照顧，請優先參考「醫療與活動知識庫」。
-3. 如果兩種來源都有提到，請巧妙地將它們整合為一篇流暢的回答。
-4. 嚴格遵守：如果活動時間距離今天 ({current_date}) 已超過 2 個月，請過濾掉。將時間線（期程、復原時間等）整理清楚。
-5. 請勿暴露原始資料庫格式（例如 tuple、JSON 等），請以人類自然語言解釋。
-<|im_end|>
-<|im_start|>user
-{question}
-<|im_end|>
-<|im_start|>assistant
-"""
-        response = self.reasoner.reason(prompt)
-        return response.replace("<|im_end|>", "").strip()
+1. 語言與排版：必須完全且唯一使用「繁體中文 (Traditional Chinese)」進行回答，嚴禁使用簡體中文。請使用美化的 Markdown 語法（例如：粗體、適當的標題和條列式）來排版，確保視覺上專業且易讀。
+2. 若使用者詢問診所營運（如門診時間、排班），請優先參考「內部診所資料庫」。
+3. 嚴格禁止報價！若遇到任何詢問價格、活動、專案的問題，因為資料多已過期或缺乏時效性，你【絕對不能】輸出任何金錢數字、價格、或是單堂費用。
+4. 如果兩種來源都有提到，請巧妙地將它們整合為一篇流暢的回答。
+5. 【價格與時效限制】請一律回覆：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」
+6. 請勿暴露原始資料庫格式（例如 tuple、JSON 等），請以人類自然語言解釋。"""
+            },
+            {
+                "role": "user",
+                "content": question
+            }
+        ]
+        
+        response = self.reasoner.reason_chat(messages)
+        return response.strip()

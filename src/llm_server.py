@@ -14,21 +14,41 @@ class LocalLLM:
         try:
             logger.info("Sending generation request to LLM server on 8080...")
             response = requests.post(
-                f"{self.api_base}/completion",
+                f"{self.api_base}/v1/completions",
                 json={
                     "prompt": prompt,
-                    "n_predict": max_tokens,
+                    "max_tokens": max_tokens,
                     "temperature": temperature
                 },
                 headers={"Content-Type": "application/json"},
-                timeout=120
+                timeout=600
             )
             response.raise_for_status()
             data = response.json()
-            # llama.cpp server typically returns the generated text in 'content'
-            return data.get('content', '')
+            # OpenAI compatible response format
+            return data.get('choices', [{}])[0].get('text', '')
         except Exception as e:
             logger.error(f"LLM API request failed: {e}")
+            return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
+
+    def chat_generate(self, messages, max_tokens=1024, temperature=0.2):
+        try:
+            logger.info("Sending chat generation request to LLM server on 8080...")
+            response = requests.post(
+                f"{self.api_base}/v1/chat/completions",
+                json={
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=600
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get('choices', [{}])[0].get('message', {}).get('content', '')
+        except Exception as e:
+            logger.error(f"LLM API chat request failed: {e}")
             return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
 
 # Singleton instance

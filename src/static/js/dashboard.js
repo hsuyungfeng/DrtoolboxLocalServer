@@ -143,14 +143,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         }
         
-        // Hidden files or temporary files
-        if (name.startsWith('.') || name.startsWith('~$')) {
+        // Hidden files, temp files, or incomplete downloads
+        if (name.startsWith('.') || name.startsWith('~$') || name.endsWith('.downloading') || name.endsWith('.crdownload') || name.endsWith('.part')) {
             return true;
         }
         
         // System files
         const ignoreFiles = ['thumbs.db', 'desktop.ini', '.ds_store'];
         if (ignoreFiles.includes(name)) {
+            return true;
+        }
+        
+        // Skip files larger than 1GB (backend limit is 1GB)
+        if (file.size > 1024 * 1024 * 1024) {
+            console.warn(`Skipping ${name}: file size exceeds 1GB limit.`);
             return true;
         }
         
@@ -245,6 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update Progress Bar
             const percent = Math.round(((i + 1) / totalToUpload) * 100);
             progressBar.style.width = `${percent}%`;
+            
+            // Add a slight delay to prevent overwhelming the browser I/O or network stack
+            await new Promise(r => setTimeout(r, 50));
         }
         
         statPending.textContent = '0';
@@ -322,6 +331,48 @@ document.addEventListener('DOMContentLoaded', () => {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
+
+    // --- OCR Log Polling ---
+    const ocrLogContainer = document.getElementById('ocrLogContainer');
+    let lastOcrLogIndex = 0;
+    
+    async function pollOcrLogs() {
+        try {
+            const res = await fetch(`/api/dashboard/ocr_logs?after=${lastOcrLogIndex}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.logs && data.logs.length > 0) {
+                    if (lastOcrLogIndex === 0) {
+                        ocrLogContainer.innerHTML = ''; // clear placeholder
+                    }
+                    data.logs.forEach(log => {
+                        const div = document.createElement('div');
+                        div.style.marginBottom = '4px';
+                        
+                        // Simple color coding based on log content
+                        if (log.includes('✅')) {
+                            div.style.color = '#4ade80';
+                        } else if (log.includes('❌') || log.includes('⚠️')) {
+                            div.style.color = '#f87171';
+                        } else {
+                            div.style.color = '#e5e7eb';
+                        }
+                        
+                        div.textContent = log;
+                        ocrLogContainer.appendChild(div);
+                    });
+                    
+                    lastOcrLogIndex = data.next_index;
+                    ocrLogContainer.scrollTop = ocrLogContainer.scrollHeight;
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch OCR logs", e);
+        }
+    }
+    
+    // Poll every 1.5 seconds
+    setInterval(pollOcrLogs, 1500);
 
     // Initial Load
     loadLogs();

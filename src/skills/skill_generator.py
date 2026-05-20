@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class SkillGenerator:
     """Generates Python scripts for Auto-Skills using LLM."""
     
-    def __init__(self, llama_url: str = "http://127.0.0.1:8081/v1/chat/completions"):
+    def __init__(self, llama_url: str = "http://127.0.0.1:8080/v1/chat/completions"):
         self.llama_url = llama_url
         
     def generate_skill_script(self, pattern: str, description: str) -> Optional[str]:

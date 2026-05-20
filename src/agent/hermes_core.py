@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class HermesAgent:
     """Core Agent for DrtoolboxLocalServer"""
     
-    def __init__(self, llama_url: str = "http://127.0.0.1:8081/v1/chat/completions"):
+    def __init__(self, llama_url: str = "http://127.0.0.1:8080/v1/chat/completions"):
         self.llama_url = llama_url
         try:
             self.intent_router = get_intent_router() if get_intent_router else None
@@ -157,7 +157,7 @@ class HermesAgent:
         intent = self.intent_router.classify(user_query)
         logger.info(f"HermesAgent intent classification: {intent}")
         
-        system_prompt = "You are Hermes, an intelligent clinical assistant for Drtoolbox. You help clinic staff with medical knowledge and operational tasks."
+        system_prompt = "You are Hermes, an intelligent clinical assistant for 緻妍 (Zhiyan Aesthetic Clinic). You help clinic staff with medical knowledge and operational tasks. You must NEVER identify yourself as belonging to Drtoolbox or 樹義美醫中心. You must ALWAYS answer in Traditional Chinese (繁體中文). CRITICAL PRICING RULES: If there is no explicit, valid expiration date in the context, you MUST ASSUME activities are EXPIRED. YOU ARE STRICTLY FORBIDDEN from outputting ANY prices or packages. Instead, ONLY reply: 目前無法確認該活動的時效，建議您致電診所向專人諮詢以獲取準確報價。"
         context_text = ""
         
         # 2. Gather Context from RAG
@@ -195,7 +195,10 @@ class HermesAgent:
             
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(history)
-        messages.append({"role": "user", "content": user_query})
+        
+        # Append strict rules directly to the user's latest query to beat recency bias
+        strict_user_query = user_query + "\n\nCRITICAL RULE: If the context lacks a specific, unexpired expiration date for an activity, YOU ARE STRICTLY FORBIDDEN from outputting ANY prices (e.g. $8000, 60000) or package combinations. Instead, ONLY reply: 目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！"
+        messages.append({"role": "user", "content": strict_user_query})
         
         # 5. Call LLM (try local first, fallback to cloud)
         try:

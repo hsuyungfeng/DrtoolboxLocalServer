@@ -5,6 +5,38 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_whisper_model = None
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        compute_type = "float16" if device == "cuda" else "int8"
+        logger.info(f"Loading Whisper model on {device} with {compute_type}...")
+        _whisper_model = WhisperModel("small", device=device, compute_type=compute_type)
+    return _whisper_model
+
+def _do_pdf_ocr(pdf_path):
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        import pytesseract
+        from pdf2image import convert_from_path
+        images = convert_from_path(pdf_path, dpi=200, last_page=15)
+        text = ""
+        for i, img in enumerate(images):
+            try:
+                page_text = pytesseract.image_to_string(img, lang='chi_tra+eng')
+            except Exception:
+                page_text = pytesseract.image_to_string(img)
+            text += f"--- Page {i+1} ---\n{page_text}\n"
+        return text
+    except Exception as e:
+        logger.error(f"PDF OCR failed for {pdf_path}: {e}")
+        return ""
+
 def extract_text_from_file(filepath):
     ext = filepath.lower().split('.')[-1]
     try:
@@ -17,32 +49,71 @@ def extract_text_from_file(filepath):
             with open(filepath, 'rb') as f:
                 reader = PyPDF2.PdfReader(f)
                 for page in reader.pages:
-                    text += page.extract_text() + "\n"
-            return text
-        elif ext in ['doc', 'docx']:
-            import docx
-            doc = docx.Document(filepath)
-            return "\n".join([p.text for p in doc.paragraphs])
-        elif ext in ['ppt', 'pptx']:
-            from pptx import Presentation
-            prs = Presentation(filepath)
-            text = ""
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        text += shape.text + "\n"
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted + "\n"
+            if len(text.strip()) < 15:
+                logger.info(f"PDF {filepath} 似乎是掃描檔，啟動 OCR 備援機制...")
+                text = _do_pdf_ocr(filepath)
             return text
         elif ext in ['jpg', 'jpeg', 'png']:
             import pytesseract
             from PIL import Image
             try:
-                # Try with traditional chinese + english
                 return pytesseract.image_to_string(Image.open(filepath), lang='chi_tra+eng')
             except Exception:
-                # Fallback to default if language pack is missing
                 return pytesseract.image_to_string(Image.open(filepath))
-        else:
-            return ""
+        elif ext in ['mp4', 'mp3', 'm4a', 'wav', 'flv']:
+            logger.info(f"Starting Whisper transcription for {filepath}")
+            model = get_whisper_model()
+            segments, info = model.transcribe(filepath, beam_size=5)
+            text = f"--- 語音逐字稿 (語言: {info.language}) ---\n"
+            for segment in segments:
+                text += f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n"
+            return text
+
+        # === Office File Parsing ===
+        text = ""
+        if ext == 'docx':
+            import docx
+            doc = docx.Document(filepath)
+            text = "\n".join([p.text for p in doc.paragraphs])
+        elif ext in ['doc', 'ppt']:
+            import subprocess, tempfile
+            logger.info(f"Using LibreOffice to extract text from legacy {ext} file: {filepath}")
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    subprocess.run(['soffice', '--headless', '--convert-to', 'txt:Text', '--outdir', temp_dir, filepath], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    base_name = os.path.splitext(os.path.basename(filepath))[0]
+                    txt_file = os.path.join(temp_dir, f"{base_name}.txt")
+                    if os.path.exists(txt_file):
+                        with open(txt_file, 'r', encoding='utf-8', errors='ignore') as f:
+                            text = f.read()
+            except Exception as e:
+                logger.error(f"Failed to convert legacy {ext} file {filepath}: {e}")
+        elif ext == 'pptx':
+            from pptx import Presentation
+            prs = Presentation(filepath)
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text += shape.text + "\n"
+
+        # Universal OCR fallback for Office files that might be purely image-based
+        if ext in ['doc', 'docx', 'ppt', 'pptx'] and len(text.strip()) < 15:
+            logger.info(f"{ext} 檔案 {filepath} 似乎是由純圖片組成，啟動 OCR 備援機制...")
+            import subprocess, tempfile
+            try:
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, filepath], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    base_name = os.path.splitext(os.path.basename(filepath))[0]
+                    pdf_file = os.path.join(temp_dir, f"{base_name}.pdf")
+                    if os.path.exists(pdf_file):
+                        text = _do_pdf_ocr(pdf_file)
+            except Exception as e:
+                logger.error(f"Failed to run universal PDF OCR fallback for {filepath}: {e}")
+
+        return text
     except Exception as e:
         logger.error(f"Error extracting text from {filepath}: {e}")
         return ""
@@ -68,7 +139,7 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
     if rag_engine_instance:
         import threading
         def background_ocr():
-            supported_exts = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png']
+            supported_exts = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.mp4', '.mp3', '.m4a', '.wav', '.flv']
             for root, _, files in os.walk(directory):
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
@@ -88,6 +159,14 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
                                         rag_engine_instance.ingest_special_data([doc])
                                     else:
                                         rag_engine_instance.ingest_general_data([doc])
+                                        
+                                    # 自動刪除原始佔用空間的檔案以節省硬碟容量
+                                    try:
+                                        os.remove(filepath)
+                                        logger.info(f"[自動瘦身] 已成功刪除原始檔以釋放空間: {filepath}")
+                                    except Exception as del_e:
+                                        logger.warning(f"[自動瘦身] 刪除原始檔失敗 {filepath}: {del_e}")
+                                        
                                 except Exception as e:
                                     logger.error(f"Failed to save extracted text for {filepath}: {e}")
         

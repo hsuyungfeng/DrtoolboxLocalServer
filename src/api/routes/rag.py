@@ -191,7 +191,7 @@ def query():
             import requests
             # Use external llama-server for better performance (GPU-accelerated)
             response = requests.post(
-                'http://127.0.0.1:8081/v1/chat/completions',
+                'http://127.0.0.1:8080/v1/chat/completions',
                 json={
                     'messages': [
                         {'role': 'user', 'content': prompt}

@@ -3,41 +3,35 @@
 
 set -e
 
-LLAMA_BIN="/tmp/llama.cpp/build/bin/llama-server"
-MODEL_PATH="${1:-models/Qwen3.6-35B-A3B.Q3_K_M.gguf}"
-PORT="${2:-8081}"
+LLAMA_BIN="/home/linuxbrew/.linuxbrew/bin/llama-server"
+MODEL_PATH="${1:-/home/hsu/models/gemma-4-E4B-it-Q8_0.gguf}"
+PORT="${2:-8080}"
 
-echo "🚀 Starting llama-server"
+echo "🚀 Starting llama-server (via python)"
 echo "Model: $MODEL_PATH"
 echo "Port: $PORT"
 echo ""
 
-# Check if binary exists
-if [ ! -f "$LLAMA_BIN" ]; then
-    echo "❌ llama-server binary not found at $LLAMA_BIN"
-    echo "Run: bash scripts/build_llama_cuda.sh"
-    exit 1
-fi
+# Activate virtual environment
+source /home/hsu/DrtoolboxLocalServer/.venv/bin/activate
 
 # Check if model exists
 if [ ! -f "$MODEL_PATH" ]; then
     echo "❌ Model not found at $MODEL_PATH"
-    echo "Available models:"
-    ls -lh models/*.gguf 2>/dev/null || echo "  No models found"
+    ls -lh /home/hsu/models/*.gguf 2>/dev/null || echo "  No models found"
     exit 1
 fi
 
 echo "⏳ Loading model (this may take 60-120 seconds)..."
 echo ""
 
-# Run llama-server
-$LLAMA_BIN \
+# Run llama_cpp.server
+export CUDA_VISIBLE_DEVICES=0
+python -m llama_cpp.server \
     --model "$MODEL_PATH" \
     --port "$PORT" \
-    --gpu-layers 50 \
-    -c 4096 \
-    -t 4 \
-    --verbose 1
+    --n_gpu_layers 35 \
+    --n_ctx 32768
 
 echo ""
 echo "✅ llama-server running on http://127.0.0.1:$PORT"
