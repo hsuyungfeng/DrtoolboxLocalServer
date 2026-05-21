@@ -1,0 +1,584 @@
+--- Page 1 ---
+mB
+
+BINGLI SHUXIE GUIFAN
+
+PLU
+
++4 Rete 副主編 RAH
+
+病歷作為臨床醫學文書, 客觀記錄了患者疾病的發生
+RRS, 反映了醫療行為的全過程與質量, 歷來是醫
+療. 教學。科研的第一手資料, 更是行業管理中綜合評價
+醫療技術、醫療質量和醫院管理水平的依据,
+
+時代出版傳媒股份有限公司
+a nt 2 © 安徽科學技術出版社
+
+--- Page 2 ---
+N
+
+WIFA
+
+G
+
+SHUXIE
+
+!
+
+8tNGL
+
+(最新版)
+
+副主編 徐宏光
+
+
+--- Page 3 ---
+圈書在版編目(CIP)數據
+病歷書與規範:最新版/費勤福主編. 一合肥:安徽科
+
+學技術出版社,2015. 1
+ISBN 978-7-5337-6429-6
+
+1.0m 1. OR 1. 病案-書寫規則
+N. DR197, 323
+
+中國版本圖書館 CIP ACHE AK (2014) 206916 號
+
+病歷書寫規范(最新版)        主編”費動福 副主編“徐宏光
+出 版 A: 黃和平       Vel eX: 黃和平       責任編輯: ty TF
+責任校對: 陳會蘭      責任印制: 廖小青      封面設計: 滲 FH
+出版發行: 時代出版傳媒股份有限公司“http://www. press-mart. com
+安徽科學技術出版社          http:// www,. ahstp. net
+
+(合肥市政務文化新區翡翠路 1118 號出版傳媒廣場,虐編:230071)
+電話: (0551)63533323
+
+Al 制: 安徽新華印刷股份有限公司電話:(0551)65859178
+
+(如發現印裝質量問題,影響閱讀,請與印刷廠商聯繫調換)
+
+了
+
+開本: 880xX1230 1/32         印張: 21.5         FR. 560 千
+版次: 2015 年1月第1版      2015 年1月第1次印刷
+ISBN 978-7-5337-6429-6                              定價: 39. 80 元
+
+版權所有,侵權必究
+
+--- Page 4 ---
+《病歷書與規范(最新版)編委會
+
+主 任 委 員:於德志
+
+IFEER: FAM
+編   委:阮 浩
+LYE
+楊文明
+主   a: ie SF
+al “主 ”編:徐宏光
+
+特 邀 編 輯:陳珍初
+
+編酌人員:(以姓氏筆融為序)
+
+丁曉梅
+EAE
+王德光
+劉寰忠
+江樹連
+(TER
+
+sk 帆(蚌醫一附院)
+
+ER
+李向培
+陳方滿
+陳素玉
+jp RE.
+胡順金
+曹 &
+程桂芝
+
+iy
+
+費勤福
+RAF
+RRS
+FAK
+
+Ht 琅
+
+FEM
+王鳳超
+i IE
+e 4L AL
+a 峰
+A Ft
+
+張閉東
+陳 坷
+AER
+dk
+倪朝民
+HAY
+e *
+
+於慶生
+王國平
+滲振中
+呂 勇
+湯 健
+KH ME
+張紅座
+張 &
+楊 婷
+陳 柯
+EMI
+ERS
+章 秋
+將靜涵
+
+陳榮珠
+尚希福
+胡業彬
+徐國成
+黃 強
+韓宁林
+
+i LF
+王雨寶
+x)
+jo RF
+許慶珍
+
+牛朝詩
+王莉莉
+x] 欣
+KAA
+許建明
+
+張 PLC RB)
+
+張
+李偉莉
+A
+
+jhe 張 英
+
+Bes
+PR LE
+i FE HB
+K 健
+胡 波
+陶 敏
+程恩荷
+AS 燕
+
+--- Page 5 ---
+序言
+
+病歷作為臨床醫學文書,客觀記錄了患者疾病的發生、發展和
+轉歸,反映了醫療行為的全過程,是醫療、教學、科研的第一手資
+料,更是行業管理中綜合評價醫療技術、醫療質量和醫院管理水平
+的依據。隨著經濟與社會的發展,病歷不僅是為醫療事故鑑定、醫
+療糾紛爭議等提供客觀的醫療行為事實和法律書證,保護醫患雙
+方合法權益的重要文檔,還要符合法學社會學的要求,成為勞動
+就業、醫療保險等提供人群基本健康翁證之一。
+
+安徽省歷來十分重視病歷書寫和病案管理。省衛生廳於 1982
+年編印了J《安徽省病歷規範)供全省參考使用,1991 年和 2004 年,
+委托饒南醫學院議磯山醫院進行修訂和補充,增加了病歷書寫的
+基本要求和病歷質量評定標準,使之更加貼近實際,適合臨床, 並
+更名為《病歷書寫規範)。該書榮登全國新華書店科技圖書暢銷
+榜,得到了全國醫務界同仁和席大談者的好評。
+
+此次重新編二(病歷書寫規範 是依據衛生部衛醫政發[2010」
+11 號《病歷書寫基本規範》衛醫政發[2010」24 號《電子病歷基本
+規範X(試行)和衛生部、國中醫藥醫政發[2010329 號《中醫病歷書
+寫基本規範以及國家衛生計生委、國家中醫藥管理局國衛醫發
+(2013331 號《醫療機構病歷管理規定(2013 年版))等文件精神,並
+
+結合我省實際了予以更新、神充、完善的。新修編的《病歷書與規世》
+1.
+
+--- Page 6 ---
+從規範醫務人員執業行為的角度出發,明確了病歷書寫的基本規
+則與要求,注重醫療行為的過程記錄,將提高病歷書寫水平與提高
+專業技術水平緊密結合起來。
+
+各級衛生計生行政部門必須加強學習培訓,加大宣傳訖度,強
+化實施中的監督檢查。醫療機構要建立健全工作規範和規章制
+度,提高廣大醫務人員的法律意識和遵紀守法的自覺性,使新規范
+迅速融和人現代醫院管理的各項業務活動之中,成為指導醫務人員
+正確履行職責、義務,維護專業活動中醫患雙方權益的指責。我竹
+最近修訂了衛生系列高級職稱評審條件,其中將病歷書寫情況做
+為審定醫務人員能否晉升的重要依據。各級醫療機構及廠大醫務
+人員要進一步強化行業自律,全心全意為人民群傘服務,使病歷書
+寫和病歷管理步人科學化,規範化管理的軌道,不斷提高醫療質量
+和醫院管理水平。
+
+安徽省衛生和計劃生育委員會“主任
+ar,
+
+2014 年 12 A
+
+--- Page 7 ---
+前 言
+
+病歷是指醫務人員在醫療活動過程中形成的文字符號、畔
+表,、影像、切片等資料的總和。高質量的病歷為醫療機構和醫務人
+員的醫療科研、教學提供極其寶貴的基礎資料,在涉及醫療爭議
+時,又成為判定法律責任、維拱醫患雙方合法權益的重要依據。病
+歷質量管理已成為醫院管理的重要內容之一。
+
+病歷作為臨床醫學文書,客觀真實地記錄羞患者疾病的發生,、
+發展和特歸,反映了醫療機構醫療行為的全過程與質量,病歷書和寫
+既是臨床醫務人員人從業必須掌握的基本功,更是醫療機構依法執
+業、規范管理不可忽視的重要環節。為進一步規范醫務人員的病
+歷書寫,提高醫療機構的病歷管理水平,切實做好衛生部《病歷書
+與基本規范汶件的貴御落實,我們結合廂床工作實際,在安徽省
+原有《病歷書寫規范》修訂版的基礎上進行修訂,重新編与了安徽
+BAAS MI) (EARS ARABS WEAR A
+
+全書共分十三章,內容包括:病歷書寫基本要求;病歷書寫要
+求與格式,包括門(急)診病歷和住院病歷;各種記錄書寫要求與格
+式;各專科(如內科、外科、婦產科、 兒科等)病歷書寫重點要求;中
+醫、中西醫結合病歷書寫要求與格式;常用醫療申請單、報告單書
+與要求與格式護理文書書寫要求與格式;醫療知情同意書,處方
+書與規范及質量標準;住院病案首頁書舉要求與格式;電子病歷規
+臣要求;臨床路徑文本及實施記錄基本要求;病歷管理及質量控制
+等,同時還附錄了與病案相關的文件法律,制度等。
+
+本書依照中華人民共和國執業醫師法中華人民共和國侵
+ole
+
+--- Page 8 ---
+iit BINGLI SHUXIE GUIFAN
+
+PASM
+RITES BUTERA RIT SEMA RUTHIN
+病歷管理規定(2013 AER) A REOR Sa TB . BR
+規範)是安徽省各級各類醫院必須遵循的病歷書寫及病歷管理的
+標準,同時,
+依據之一。實施過程中,肯定還會遇到不少新情況、新問題,希望
+注意總結經驗,拾遺補缺, 及時向儿計大報告.
+本規範的修編,得到安徽省立醫院安徽醫科大學第一附屬醫
+院,蚌埠醫學院第一附屬醫院,饒南醫學院第一附屬醫院(妃磯山
+醫院)、安徽醫科大學第二附屬醫院安徽中醫藥大學第一附屬醫
+院、安徽省護理學會,合肥市精神病醫院等單位和各學科專家的積
+極支持和參與。上饒南醫學院第一附屬醫院(代磯山醫院)、安黴省
+醫院管理協會病案管理專業委員會在編委會成立前,做了大量的
+前期準備工作,普對全書進行通篇修改,為新規范的修編工作奠定
+了良好的基礎。
+本書在編撰過程中,還參閱了山東省《最新病歷書與規范解
+讀)和北京大學人民醫院《知情同意書匯編)部分內容,在此一並
+致謝!
+由於編者水平有限,書中難免存在不妥之處,敬請讀者指正。
+
+編 委 會
+2014 年 12 月
+
+--- Page 9 ---
+ae    ae
+| es eB BW |
+
++ 48
+
+it 1 二
+
+| 共
+
+j
+
+ik &
+
+lt |
+
+set Hatt Ot OHH
+
+xy yy HH B jn
+
+病歷書寫基本要求 (1)
+FE a EEE (1)
+FATE Oe ee (1)
+Pe ee Ge (3)
+病歷書寫原則及基本要求 (6)
+
+病歷書寫要求與格式 (10)
+CBP RR ER GR creer ee teeeteeee (10)
+住院病歷與入院記錄書寫要求與格式 corey(13)
+
+各種記錄書寫要求與格式  (30)
+各種記錄書寫,修改的基本要求 cerca (30)
+PRALTL cnc ceceeeeeeeeetee cesses reeeeeneeensaeeeesenaes (30)
+上級醫師栓房記錄 (33)
+搶救記票2 (34)
+階段小千記錄 (35)
+交(接)班記杜2 (36)
+轉科記票 ceeeeeeseceeeeeeeeesseeeseessseseseeeeeeeeeens (37)
+輸血記杜0 (39)
+有創診療操作記錄 (39)
+會診申請及會診記錄   (40)
+
+病例討論記票6 (43)
+術前小結記杜 (49)
+手術安全核查記錄 (50)
+
+--- Page 10 ---
+第十四節” 手術風險評估記杜0 (52)
+第十五節” 麻醉術前訪視記蠅0 (55)
+第十六節。 麻醉記票6 (57)
+第十七節” 麻醉術後訪視記錄0 (60)
+BAM FRAUD crc eecceecteceeeeeeeaeeceeeeeeeseeesceseeeees (61)
+BIL REPAID cette cc eeceececesceeeeeeeeeeeeaeeenens (62)
+BX AAW RB ccc tecceeceeceeceeeeseeeeeseeeeeneeesensenees (63)
+| ee AG EEE ee (65)
+| ie ee 0 eae (65)
+BX PSM FEU cet eet eee eeceecseeeeeeeeeuecceeeneeeeeees (67)
+BOA VOT PER RPGR cccccetecceceeeseeseeeeeeennn ees (68)
+SPS AE PLAS BAR cece ceceeceeeeeeeseeseseeenens (70)
+第一節。 呼吸肉科0 (70)
+第二第心血管肉科 cee eeeceectecca eee eeceeeeeeeseeeeeeseeeeeeens (71)
+第三節。 消化几科0 (73)
+第四第 =, 2 eee (75)
+5 a ie RY 2 = ee (77)
+BA AD WAL  ceecceeeeeeeeteeeeeeeeseseaeeeseeeeeeeeseeeneens (79)
+BAW TL EFL cee ectecc eee eeeeceeeceerenseeceuseeeseresees (81)
+BN FR RAL cece eee tee tence eeeeeceeceeeeeeneeeeeeseeeees (84)
+第九第精神科 cee eee cece eee teeeeeceu eee seteeeeenseeseneseneees (87)
+ee oe ce 7 eee (92)
+第十一第兒科 (94)
+第十二第 外科 (97)
+第十三第多外科 cee eeece rete eeceeeeeseeceeeeeeeeeeeaeeeeeeeeees (99)
+
+--- Page 11 ---
+eB HW BW HW
+Wot + 4 4 4 4
+十全 >    iM 晤
+| i) | i i 莫
+
+BB HB BBW BSB BS HW R
+1 0 0 0 0 0 0 0 0 0 6 1
+二二二二二
+1才AA人 Bl fr
+
+| | i | i) 划
+
+3 AR
+\ 1
++ +
+Bl
+de ot OS OH
+
+By
+
+\
++
+by
+at
+
+Phe PR
+
+第一
+第二
+
+節 門
+a
+
+住
+
+神經外科 ceeeeeeeecee seca enteneneeseseeaeaeneeeeeeenes (100)
+心用外科 cccseeeec cee sseeeeeeeeneeesceeennseseaeeeeees (103)
+胸外科 cee erseeeeeeeeeeeesee eee eeeceeeeeeeeseaneeeeeens (105)
+泌尿外科 cceseseeeseeeeeseeceeeeeeeseeaeseesseae esses (106)
+骨科 (109)
+WEAR AL ccssseeeeenseseeeeeseneeeseeeaeeeneneaeeeeeeees (112)
+整形外科 cerceceseeeneeaeeeeneeeseeeaneeeesuneeeseaens (113)
+如科 ccecerseeeeeenneeeeeeaaenseeeuaeeseeeaneeeneees (114)
+產科二和 (117)
+眼科二 (118)
+耳鼻咽喉頭頸外科 ee (119)
+口腔科 cceseeecesseeeeeeeeeeeaeesseeneescennncesees (124)
+皮膚性病科ee (133)
+WP IG LAL ceececeeeceeeeeseeeeeeeeeeeeeesaneseeenees (135)
+放射腫瘤科 Eee (138)
+介入放射科 (138)
+康復醫學科 (140)
+核醫學科 ceecceeeceeeeeeeeceeeeeeeceeaenseseeeeees (142)
+急診內科 cecceceeeceeeeeeeeeceseeeeeceaeeeseanees (144)
+急診外科 ceecee ce eeeeeeeaeeenceeneeneeeneeeeeneees (147)
+重症醫學科 cee se cece eeeeceseceeneeeeeneeseeesens (149)
+HS RAL ee (156)
+PRA B SBR GR oe(225)
+(急)診病歷要求與格式 cecctececeeeeeeseseeeeeeees (226)
+EID EG EK, ccc eee cc tet ene eee ene eeeeenesenns (227)
+
+BUH
+me em
+
+fit? iH}
+ie
+fy
+we   ig  i      ww  了
+mn, i            ii
+ah,                  \
+ai    fleas
+
+S55 Ute SH SH
+NYSIND FXNHS MIN
+
+AN
+ie)
+
+--- Page 12 ---
+最 新版 BINGLI SHUXIE GUIFAN
+
+PARSE Ms
+Bat WRREA BHR BBR cccccccseeeeeeeeeeen (240)
+ea Se) i ae ae ae: (246)
+第五節  各類病歷表格記錄格式 了 (249)
+第六章“常用申請單、報告單書與要求與格式 rete (288)
+第一節 KH REP HRA RABE BR coc (288)
+At RHEFYMRSARBASAR cee (290)
+Pay RHE FEE PREM RABASKAS coe (299)
+pA ee CoE ee oe OL ee (310)
+: BB KBE RARER GBR cece cee cee eeeteeeeeeeeees (312)
+BAW  超聲報告基本描述 店 (327)
+第七節”檢驗申請單、報告單的基本內容與格式 cee (346)
+PAP 病理會診單,診斷報告單的基本要求與格式 - (368)
+第九節”核醫學診斷報告內容要求與格式 ces (381)
+Eee we ee eae 5 So]. 5: eee (405)
+第一節” 生命体征觀察單(體溫單放ee (405)
+ei Ay 2: EE (408)
+第三節” 住院患者入院護理評估記錄單(含四評單) oe (408)
+89%  住院患者護理記錄單 PYOTUTETETIVITTETETETTTeT errr rye (410)
+第五節  手術護理記錄單 人 (412)
+BAF  產科護理記錄單 還 (412)
+BiH  者科拱理記錄單 店 (414)
+BA  住院呻者健康教育評價單 還 (416)
+FAG =a SS ee SIL Gl ae (464)
+第一第概述 (464)
+go  知情同意書履行的主人體 PPPTTETTeTTTTTeTeTTrrrrrT Tey (468)
+
+6
+a
+e
+
+--- Page 13 ---
+aT  知情同意書的種類和內容 國 (469)
+7
+
+第四    FE Ho te] EG ARB) cece cece eeeeeeeeseeeeeneeeeeees (472)
+第九章“處方書寫規範及質量標準 (543)
+第一節” 處方的定義,分類與肉容 (543)
+第二節” 處方的權限,限量 (545)
+第三生處方書寫規范 (548)
+pe BS 2 ee a (549)
+第十章住院病案首頁書寫要求及格式 cee eee eee eeeee cece eens (553)
+第一節。” i We ee ee (553)
+PoP LAM ARARA DPT A ARE RA (555)
+Ee Be ar 7 (564)
+第十一章“電子病歷規範要求 cece eee eee cere reece eeeeeeeeeees (566)
+第一節' 電子病歷書寫基本要求 (566)
+第二節” 計算機打印電子病曆基本要求 cet eeeeeeceeees (568)
+pe ee De he (568)
+pee 電子病歷管理療法 (569)
+Be PRE BRE CAS SE HMB IE REAR BOK 人 (574)
+第十三章“病歷管理與質量控制 we ec ecco cece eee eeeeeeee nee eeeees (579)
+第一第概述                    SR
+第二節_病歷管理要求                  se
+Ei E20) 0: ee (584)   poe
+pa eB ie es 2 ae 10): Se (587)   Be
+BE FV FRG ER ILI, cect ee cee ee tee eee eee eee een eeneneees (600)   0%
+>?已
+附    FE etc eeceeceecnecasceeeea een eeeseensenesensunsseesencenseeeeeers (602)
+
+--- Page 14 ---
+第一章 病歷書寫基本要求
+
+RN MAN AM
+
+病歷是指醫務人員在醫療活動過程中形成的文字、符號,圖
+表,影像,切片等資料的總和。傳統醫學對患者的診療記錄稱之診
+籍、醫案或脈案,現代醫學則有病案病歷病史之稱呼。目前,臨
+床對醫學記錄通常用病案和病歷兩個術語。病歷是指患者正在治
+療中,醫療記錄尚未完成,醫務人員正在書寫的文件資料;病案是
+指患者出院后,病歷資料經過整理,裝訂成冊後,稱之病案。病歷
+與病案的區別是前者指患者在醫院正在治療中醫務人員書寫的醫
+療記錄,擬者是指已經完成的醫療記錄。
+
+病案是有關患者健康狀況的資料,包括患者本人或他人對疾
+病的病情描述和醫務人員對患者的查體結果,以及醫務人員對疾
+病病情的分析,、診療過程和疾病轉歸情況的記錄,同時還有與之相
+關的具有法律意義的文書單據。醫療記錄可以是文字形式,也可
+VEER AR 錄音等形式,。
+
+對於病歷的概念必須說明兩點;第一,由於現代醫療活動存在 fA
+著分工和協作,不可避免地存在一些中間環節,需履行文字手續,  ,
+
+B-— i wAHAASAR
+
+病歷是指醫務人員在醫療活動過程中形成的文字、符號、畔
+‧。] as
+
+形成一些臨時文件,而這些文件一旦達到了具體醫療行為目的之 ine
+ea FETE OMA. BEAR PRE, A BE ES
+申請單等。第二,病理切片,X 線片等不能歸人病案保存,存人病 rE
+案的只是報告單。因此,不是所有醫療活動過程中形成的文字、符本5
+號,圖表等資料都是病歷(病案)資料。              還
+
+--- Page 15 ---
+最新版 引NGLI SHUXIE GUIFAN
+
+“病歷書寫規范
+表,影像,切片等資料的總和,包括門(急)診病歷和住院病歷,。
+
+病歷書寫是指醫務人員通過問診、查體、輔助檢查,診斷,、治
+療護理等醫療活動狹得的有關資料,並進行歸納、分析,、整理形成
+醫療活動記錄的行為。
+
+一、病歷的類型
+
+(一)按種類
+
+分為門診病歷、門診手冊、急診病歷、急診留觀病歷和住院
+病歷,。
+
+(二)按時間
+
+分為運行病歷和出院病歷。
+
+二,、病曆的組成
+
+(一)門(急)診病歷的組成
+
+1. 病歷首頁(手冊封面)
+
+2. 病歷記錄
+
+3. 化驗單(檢驗報告)
+
+4. 醫學影像檢查資料等
+
+(二)住院病歷的組成
+
+1. 住院病案首頁
+
+2. 人院記錄
+
+3. 病程記錄:包括首次病程記錄、日常病程記錄、上級醫師查
+房記錄、交(接)班記錄,點科記錄、階段小結,搶救記錄、有創診療
+操作記錄、術前小結等。
+
+4. 會診記錄
+. 疑難病例討論記錄
+.術前討論記錄
+. 手術同意書
+. 麻醉同意書麻醉術前訪視記錄、麻醉記錄、麻醉術後訪視
+
+oN mS UI
+
+記錄
+“9. 手術風險評估記錄,手術安全核查記錄手術物品清點記
+

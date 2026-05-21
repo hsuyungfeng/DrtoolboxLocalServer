@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(pip install:*)",
+      "Bash(uv pip:*)",
+      "Bash(python3:*)",
+      "Bash(python3 $SCRIPT:*)",
+      "Bash(cp:*)",
+      "Bash(__NEW_LINE_4f1e73629260f842__ python3:*)",
+      "Bash(__NEW_LINE_e773260f4d809b30__ python3:*)",
+      "Bash(__NEW_LINE_685c81fd9f11b1ce__ python3:*)",
+      "Bash(rm:*)",
+      "Bash(bash:*)",
+      "Bash(pnpm build:*)",
+      "Read(//home/hsu/.claude/skills/**)",
+      "Bash(tar -czf marketing-copywriter.tar.gz marketing-copywriter/)",
+      "Bash(ffmpeg:*)",
+      "Bash(tar:*)"
+    ]
+  }
+}
