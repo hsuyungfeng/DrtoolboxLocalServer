@@ -17,7 +17,7 @@ Drtoolbox 是一個專為診所設計的本地端 AI 知識庫與助理系統。
 為了讓 AI 大腦與網頁控制台正常運作，您需要啟動兩個主要服務：
 
 ### 1. 啟動 AI 大語言模型伺服器 (llama-server)
-本系統依賴本地的 AI 模型（例如 Gemma 或是 Llama 模型）。
+本系統依賴本地的 AI 模型（例如 Qwen (llama-qwen) or Llama 模型）。
 請打開一個新的終端機 (Terminal)，並執行您的 llama-server 指令：
 ```bash
 # 範例指令 (請根據您實際的模型路徑與參數進行調整)

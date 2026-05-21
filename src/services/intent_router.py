@@ -60,6 +60,7 @@ Respond with ONLY ONE WORD: MEDICAL, CLINICAL, or BOTH."""
             response = requests.post(
                 self.llama_url,
                 json={
+                    "model": "llama-qwen",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 50,
                     "temperature": 0.0

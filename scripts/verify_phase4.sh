@@ -38,9 +38,9 @@ fi
 
 if [ -f "$GEMMA" ]; then
     SIZE=$(du -h "$GEMMA" | cut -f1)
-    echo -e "${GREEN}✓ Gemma-4 model found ($SIZE)${NC}"
+    echo -e "${GREEN}✓ Qwen (llama-qwen) model found ($SIZE)${NC}"
 else
-    echo -e "${RED}✗ Gemma model not found${NC}"
+    echo -e "${RED}✗ Qwen model not found${NC}"
 fi
 
 # Test 3: Check database

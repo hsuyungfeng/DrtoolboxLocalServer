@@ -1,12 +1,12 @@
 #!/bin/bash
-# GPU Layer Optimization Test for Qwen 3.6-35B on RTX 2080 Ti (22GB VRAM)
+# GPU Layer Optimization Test for Qwen 3.6-7B on RTX 2080 Ti (22GB VRAM)
 # Test increasing layer counts: 20 (baseline) → 25 → 30 → 35
 # Each test runs 3 inference requests and monitors VRAM
 
 set -e
 
 LLAMA_BIN="/tmp/llama.cpp/build/bin/llama-server"
-MODEL_PATH="${1:-models/Qwen3.6-35B-A3B.Q3_K_M.gguf}"
+MODEL_PATH="${1:-models/qwen-3.6-7b-it.gguf}"
 PORT=8082
 TEST_PROMPT="請用繁體中文回答：診所現在有多少病患？"
 TIMEOUT=120
@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║  GPU Layer Optimization Test — Qwen 3.6-35B on RTX 2080 Ti ║"
+echo "║  GPU Layer Optimization Test — Qwen 3.6-7B on RTX 2080 Ti  ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 echo "Model: $MODEL_PATH"

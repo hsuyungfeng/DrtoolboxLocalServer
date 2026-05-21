@@ -16,6 +16,7 @@ class LocalLLM:
             response = requests.post(
                 f"{self.api_base}/v1/completions",
                 json={
+                    "model": "llama-qwen",
                     "prompt": prompt,
                     "max_tokens": max_tokens,
                     "temperature": temperature
@@ -37,6 +38,7 @@ class LocalLLM:
             response = requests.post(
                 f"{self.api_base}/v1/chat/completions",
                 json={
+                    "model": "llama-qwen",
                     "messages": messages,
                     "max_tokens": max_tokens,
                     "temperature": temperature

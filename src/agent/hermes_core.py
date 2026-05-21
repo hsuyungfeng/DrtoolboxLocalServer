@@ -207,6 +207,7 @@ class HermesAgent:
                 response = requests.post(
                     self.llama_url,
                     json={
+                        "model": "llama-qwen",
                         "messages": messages,
                         "max_tokens": 1024,
                         "temperature": 0.3

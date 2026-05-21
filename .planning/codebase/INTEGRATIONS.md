@@ -9,4 +9,4 @@
 - **FileBrowser**: Potential local file manager integration for clinic staff.
 
 ## Models
-- **Gemma 4 27B**: Hosted locally via `llama.cpp` acting as the core reasoning engine for PageIndex and Hermes.
+- **Qwen**: Hosted locally via `llama-qwen` (llama.cpp) acting as the core reasoning engine for PageIndex and Hermes.

@@ -1,7 +1,7 @@
 # [DrtoolboxLocalServer] Customer Service AI
 
 ## Context
-**What this is:** A customer service AI and data collection platform built on a vectorless, reasoning-based RAG architecture. It uniquely integrates **NousResearch/hermes-agent** for orchestration and **VectifyAI/PageIndex** for hierarchical document retrieval. It uses a local LLM (Gemma 4 27B via `llama.cpp`) for privacy-first reasoning. The primary focus is generating, reviewing, and collecting high-quality JSON QA pairs in the `/data` directory for future model fine-tuning, alongside a web dashboard for staff management.
+**What this is:** A customer service AI and data collection platform built on a high-performance N-gram keyword matching RAG architecture. It uniquely integrates **NousResearch/hermes-agent** (via `HermesRouter`) for orchestration and a custom `SimpleIndex` for efficient document retrieval without vector databases. It uses a local LLM (Qwen (llama-qwen) via `llama.cpp`) for privacy-first reasoning. The primary focus is generating, reviewing, and collecting high-quality JSON QA pairs in the `/data` directory for future model fine-tuning, alongside a web dashboard for staff management.
 **Data Strategy:** The knowledge base is explicitly divided into two parts:
 1. **Clinic Special Data**: Specific clinic rules, marketing, and documents sourced from `/media/hsu/软件/行銷圖文檔案整理`.
 2. **General Medical Data**: Broad medical knowledge for general patient queries.
@@ -11,21 +11,24 @@
 ## Requirements
 
 ### Validated
-- ✓ [Local Inference] — `llama.cpp` integration capable of serving local models (Gemma 4 27B).
+- ✓ [Local Inference] — `llama.cpp` integration capable of serving local models (Qwen (llama-qwen)).
 - ✓ [Project Structure] — Existing Python/Flask structure with `/src`, `/data`, `/documents`, and Hermes agent orchestration components.
+- ✓ [RAG Engine] — High-performance `SimpleIndex` with N-gram character matching and price redaction.
+- ✓ [Agent Routing] — `HermesRouter` capable of segregating clinic-specific and general medical queries.
 
 ### Active
-- [ ] Implement `PageIndex` vectorless reasoning RAG architecture (replacing Chroma/FAISS).
-- [ ] Implement seamless integration between `hermes-agent` (orchestrator) and `PageIndex` (knowledge retriever).
-- [ ] Build a data ingestion pipeline that segregates **Clinic Special Data** (from `/media/hsu/软件/行銷圖文檔案整理`) and **General Medical Data**.
-- [ ] Implement data-centric logging pipeline saving all interactions as JSON in `/data`.
+- [x] Implement `SimpleIndex` N-gram keyword matching RAG architecture (replacing Chroma/FAISS).
+- [x] Implement seamless integration between `hermes-agent` (orchestrator) and `SimpleIndex` (knowledge retriever).
+- [x] Build a data ingestion pipeline that segregates **Clinic Special Data** and **General Medical Data**.
+- [x] Implement data-centric logging pipeline saving all interactions as JSON in `/data`.
 - [ ] Build a Web Dashboard for clinic staff to view, edit, and export JSON training data.
 - [ ] Create a feedback loop for staff to correct LLM answers and append them to the dataset.
-- [ ] Integrate Hermes Agent to route LINE/Web chat queries appropriately based on data segregation.
+- [x] Integrate Hermes Agent to route LINE/Web chat queries appropriately based on data segregation.
 
 ### Out of Scope
 - [Cloud LLMs for Production] — All core inference must remain local for privacy.
-- [Vector Databases] — Chroma/FAISS/clinic.db are explicitly deprecated in favor of PageIndex.
+- [Vector Databases] — Chroma/FAISS are explicitly deprecated in favor of SimpleIndex.
+- [PageIndex] — Tree-based hierarchical reasoning is postponed in favor of faster N-gram matching.
 
 ## Key Decisions
 

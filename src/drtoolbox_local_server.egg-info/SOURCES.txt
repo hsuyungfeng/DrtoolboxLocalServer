@@ -65,6 +65,3 @@ src/skills/skill_generator.py
 src/skills/skill_manager.py
 src/skills/auto_skills/__init__.py
 src/skills/auto_skills/skill_73171377.py
-tests/test_dashboard_api.py
-tests/test_hermes_routing.py
-tests/test_rag.py

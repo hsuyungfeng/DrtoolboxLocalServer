@@ -7,4 +7,3 @@ Requires-Dist: flask-cors>=3.0
 Requires-Dist: pageindex>=0.1.0
 Requires-Dist: requests>=2.28
 Requires-Dist: python-dotenv>=0.19
-Requires-Dist: llama-cpp-python>=0.2

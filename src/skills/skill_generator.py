@@ -51,6 +51,7 @@ Write the script for the requested task now.
             response = requests.post(
                 self.llama_url,
                 json={
+                    "model": "llama-qwen",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 1024,
                     "temperature": 0.1

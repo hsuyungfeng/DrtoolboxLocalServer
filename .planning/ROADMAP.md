@@ -3,7 +3,7 @@
 ## Phase 1: Environment & PageIndex Core
 **Goal:** Setup PageIndex, the local LLM reasoning engine, and the basic data segregation pipeline.
 - Initialize PageIndex architecture.
-- Integrate local Gemma 4 27B via `llama.cpp`.
+- Integrate local Qwen (llama-qwen) via `llama.cpp`.
 - Build the data ingestion pipeline (Clinic Special vs. General).
 
 ## Phase 2: Hermes Agent Orchestration & Logging

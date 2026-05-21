@@ -193,6 +193,7 @@ def query():
             response = requests.post(
                 'http://127.0.0.1:8080/v1/chat/completions',
                 json={
+                    'model': 'llama-qwen',
                     'messages': [
                         {'role': 'user', 'content': prompt}
                     ],

@@ -88,7 +88,7 @@ data/
 
 ### 4.2 黃金訓練集導出 (`data/verified_training_data.jsonl`)
 * **機制**：當診所醫生或系統管理員在 Web Dashboard 的「對話歷史與優化」分頁中，針對某個 AI 回答給予 **「正向反饋 (Thumbs Up)」**，或者對錯誤回答進行 **「人工修正 (Human Correction)」** 時，該筆記錄會被標記並寫入 `verified_training_data.jsonl`。
-* **用途**：該檔案即為診所專屬的 **黃金對話微調數據集 (Golden Dataset)**，可直接用於對下一代 Gemma/Qwen 模型進行 LoRA 微調，打造愈用愈聰明的專科 AI。
+* **用途**：該檔案即為診所專屬的 **黃金對話微調數據集 (Golden Dataset)**，可直接用於對下一代 Qwen 模型進行 LoRA 微調，打造愈用愈聰明的專科 AI。
 
 ---
 

@@ -6,7 +6,7 @@ load_dotenv()
 # Get the project root directory (one level up from the 'config' folder)
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(PROJECT_ROOT, "data/models/google_gemma-4-26B-A4B-it-Q3_K_L.gguf"))
+MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(PROJECT_ROOT, "data/models/qwen-3.6-7b-it.gguf"))
 LOG_DIR = os.getenv("LOG_DIR", os.path.join(PROJECT_ROOT, "data"))
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
 

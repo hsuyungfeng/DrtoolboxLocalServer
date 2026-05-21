@@ -18,22 +18,30 @@ class SimpleIndex:
     def __init__(self, reasoner):
         self.reasoner = reasoner
         self.documents = []
+        self.chunks = [] # Cache for faster search
         
     def add_document(self, doc):
         # 如果上傳同名檔案，直接覆蓋舊的記憶，避免記憶體重複佔用
         for i, existing_doc in enumerate(self.documents):
             if existing_doc.get('id') == doc.get('id'):
                 self.documents[i] = doc
+                self._rebuild_chunks() # Rebuild cache on update
                 return
         self.documents.append(doc)
-        
-    def get_scored_chunks(self, q):
-        chunks = []
+        # Incremental update to chunks cache
+        text = doc.get('content', '')
+        for i in range(0, len(text), 500):
+            self.chunks.append(text[i:i+500])
+
+    def _rebuild_chunks(self):
+        """Rebuilds the entire chunks cache from documents."""
+        self.chunks = []
         for d in self.documents:
             text = d.get('content', '')
             for i in range(0, len(text), 500):
-                chunks.append(text[i:i+500])
-                
+                self.chunks.append(text[i:i+500])
+        
+    def get_scored_chunks(self, q):
         clean_q = q.replace("?", "").replace("？", "").replace(" ", "").replace("請問", "")
         q_chars = set(clean_q)
         
@@ -45,7 +53,7 @@ class SimpleIndex:
                     ngrams.append(clean_q[i:i+n])
                     
         scored_chunks = []
-        for chunk in chunks:
+        for chunk in self.chunks: # Use pre-cached chunks
             score = 0
             # 單一字元基本分
             score += sum(1 for char in q_chars if char in chunk)

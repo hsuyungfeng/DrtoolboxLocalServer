@@ -7,7 +7,7 @@
 ## Frameworks & Core Libraries
 - **Backend**: Flask or FastAPI (for webhooks, API endpoints).
 - **RAG Engine**: [VectifyAI/PageIndex](https://github.com/VectifyAI/PageIndex) for reasoning-based, vectorless RAG.
-- **Local Inference**: `llama.cpp` for local serving of Gemma 4 27B.
+- **Local Inference**: `llama-qwen` (llama.cpp) for local serving of Qwen.
 - **Orchestration**: Hermes Agent framework.
 - **Package Manager**: `uv` (as evidenced by `uv.lock` and `pyproject.toml`).
 

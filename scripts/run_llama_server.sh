@@ -1,10 +1,10 @@
 #!/bin/bash
-# Run llama.cpp server with Gemma4 or Qwen 3.6 model
+# Run llama.cpp server with Qwen 3.6 model
 
 set -e
 
 LLAMA_BIN="/home/linuxbrew/.linuxbrew/bin/llama-server"
-MODEL_PATH="${1:-/home/hsu/models/gemma-4-E4B-it-Q8_0.gguf}"
+MODEL_PATH="${1:-/home/hsu/models/qwen-3.6-7b-it.gguf}"
 PORT="${2:-8080}"
 
 echo "🚀 Starting llama-server (via python)"

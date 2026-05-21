@@ -31,7 +31,7 @@ def get_server() -> LlamaCppServer:
     if _server is None:
         # Load model path from config
         import json
-        model_path = "data/models/gemma-4-31B.Q4_K_M.gguf"
+        model_path = "data/models/qwen-3.6-7b-it.gguf"
         try:
             with open('config/llama_config.json', 'r') as f:
                 config = json.load(f)
@@ -221,7 +221,7 @@ def load_model():
     import json
     
     body = request.get_json() or {}
-    model_path = body.get('model_path', 'data/models/Qwen3-8B-Q8_0.gguf')
+    model_path = body.get('model_path', 'data/models/qwen-3.6-7b-it.gguf')
     
     # Use config default if not specified
     if not body.get('model_path'):

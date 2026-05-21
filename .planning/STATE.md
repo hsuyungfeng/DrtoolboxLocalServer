@@ -22,7 +22,7 @@
 
 ## Session Continuity
 - **Last Session:** 2026-05-18 (Current Session Resumed & Resolved)
-- **Stopped At:** Resolved document upload permissions, implemented safe local falls under `./data/documents`, verified end-to-end routing with Gemma GPU loading, successfully ran the 4-case test suite, and committed all staged improvements.
+- **Stopped At:** Resolved document upload permissions, implemented safe local falls under `./data/documents`, verified end-to-end routing with Qwen GPU loading, successfully ran the 4-case test suite, and committed all staged improvements.
 - **Uncommitted Extensions:** None.
 
 ## Blockers / Concerns

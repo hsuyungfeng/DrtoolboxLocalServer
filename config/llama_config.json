@@ -1,10 +1,10 @@
 {
   "model": {
-    "path": "data/models/gemma-4-31B.Q4_K_M.gguf",
-    "name": "Gemma-4-31B-Q4_K_M",
-    "quantization": "Q4_K_M",
-    "estimated_vram_gb": 19,
-    "note": "Gemma 4 31B Q4_K_M - fits in 22GB VRAM"
+    "path": "llama-qwen",
+    "name": "llama-qwen",
+    "quantization": "QBC",
+    "estimated_vram_gb": 16,
+    "note": "llama-qwen (Qwen model via mixa3607/llama.cpp-gfx906 docker)"
   },
   "inference": {
     "n_ctx": 2048,

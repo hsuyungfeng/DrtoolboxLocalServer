@@ -8,7 +8,6 @@ dependencies = [
     "pageindex>=0.1.0",
     "requests>=2.28",
     "python-dotenv>=0.19",
-    "llama-cpp-python>=0.2",
 ]
 
 [build-system]

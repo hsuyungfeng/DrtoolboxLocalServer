@@ -40,7 +40,7 @@ def _do_pdf_ocr(pdf_path):
 def extract_text_from_file(filepath):
     ext = filepath.lower().split('.')[-1]
     try:
-        if ext == 'txt':
+        if ext in ['txt', 'md']:
             with open(filepath, 'r', encoding='utf-8') as f:
                 return f.read()
         elif ext == 'pdf':
@@ -139,36 +139,46 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
     if rag_engine_instance:
         import threading
         def background_ocr():
-            supported_exts = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.mp4', '.mp3', '.m4a', '.wav', '.flv']
+            supported_exts = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.mp4', '.mp3', '.m4a', '.wav', '.flv', '.md']
             for root, _, files in os.walk(directory):
                 for file in files:
                     ext = os.path.splitext(file)[1].lower()
                     if ext in supported_exts:
                         filepath = os.path.join(root, file)
+                        # Check if a .txt version already exists (either file.txt or file.ext.txt)
                         txt_path = filepath + ".txt"
-                        if not os.path.exists(txt_path):
-                            logger.info(f"[Background OCR] Extracting text from new file: {filepath}")
-                            extracted_text = extract_text_from_file(filepath)
-                            if extracted_text and extracted_text.strip():
+                        alt_txt_path = os.path.splitext(filepath)[0] + ".txt"
+                        
+                        if os.path.exists(txt_path) or os.path.exists(alt_txt_path):
+                            # If the .txt exists, we don't need the original anymore
+                            try:
+                                os.remove(filepath)
+                                logger.info(f"[Deduplication] Removed redundant original: {filepath}")
+                            except Exception: pass
+                            continue
+
+                        logger.info(f"[Background OCR] Extracting text from new file: {filepath}")
+                        extracted_text = extract_text_from_file(filepath)
+                        if extracted_text and extracted_text.strip():
+                            try:
+                                with open(txt_path, 'w', encoding='utf-8') as f:
+                                    f.write(extracted_text)
+                                # 即時更新到 RAG 記憶體
+                                doc = {"id": txt_path, "content": extracted_text}
+                                if is_special:
+                                    rag_engine_instance.ingest_special_data([doc])
+                                else:
+                                    rag_engine_instance.ingest_general_data([doc])
+                                    
+                                # 自動刪除原始佔用空間的檔案以節省硬碟容量
                                 try:
-                                    with open(txt_path, 'w', encoding='utf-8') as f:
-                                        f.write(extracted_text)
-                                    # 即時更新到 RAG 記憶體
-                                    doc = {"id": txt_path, "content": extracted_text}
-                                    if is_special:
-                                        rag_engine_instance.ingest_special_data([doc])
-                                    else:
-                                        rag_engine_instance.ingest_general_data([doc])
-                                        
-                                    # 自動刪除原始佔用空間的檔案以節省硬碟容量
-                                    try:
-                                        os.remove(filepath)
-                                        logger.info(f"[自動瘦身] 已成功刪除原始檔以釋放空間: {filepath}")
-                                    except Exception as del_e:
-                                        logger.warning(f"[自動瘦身] 刪除原始檔失敗 {filepath}: {del_e}")
-                                        
-                                except Exception as e:
-                                    logger.error(f"Failed to save extracted text for {filepath}: {e}")
+                                    os.remove(filepath)
+                                    logger.info(f"[自動瘦身] 已成功刪除原始檔以釋放空間: {filepath}")
+                                except Exception as del_e:
+                                    logger.warning(f"[自動瘦身] 刪除原始檔失敗 {filepath}: {del_e}")
+                                    
+                            except Exception as e:
+                                logger.error(f"Failed to save extracted text for {filepath}: {e}")
         
         threading.Thread(target=background_ocr, daemon=True).start()
             

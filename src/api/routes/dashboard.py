@@ -108,13 +108,15 @@ def upload_files():
             logger.error(err_msg)
             add_ocr_log(err_msg)
     
+    from werkzeug.utils import secure_filename
+    
     for file in files:
         if file:
             original_filename = file.filename
             if not original_filename:
                 continue
                 
-            safe_filename = os.path.basename(original_filename).replace("..", "").replace("/", "").replace("\\", "")
+            safe_filename = secure_filename(original_filename)
             if not safe_filename:
                 import uuid
                 safe_filename = str(uuid.uuid4())

@@ -1,7 +1,7 @@
 # Concerns
 
 ## Technical Debt & Performance
-- **Local LLM Inference**: Running a 27B model (Gemma 4 27B) locally on GPU is resource-intensive. VRAM overflow, slow token generation, and concurrent request handling are major performance risks.
+- **Local LLM Inference**: Running a model (Qwen via llama-qwen) locally on GPU is resource-intensive. VRAM overflow, slow token generation, and concurrent request handling are major performance risks.
 - **PageIndex Tree Building**: Parsing large clinic documents into trees might be slow. Optimization or asynchronous processing is required.
 
 ## Security

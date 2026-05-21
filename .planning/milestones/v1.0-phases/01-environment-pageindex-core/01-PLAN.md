@@ -1,7 +1,7 @@
 # Phase 1: Environment & PageIndex Core - Plan
 
 ## 1. Setup Local LLM Inference
-- **Description:** Configure `llama.cpp` to run Gemma 4 27B and expose it via an API or python binding for PageIndex.
+- **Description:** Configure `llama-qwen` (llama.cpp) to run Qwen and expose it via an API or python binding for PageIndex.
 - **Files Modified:** `src/llm_server.py`, `requirements.txt`
 - **Dependencies:** None
 - **Acceptance Criteria:** A local request to the LLM returns a valid reasoning response.
