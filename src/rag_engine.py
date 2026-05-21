@@ -1,5 +1,11 @@
 from src.llm_server import llm_instance
 import logging
+import json
+import sqlite3
+import os
+import datetime
+import re
+from config.settings import DATA_DIR, PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -67,190 +73,146 @@ class SimpleIndex:
             if score > 0:
                 scored_chunks.append((score, chunk))
         return scored_chunks
-        
-    def query(self, q, secondary_index=None):
-        # 合併自己與第二個資料庫的 chunks
-        all_scored_chunks = self.get_scored_chunks(q)
-        if secondary_index:
-            all_scored_chunks.extend(secondary_index.get_scored_chunks(q))
-                
-        all_scored_chunks.sort(reverse=True, key=lambda x: x[0])
-        
-        # 為了避免雜訊，如果最高分太低，也可以視為找不到，但我們這裡先取前 3 名
-        top_chunks = []
-        # 過濾掉完全相同的 chunk，避免重複
-        seen = set()
-        
-        import re
-        
-        for score, chunk in all_scored_chunks:
-            if chunk not in seen:
-                seen.add(chunk)
-                
-                # Apply unconditional price redaction
-                text = chunk
-                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
-                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', text)
-                text = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', text)
-                text = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
-                text = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', text)
-                text = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', text)
-                text = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', text, flags=re.IGNORECASE)
-                
-                top_chunks.append(text)
-            if len(top_chunks) >= 3:
-                break
-        
-        context = "\n\n".join(top_chunks)
-        if not context:
-            context = "無相關資料。"
-            
-        import datetime
-        current_date = datetime.date.today()
-        messages = [
-            {
-                "role": "system",
-                "content": f"""你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。請根據以下提供的【參考資料】來回答使用者的問題。
-
-【特別指示】
-1. 語言與排版：必須完全且唯一使用「繁體中文 (Traditional Chinese)」進行回答，嚴禁使用簡體中文。請使用美化的 Markdown 語法（例如：粗體、條列式清單、適當的段落空白）來排版，讓內容專業且容易閱讀。
-2. 參考資料是從圖片辨識 (OCR) 轉出的文字，可能會有錯字、排版混亂，或者沒有寫出完整的「促銷組合」四個字。
-3. 嚴格禁止報價！若遇到任何詢問價格、活動、專案的問題，因為資料多已過期或缺乏時效性，你【絕對不能】輸出任何金錢數字、價格、或是單堂費用。
-4. 如果參考資料中包含任何「時間線」相關的資訊（例如：治療期程、復原時間、活動優惠期間、術後追蹤時間等），請務必在回答中特別標示並詳細附上。
-5. 【價格與時效限制】請一律回覆：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」
-6. 如果參考資料中真的完全找不到任何相關線索，才能回答「對不起，目前的資料庫中沒有關於此問題的資訊」。
-
-【參考資料開始】
-{context}
-【參考資料結束】"""
-            },
-            {
-                "role": "user",
-                "content": q
-            }
-        ]
-        
-        response = self.reasoner.reason_chat(messages)
-        return response.strip()
 
 class RAGEngine:
     def __init__(self):
         self.reasoner = ReasonerWrapper(llm_instance)
+        # Fast Index for keyword search
         self.special_index = SimpleIndex(reasoner=self.reasoner)
         self.general_index = SimpleIndex(reasoner=self.reasoner)
+        
+        # Reasoning-based Tree Index (PageIndex concept)
+        self.pi_storage = os.path.join(DATA_DIR, 'pageindex')
+        os.makedirs(self.pi_storage, exist_ok=True)
         
     def ingest_special_data(self, documents):
         logger.info(f"Ingesting {len(documents)} special documents into Index.")
         for doc in documents:
             self.special_index.add_document(doc)
+            self._background_pi_index(doc, "special")
             
     def ingest_general_data(self, documents):
         logger.info(f"Ingesting {len(documents)} general documents into Index.")
         for doc in documents:
             self.general_index.add_document(doc)
+            self._background_pi_index(doc, "general")
+
+    def _background_pi_index(self, doc, category):
+        """Builds semantic reasoning trees in the background."""
+        import threading
+        def build():
+            doc_id = doc.get('id', '')
+            content = doc.get('content', '')
+            if not content or len(content) < 500: return
+            
+            # Simple hash/check if already indexed
+            target_dir = os.path.join(self.pi_storage, category)
+            os.makedirs(target_dir, exist_ok=True)
+            tree_file = os.path.join(target_dir, f"{os.path.basename(doc_id)}.pi.json")
+            
+            if os.path.exists(tree_file): return
+            
+            try:
+                # LLM-based Summarization/Reasoning for the document
+                summary_prompt = f"Analyze this medical document and create a professional summary for expert retrieval. Identify symptoms, treatments, and precautions:\n\n{content[:4000]}"
+                summary = llm_instance.generate(summary_prompt, max_tokens=300)
+                
+                with open(tree_file, 'w', encoding='utf-8') as f:
+                    json.dump({"id": doc_id, "summary": summary, "indexed_at": str(datetime.datetime.now())}, f, ensure_ascii=False)
+                logger.info(f"✅ [PageIndex] Indexed reasoning tree for {os.path.basename(doc_id)}")
+            except Exception as e:
+                logger.error(f"PageIndex build failed for {doc_id}: {e}")
+                
+        threading.Thread(target=build, daemon=True).start()
             
     def query(self, question, source="special"):
-        """強制讓所有查詢都聯合檢索 special 和 general 兩個資料庫"""
-        logger.info(f"Combined Querying for: {question}")
-        # 將另一個 index 傳入進行聯合搜尋
-        if source == "special":
-            return self.special_index.query(question, secondary_index=self.general_index)
-        else:
-            return self.general_index.query(question, secondary_index=self.special_index)
+        return self.query_integrated(question)
 
     def query_integrated(self, question):
         """
-        整合結構化資料庫 (SQLite) 與 非結構化知識庫 (RAG) 的查詢函式。
-        同時呼叫兩種工具，再將結果合併交由 LLM 綜合回答。
+        Hybrid Reasoning:
+        1. HIS Database (SQL)
+        2. SimpleIndex (Keywords)
+        3. PageIndex (Semantic Summaries)
         """
-        logger.info(f"Integrated Querying for: {question}")
-        import sqlite3
-        import os
-        import datetime
-        from config.settings import DATA_DIR
+        logger.info(f"Integrated Hybrid Query: {question}")
         
-        # ----------------------------------------------------
-        # 1. 查詢結構化資料庫 (SQLite: clinic.db)
-        # ----------------------------------------------------
+        # 1. SQL Context
         db_path = os.path.join(DATA_DIR, 'db', 'clinic.db')
         sql_context = "無相關資料庫紀錄。"
-        
         if os.path.exists(db_path):
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
-                
-                # 這裡建立簡單的關鍵字比對機制 (可依需求擴充)
-                # 例如：如果問題提到「門診」或「時間」，我們就去查門診表
-                if "門診" in question or "時間" in question or "開" in question:
-                    # 查詢診所這個星期的門診時間視圖
+                if any(k in question for k in ["門診", "時間", "開", "休息"]):
                     cursor.execute("SELECT day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, evening_start, evening_end FROM v_clinic_hours_this_week LIMIT 7")
                     records = cursor.fetchall()
-                    if records:
-                        sql_context = "近期門診時間表 (星期, 早上開始, 早上結束, 下午開始, 下午結束, 晚上開始, 晚上結束):\n" + str(records)
-                
-                # 這裡可以繼續加入其他工具（例如：查詢庫存、查詢排班等）
-                
+                    if records: sql_context = f"診所門診時間表:\n{records}"
                 conn.close()
-            except Exception as e:
-                logger.error(f"SQLite Query Error: {e}")
+            except Exception as e: logger.error(f"SQL Error: {e}")
 
-        # ----------------------------------------------------
-        # 2. 查詢非結構化知識庫 (Chroma / RAG 向量庫)
-        # ----------------------------------------------------
+        # 2. Keyword Search (SimpleIndex)
         rag_scored_chunks = self.special_index.get_scored_chunks(question)
         rag_scored_chunks.extend(self.general_index.get_scored_chunks(question))
         rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
         
+        # 3. Semantic Search (PageIndex Summaries)
+        pi_context = ""
+        try:
+            # Quickly scan the small .pi.json files for deeper context
+            summaries = []
+            for cat in ["special", "general"]:
+                p_dir = os.path.join(self.pi_storage, cat)
+                if not os.path.exists(p_dir): continue
+                # Prioritize by keyword match in summary
+                for f_name in os.listdir(p_dir)[:40]:
+                    if f_name.endswith(".pi.json"):
+                        with open(os.path.join(p_dir, f_name), 'r') as f:
+                            data = json.load(f)
+                            summ = data.get('summary', '')
+                            if any(k in summ for k in question[:5]):
+                                summaries.append(summ)
+            if summaries:
+                pi_context = "【專業醫學背景參考】\n" + "\n".join(summaries[:3])
+        except Exception as e: logger.warning(f"PageIndex retrieval failed: {e}")
+
+        # Prepare Context
         top_chunks = []
         seen = set()
-        
-        import re
-        
         for score, chunk in rag_scored_chunks:
             if chunk not in seen:
                 seen.add(chunk)
-                
-                text = chunk
-                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
-                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', text)
-                text = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', text)
-                text = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', text)
-                text = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', text)
-                text = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', text)
-                text = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', text, flags=re.IGNORECASE)
-                
+                # Price Redaction
+                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電確認]', chunk)
+                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電確認]', text)
                 top_chunks.append(text)
-            if len(top_chunks) >= 3:
-                break
+            if len(top_chunks) >= 3: break
                 
         rag_context = "\n\n".join(top_chunks)
-        if not rag_context:
-            rag_context = "無相關醫療衛教資料。"
-
-        # ----------------------------------------------------
-        # 3. 組合 Prompt 給 LLM 進行綜合推論
-        # ----------------------------------------------------
+        
+        # Combine all for LLM Reasoning
         current_date = datetime.date.today()
         messages = [
             {
                 "role": "system",
-                "content": f"""你是一個專業的醫美與診所 AI 助理。今天是 {current_date}。
-請「綜合」以下兩種資料來源（內部資料庫與醫療知識庫）來回答使用者的問題。
+                "content": f"""你是一個具備『PageIndex 深度推理』能力的專業醫美 AI 助理。
+今天是 {current_date}。請綜合以下資料來精準回答。
 
-【資料來源一：內部診所資料庫 (如門診時間、排班、系統紀錄)】
+【資料來源：診所資料庫】
 {sql_context}
 
-【資料來源二：醫療與活動知識庫 (OCR文本或衛教)】
+【資料來源：PageIndex 專業摘要】
+{pi_context}
+
+【資料來源：相關文本片段】
 {rag_context}
 
-【回答指示】
-1. 語言與排版：必須完全且唯一使用「繁體中文 (Traditional Chinese)」進行回答，嚴禁使用簡體中文。請使用美化的 Markdown 語法（例如：粗體、適當的標題和條列式）來排版，確保視覺上專業且易讀。
-2. 若使用者詢問診所營運（如門診時間、排班），請優先參考「內部診所資料庫」。
-3. 嚴格禁止報價！若遇到任何詢問價格、活動、專案的問題，因為資料多已過期或缺乏時效性，你【絕對不能】輸出任何金錢數字、價格、或是單堂費用。
-4. 如果兩種來源都有提到，請巧妙地將它們整合為一篇流暢的回答。
-5. 【價格與時效限制】請一律回覆：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」
-6. 請勿暴露原始資料庫格式（例如 tuple、JSON 等），請以人類自然語言解釋。"""
+【推理與回答準則】
+1. 完全使用「繁體中文」回答，使用專業、溫暖且嚴謹的語氣。
+2. 優先分析 PageIndex 摘要中的專業醫學邏輯，再結合文本片段進行細節補充。
+3. 嚴格禁止報價！禁止輸出任何金錢數字。
+4. 若資料有衝突，以『診所資料庫』為準，其次為『PageIndex 專業摘要』。
+5. 若完全無資料，請溫柔地建議使用者親自到院諮詢，而非胡亂猜測。"""
             },
             {
                 "role": "user",
@@ -258,5 +220,4 @@ class RAGEngine:
             }
         ]
         
-        response = self.reasoner.reason_chat(messages)
-        return response.strip()
+        return self.reasoner.reason_chat(messages).strip()
