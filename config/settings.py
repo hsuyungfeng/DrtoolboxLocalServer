@@ -3,18 +3,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MODEL_PATH = os.getenv("MODEL_PATH", "/home/hsu/models/google_gemma-4-26B-A4B-it-Q3_K_L.gguf")
-LOG_DIR = os.getenv("LOG_DIR", "./data")
-DATA_DIR = os.getenv("DATA_DIR", "./data")
+# Get the project root directory (one level up from the 'config' folder)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(PROJECT_ROOT, "data/models/google_gemma-4-26B-A4B-it-Q3_K_L.gguf"))
+LOG_DIR = os.getenv("LOG_DIR", os.path.join(PROJECT_ROOT, "data"))
+DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
 
 # Setup safe local fallback directories under the fully writable './data/' directory
-LOCAL_FALLBACK_SPECIAL = "./data/documents/special"
-LOCAL_FALLBACK_GENERAL = "./data/documents/general"
+LOCAL_FALLBACK_SPECIAL = os.path.join(PROJECT_ROOT, "data/documents/special")
+LOCAL_FALLBACK_GENERAL = os.path.join(PROJECT_ROOT, "data/documents/general")
 
 # Preferred paths from environment (Default to local project directories for deployment portability)
-PREFERRED_SPECIAL_DIR = os.getenv("SPECIAL_DATA_DIR", "./data/documents/special")
-PREFERRED_GENERAL_DIR = os.getenv("GENERAL_DATA_DIR", "./data/documents/general")
+PREFERRED_SPECIAL_DIR = os.getenv("SPECIAL_DATA_DIR", LOCAL_FALLBACK_SPECIAL)
+PREFERRED_GENERAL_DIR = os.getenv("GENERAL_DATA_DIR", LOCAL_FALLBACK_GENERAL)
 
 def get_writable_dir(preferred_path, fallback_path):
     try:
