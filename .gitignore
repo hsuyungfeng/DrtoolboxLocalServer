@@ -30,3 +30,4 @@ data/documents/
 data/db/
 logs/
 data/*.jsonl
+server.log
