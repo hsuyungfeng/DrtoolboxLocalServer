@@ -510,3 +510,19 @@ textarea:focus {
     font-family: inherit;
     line-height: 1.6;
 }
+
+/* Proactive QA Styles */
+.log-item.proactive-item {
+    border-left: 4px solid #a855f7;
+    background: rgba(168, 85, 247, 0.03);
+}
+
+.proactive-badge {
+    background: #a855f7;
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 10px;
+    font-weight: 600;
+}

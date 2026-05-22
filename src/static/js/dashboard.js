@@ -23,38 +23,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorResponse = document.getElementById('editorResponse');
     const saveBtn = document.getElementById('saveBtn');
     const exportBtn = document.getElementById('exportBtn');
+    const triggerFactCheckBtn = document.getElementById('triggerFactCheckBtn');
+
+    // Create Evidence UI
+    const evidencePanel = document.createElement('div');
+    evidencePanel.id = 'evidencePanel';
+    evidencePanel.style.cssText = 'display: none; margin-bottom: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;';
+    evidencePanel.innerHTML = '<h3 style="font-size: 0.9rem; color: #60a5fa; margin-bottom: 8px;">🌐 Hermes 網路搜尋證據 (查證來源)</h3><div id="evidenceContent" style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5;"></div>';
+    editorPanel.insertBefore(evidencePanel, editorPanel.firstChild.nextSibling.nextSibling);
+    const evidenceContent = document.getElementById('evidenceContent');
     
     let currentLogs = [];
     let currentDrafts = []; // Store nightly Hermes drafts
+    let proactiveQA = []; // Store proactive simulated QA
     let activeLogIndex = -1;
+    let isActiveProactive = false;
 
     async function loadLogs() {
         try {
-            // Load both logs and drafts in parallel
-            const [logsRes, draftsRes] = await Promise.all([
+            // Load all three data sources
+            const [logsRes, draftsRes, proactiveRes] = await Promise.all([
                 fetch('/api/dashboard/logs'),
-                fetch('/api/dashboard/drafts')
+                fetch('/api/dashboard/drafts'),
+                fetch('/api/dashboard/proactive')
             ]);
             currentLogs = await logsRes.json();
             currentDrafts = await draftsRes.json();
+            proactiveQA = await proactiveRes.json();
             renderLogs();
         } catch (e) {
-            console.error("Failed to load logs or drafts", e);
+            console.error("Failed to load logs, drafts or proactive QA", e);
         }
     }
 
     function renderLogs() {
         logList.innerHTML = '';
+        
+        // Render Proactive QA first (since they are "proposals")
+        proactiveQA.slice().reverse().forEach((pqa, reversedIndex) => {
+            const index = proactiveQA.length - 1 - reversedIndex;
+            const div = document.createElement('div');
+            div.className = `log-item proactive-item ${isActiveProactive && index === activeLogIndex ? 'active' : ''}`;
+            div.innerHTML = `
+                <div class="log-meta">
+                    <span>模擬提問</span>
+                    <span class="proactive-badge">🚀 Proactive: ${pqa.service}</span>
+                </div>
+                <div class="log-prompt">${pqa.question}</div>
+            `;
+            div.addEventListener('click', () => selectProactive(index));
+            logList.appendChild(div);
+        });
+
+        // Then render normal logs
         currentLogs.slice().reverse().forEach((log, reversedIndex) => {
             const index = currentLogs.length - 1 - reversedIndex;
             const userMsg = log.messages.find(m => m.role === 'user');
-            
-            // Check if this log has a corresponding Hermes draft
             const userPrompt = userMsg ? userMsg.content : '';
             const hasDraft = currentDrafts.some(d => d.original_interaction.messages[0].content === userPrompt);
 
             const div = document.createElement('div');
-            div.className = `log-item ${index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
+            div.className = `log-item ${!isActiveProactive && index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
             div.innerHTML = `
                 <div class="log-meta">
                     <span>${new Date(log.timestamp).toLocaleString()}</span>
@@ -63,43 +92,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="log-prompt">${userPrompt || '無提問'}</div>
             `;
-            
-            div.addEventListener('click', () => selectLog(index, hasDraft));
+            div.addEventListener('click', () => {
+                isActiveProactive = false;
+                selectLog(index, hasDraft);
+            });
             logList.appendChild(div);
         });
     }
 
-    function selectLog(index, hasDraft = false) {
+    function selectProactive(index) {
+        isActiveProactive = true;
         activeLogIndex = index;
         renderLogs();
         
-        const log = currentLogs[index];
-        const userMsg = log.messages.find(m => m.role === 'user');
-        const astMsg = log.messages.find(m => m.role === 'assistant');
-        const userPrompt = userMsg ? userMsg.content : '';
-        
-        editorPrompt.textContent = userPrompt;
-        
-        // If there's a draft, show the comparison
-        if (hasDraft) {
-            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === userPrompt);
-            editorResponse.value = draft.hermes_suggestion;
-            editorResponse.style.border = '2px solid var(--accent-color)';
-            saveBtn.innerHTML = '✅ 批准 Hermes 修正版本';
-        } else {
-            editorResponse.value = astMsg ? astMsg.content : '';
-            editorResponse.style.border = '1px solid rgba(255,255,255,0.1)';
-            saveBtn.innerHTML = '驗證並儲存';
-        }
-        
+        const pqa = proactiveQA[index];
+        editorPrompt.textContent = pqa.question;
+        editorResponse.value = pqa.answer;
+        editorResponse.style.border = '2px solid #a855f7'; // Purple for proactive
+        saveBtn.innerHTML = '✅ 批准並存入訓練集';
+        evidencePanel.style.display = 'none';
         editorPanel.style.display = 'block';
     }
 
     saveBtn.addEventListener('click', async () => {
         if (activeLogIndex === -1) return;
         
-        const originalLog = currentLogs[activeLogIndex];
-        const correctedText = editorResponse.value;
+        let originalLog, correctedText;
+        
+        if (isActiveProactive) {
+            const pqa = proactiveQA[activeLogIndex];
+            originalLog = {
+                messages: [{role: 'user', content: pqa.question}],
+                metadata: { type: 'proactive', service: pqa.service }
+            };
+            correctedText = editorResponse.value;
+        } else {
+            originalLog = currentLogs[activeLogIndex];
+            correctedText = editorResponse.value;
+        }
         
         saveBtn.textContent = '儲存中...';
         try {
@@ -128,6 +158,26 @@ document.addEventListener('DOMContentLoaded', () => {
     exportBtn.addEventListener('click', () => {
         window.location.href = '/api/dashboard/export';
     });
+
+    if (triggerFactCheckBtn) {
+        triggerFactCheckBtn.addEventListener('click', async () => {
+            triggerFactCheckBtn.textContent = '⌛ 正在排程核查中...';
+            triggerFactCheckBtn.disabled = true;
+            try {
+                const res = await fetch('/api/dashboard/drafts/trigger', { method: 'POST' });
+                if (res.ok) {
+                    alert('核查任務已在背景啟動。這可能需要幾分鐘，請稍後重新整理頁面。');
+                } else {
+                    alert('啟動失敗。');
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                triggerFactCheckBtn.textContent = '🔍 執行今日網實核查';
+                triggerFactCheckBtn.disabled = false;
+            }
+        });
+    }
 
     // --- Tab 2: Upload Data ---
     const dropzone = document.getElementById('dropzone');

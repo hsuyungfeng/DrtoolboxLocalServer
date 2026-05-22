@@ -24,6 +24,32 @@ def get_hermes_drafts():
                     drafts.append(json.loads(line))
     return jsonify(drafts)
 
+@dashboard_bp.route('/proactive', methods=['GET'])
+def get_proactive_qa():
+    """Fetches proactive simulated QA pairs."""
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    proactive_file = os.path.join(LOG_DIR, f"proactive_qa_{date_str}.jsonl")
+    proactive_data = []
+    if os.path.exists(proactive_file):
+        with open(proactive_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    proactive_data.append(json.loads(line))
+    return jsonify(proactive_data)
+
+@dashboard_bp.route('/drafts/trigger', methods=['POST'])
+def trigger_fact_check():
+    """Manually triggers the nightly fact-check and QA generation script."""
+    import subprocess
+    try:
+        # Run fact check
+        subprocess.Popen(['uv', 'run', 'python', 'scripts/nightly_fact_check.py'])
+        # Run proactive QA generator
+        subprocess.Popen(['uv', 'run', 'python', 'scripts/nightly_qa_generator.py'])
+        return jsonify({"status": "started", "message": "Fact-check and QA generation launched in background."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @dashboard_bp.route('/logs/correct', methods=['POST'])
 def save_correction():
     data = request.json
