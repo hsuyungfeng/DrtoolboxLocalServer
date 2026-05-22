@@ -25,16 +25,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('exportBtn');
     
     let currentLogs = [];
+    let currentDrafts = []; // Store nightly Hermes drafts
     let activeLogIndex = -1;
 
     async function loadLogs() {
         try {
-            const res = await fetch('/api/dashboard/logs');
-            const data = await res.json();
-            currentLogs = data;
+            // Load both logs and drafts in parallel
+            const [logsRes, draftsRes] = await Promise.all([
+                fetch('/api/dashboard/logs'),
+                fetch('/api/dashboard/drafts')
+            ]);
+            currentLogs = await logsRes.json();
+            currentDrafts = await draftsRes.json();
             renderLogs();
         } catch (e) {
-            console.error("Failed to load logs", e);
+            console.error("Failed to load logs or drafts", e);
         }
     }
 
@@ -44,31 +49,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = currentLogs.length - 1 - reversedIndex;
             const userMsg = log.messages.find(m => m.role === 'user');
             
+            // Check if this log has a corresponding Hermes draft
+            const userPrompt = userMsg ? userMsg.content : '';
+            const hasDraft = currentDrafts.some(d => d.original_interaction.messages[0].content === userPrompt);
+
             const div = document.createElement('div');
-            div.className = `log-item ${index === activeLogIndex ? 'active' : ''}`;
+            div.className = `log-item ${index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
             div.innerHTML = `
                 <div class="log-meta">
                     <span>${new Date(log.timestamp).toLocaleString()}</span>
                     <span>路由: ${log.metadata.route_used}</span>
+                    ${hasDraft ? '<span class="draft-badge">Hermes 建議待審</span>' : ''}
                 </div>
-                <div class="log-prompt">${userMsg ? userMsg.content : '無提問'}</div>
+                <div class="log-prompt">${userPrompt || '無提問'}</div>
             `;
             
-            div.addEventListener('click', () => selectLog(index));
+            div.addEventListener('click', () => selectLog(index, hasDraft));
             logList.appendChild(div);
         });
     }
 
-    function selectLog(index) {
+    function selectLog(index, hasDraft = false) {
         activeLogIndex = index;
         renderLogs();
         
         const log = currentLogs[index];
         const userMsg = log.messages.find(m => m.role === 'user');
         const astMsg = log.messages.find(m => m.role === 'assistant');
+        const userPrompt = userMsg ? userMsg.content : '';
         
-        editorPrompt.textContent = userMsg ? userMsg.content : '';
-        editorResponse.value = astMsg ? astMsg.content : '';
+        editorPrompt.textContent = userPrompt;
+        
+        // If there's a draft, show the comparison
+        if (hasDraft) {
+            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === userPrompt);
+            editorResponse.value = draft.hermes_suggestion;
+            editorResponse.style.border = '2px solid var(--accent-color)';
+            saveBtn.innerHTML = '✅ 批准 Hermes 修正版本';
+        } else {
+            editorResponse.value = astMsg ? astMsg.content : '';
+            editorResponse.style.border = '1px solid rgba(255,255,255,0.1)';
+            saveBtn.innerHTML = '驗證並儲存';
+        }
+        
         editorPanel.style.display = 'block';
     }
 
@@ -307,19 +330,68 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.disabled = true;
         chatSendBtn.disabled = true;
         
+        // Create an empty bot message container
+        const div = document.createElement('div');
+        div.className = 'message bot-msg';
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content';
+        contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
+        div.appendChild(contentDiv);
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        let fullResponse = '';
+        let routeUsed = null;
+
         try {
             const res = await fetch('/api/chat/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: 'dashboard_test_user',
-                    message: text
+                    message: text,
+                    stream: true
                 })
             });
-            const data = await res.json();
-            addMessageToChat('bot', data.reply, data.route_used);
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop(); // Keep incomplete chunk in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.substring(6);
+                        if (dataStr === '[DONE]') break;
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.route_used) {
+                                routeUsed = data.route_used;
+                                const badge = document.createElement('span');
+                                badge.className = 'route-badge';
+                                badge.textContent = `經由 ${routeUsed}`;
+                                div.appendChild(badge);
+                            }
+                            if (data.content) {
+                                fullResponse += data.content;
+                                contentDiv.innerHTML = marked.parse(fullResponse);
+                                chatHistory.scrollTop = chatHistory.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.warn("Parse error on stream chunk", e);
+                        }
+                    }
+                }
+            }
         } catch (e) {
-            addMessageToChat('bot', '與伺服器通訊時發生錯誤。');
+            contentDiv.innerHTML = '與伺服器通訊時發生錯誤。';
         } finally {
             chatInput.disabled = false;
             chatSendBtn.disabled = false;

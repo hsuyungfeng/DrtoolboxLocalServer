@@ -483,3 +483,30 @@ textarea:focus {
 .markdown-content ul, .markdown-content ol { margin: 8px 0 10px 24px; padding: 0; }
 .markdown-content li { margin-bottom: 6px; }
 .markdown-content strong { color: #fff; font-weight: 600; }
+
+/* Curation Draft Styles */
+.log-item.has-draft {
+    border-left: 4px solid var(--accent-color);
+}
+
+.draft-badge {
+    background: var(--accent-color);
+    color: white;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 10px;
+    font-weight: 600;
+}
+
+#editorResponse {
+    width: 100%;
+    min-height: 250px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: inherit;
+    line-height: 1.6;
+}

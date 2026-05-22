@@ -59,6 +59,18 @@ JOBS = [
         'skills': ['his-query'],
     },
     {
+        'name': 'nightly-rag-fact-check',
+        'schedule': '30 3 * * *',
+        'prompt': (
+            'Scan the daily interaction logs in ../data/logs/. For every medical or procedure '
+            'related query, perform a web search to verify the facts. Generate a corrected '
+            'draft response if the AI original answer was incomplete or slightly inaccurate. '
+            'Save these drafts into ../data/logs/hermes_drafts_YYYY-MM-DD.jsonl for staff review.'
+        ),
+        'deliver': ['dashboard'],
+        'skills': ['web-search', 'data-review'],
+    },
+    {
         'name': 'weekly-clinic-insights',
         'schedule': '0 4 * * 1',
         'prompt': (

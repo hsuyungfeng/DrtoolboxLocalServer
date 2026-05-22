@@ -11,6 +11,19 @@ def get_logs():
     logs = logger_service.get_recent_logs(limit=50)
     return jsonify(logs)
 
+@dashboard_bp.route('/drafts', methods=['GET'])
+def get_hermes_drafts():
+    """Fetches nightly Hermes correction drafts."""
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    draft_file = os.path.join(LOG_DIR, f"hermes_drafts_{date_str}.jsonl")
+    drafts = []
+    if os.path.exists(draft_file):
+        with open(draft_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    drafts.append(json.loads(line))
+    return jsonify(drafts)
+
 @dashboard_bp.route('/logs/correct', methods=['POST'])
 def save_correction():
     data = request.json
