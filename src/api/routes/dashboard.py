@@ -58,10 +58,46 @@ def save_correction():
     if not data or 'original_log' not in data or 'corrected_response' not in data:
         return jsonify({"error": "Missing required fields"}), 400
         
+    # 1. Save to the final verified training data
     success = logger_service.save_correction(data['original_log'], data['corrected_response'])
-    if success:
-        return jsonify({"status": "success"})
-    return jsonify({"error": "Failed to save correction"}), 500
+    
+    if not success:
+        return jsonify({"error": "Failed to save correction"}), 500
+
+    # 2. If it's a draft or proactive item, remove it from the source file so it 'disappears'
+    item_type = data.get('item_type') # 'draft' or 'proactive'
+    item_id = data.get('item_id')     # timestamp or unique content hash
+    
+    if item_type and item_id:
+        try:
+            date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            filename = f"hermes_drafts_{date_str}.jsonl" if item_type == 'draft' else f"proactive_qa_{date_str}.jsonl"
+            filepath = os.path.join(LOG_DIR, filename)
+            
+            if os.path.exists(filepath):
+                remaining_lines = []
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if not line.strip(): continue
+                        d = json.loads(line)
+                        # Check if this is the item to remove
+                        is_match = False
+                        if item_type == 'proactive' and d.get('question') == item_id:
+                            is_match = True
+                        elif item_type == 'draft' and d.get('timestamp') == item_id:
+                            is_match = True
+                            
+                        if not is_match:
+                            remaining_lines.append(line)
+                
+                # Overwrite with remaining items
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.writelines(remaining_lines)
+        except Exception as e:
+            import logging
+            logging.error(f"Cleanup of approved item failed: {e}")
+
+    return jsonify({"status": "success"})
 
 @dashboard_bp.route('/export', methods=['GET'])
 def export_training_data():

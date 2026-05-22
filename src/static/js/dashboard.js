@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.addEventListener('click', async () => {
         if (activeLogIndex === -1) return;
         
-        let originalLog, correctedText;
+        let originalLog, correctedText, itemType, itemId;
         
         if (isActiveProactive) {
             const pqa = proactiveQA[activeLogIndex];
@@ -126,9 +126,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 metadata: { type: 'proactive', service: pqa.service }
             };
             correctedText = editorResponse.value;
+            itemType = 'proactive';
+            itemId = pqa.question;
         } else {
             originalLog = currentLogs[activeLogIndex];
             correctedText = editorResponse.value;
+            
+            // Check if this has a draft to remove
+            const userMsg = originalLog.messages.find(m => m.role === 'user');
+            const userPrompt = userMsg ? userMsg.content : '';
+            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === userPrompt);
+            if (draft) {
+                itemType = 'draft';
+                itemId = draft.timestamp;
+            }
         }
         
         saveBtn.textContent = '儲存中...';
@@ -138,12 +149,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     original_log: originalLog,
-                    corrected_response: correctedText
+                    corrected_response: correctedText,
+                    item_type: itemType,
+                    item_id: itemId
                 })
             });
             
             if (res.ok) {
-                saveBtn.textContent = '已儲存！';
+                saveBtn.textContent = '已儲存並移除！';
+                
+                // Immediately remove from local state and UI
+                if (isActiveProactive) {
+                    proactiveQA.splice(activeLogIndex, 1);
+                } else if (itemType === 'draft') {
+                    // Remove from drafts
+                    const draftIdx = currentDrafts.findIndex(d => d.timestamp === itemId);
+                    if (draftIdx !== -1) currentDrafts.splice(draftIdx, 1);
+                    // We don't remove from regular logs, just hide the badge
+                }
+                
+                activeLogIndex = -1;
+                editorPanel.style.display = 'none';
+                renderLogs();
+                
                 setTimeout(() => saveBtn.textContent = '驗證並儲存', 2000);
             } else {
                 alert('校正儲存失敗。');
