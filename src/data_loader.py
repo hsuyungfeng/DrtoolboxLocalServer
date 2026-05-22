@@ -1,9 +1,14 @@
 import os
 import glob
-from config.settings import SPECIAL_DATA_DIR, GENERAL_DATA_DIR
+import shutil
+from config.settings import SPECIAL_DATA_DIR, GENERAL_DATA_DIR, DATA_DIR
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Setup archive directory
+ARCHIVE_DIR = os.path.join(DATA_DIR, "archive")
+os.makedirs(ARCHIVE_DIR, exist_ok=True)
 
 _whisper_model = None
 
@@ -99,7 +104,6 @@ def extract_text_from_file(filepath):
                     if hasattr(shape, "text"):
                         text += shape.text + "\n"
 
-        # Universal OCR fallback for Office files that might be purely image-based
         if ext in ['doc', 'docx', 'ppt', 'pptx'] and len(text.strip()) < 15:
             logger.info(f"{ext} 檔案 {filepath} 似乎是由純圖片組成，啟動 OCR 備援機制...")
             import subprocess, tempfile
@@ -118,14 +122,28 @@ def extract_text_from_file(filepath):
         logger.error(f"Error extracting text from {filepath}: {e}")
         return ""
 
+def archive_file(filepath):
+    """Moves a file to the archive folder instead of deleting it."""
+    try:
+        filename = os.path.basename(filepath)
+        dest_path = os.path.join(ARCHIVE_DIR, filename)
+        # Handle filename collisions in archive
+        if os.path.exists(dest_path):
+            import uuid
+            dest_path = os.path.join(ARCHIVE_DIR, f"{uuid.uuid4().hex[:8]}_{filename}")
+            
+        shutil.move(filepath, dest_path)
+        logger.info(f"[Safe Archive] Moved original to archive: {filename}")
+        return True
+    except Exception as e:
+        logger.error(f"[Safe Archive] Failed to archive {filepath}: {e}")
+        return False
+
 def process_and_load_directory(directory, rag_engine_instance=None, is_special=True):
-    """Loads all existing .txt files immediately, then starts background OCR."""
     documents = []
     if not os.path.exists(directory):
-        logger.warning(f"Directory {directory} does not exist.")
         return documents
         
-    # 1. 立即載入所有已經存在的 .txt 檔案 (光速完成)
     for filepath in glob.glob(os.path.join(directory, "**/*.txt"), recursive=True):
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -135,7 +153,6 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
         except Exception as e:
             logger.error(f"Error reading {filepath}: {e}")
             
-    # 2. 將尚未 OCR 的檔案放到背景慢慢處理，處理完即時塞入 RAG 引擎
     if rag_engine_instance:
         import threading
         def background_ocr():
@@ -145,37 +162,26 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
                     ext = os.path.splitext(file)[1].lower()
                     if ext in supported_exts:
                         filepath = os.path.join(root, file)
-                        # Check if a .txt version already exists (either file.txt or file.ext.txt)
                         txt_path = filepath + ".txt"
                         alt_txt_path = os.path.splitext(filepath)[0] + ".txt"
                         
                         if os.path.exists(txt_path) or os.path.exists(alt_txt_path):
-                            # If the .txt exists, we don't need the original anymore
-                            try:
-                                os.remove(filepath)
-                                logger.info(f"[Deduplication] Removed redundant original: {filepath}")
-                            except Exception: pass
+                            archive_file(filepath)
                             continue
 
-                        logger.info(f"[Background OCR] Extracting text from new file: {filepath}")
+                        logger.info(f"[Background OCR] Processing: {file}")
                         extracted_text = extract_text_from_file(filepath)
                         if extracted_text and extracted_text.strip():
                             try:
                                 with open(txt_path, 'w', encoding='utf-8') as f:
                                     f.write(extracted_text)
-                                # 即時更新到 RAG 記憶體
                                 doc = {"id": txt_path, "content": extracted_text}
                                 if is_special:
                                     rag_engine_instance.ingest_special_data([doc])
                                 else:
                                     rag_engine_instance.ingest_general_data([doc])
                                     
-                                # 自動刪除原始佔用空間的檔案以節省硬碟容量
-                                try:
-                                    os.remove(filepath)
-                                    logger.info(f"[自動瘦身] 已成功刪除原始檔以釋放空間: {filepath}")
-                                except Exception as del_e:
-                                    logger.warning(f"[自動瘦身] 刪除原始檔失敗 {filepath}: {del_e}")
+                                archive_file(filepath)
                                     
                             except Exception as e:
                                 logger.error(f"Failed to save extracted text for {filepath}: {e}")
@@ -187,33 +193,9 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
 def get_special_data(rag_engine_instance=None):
     logger.info(f"Loading special data from {SPECIAL_DATA_DIR}")
     docs = process_and_load_directory(SPECIAL_DATA_DIR, rag_engine_instance, is_special=True)
-    
-    from config.settings import PREFERRED_SPECIAL_DIR
-    if PREFERRED_SPECIAL_DIR != SPECIAL_DATA_DIR:
-        try:
-            if os.path.exists(PREFERRED_SPECIAL_DIR):
-                logger.info(f"Also loading special data from readable external path: {PREFERRED_SPECIAL_DIR}")
-                external_docs = process_and_load_directory(PREFERRED_SPECIAL_DIR, rag_engine_instance, is_special=True)
-                docs.extend(external_docs)
-        except Exception as e:
-            logger.warning(f"Could not load external special data from {PREFERRED_SPECIAL_DIR}: {e}")
-            
     return docs
-
 
 def get_general_data(rag_engine_instance=None):
     logger.info(f"Loading general data from {GENERAL_DATA_DIR}")
     docs = process_and_load_directory(GENERAL_DATA_DIR, rag_engine_instance, is_special=False)
-    
-    from config.settings import PREFERRED_GENERAL_DIR
-    if PREFERRED_GENERAL_DIR != GENERAL_DATA_DIR:
-        try:
-            if os.path.exists(PREFERRED_GENERAL_DIR):
-                logger.info(f"Also loading general data from readable external path: {PREFERRED_GENERAL_DIR}")
-                external_docs = process_and_load_directory(PREFERRED_GENERAL_DIR, rag_engine_instance, is_special=False)
-                docs.extend(external_docs)
-        except Exception as e:
-            logger.warning(f"Could not load external general data from {PREFERRED_GENERAL_DIR}: {e}")
-            
     return docs
-

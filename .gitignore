@@ -28,6 +28,7 @@ data/models/gemma-4-31B.Q4_K_M.gguf
 data/models/Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf
 data/documents/
 data/db/
+data/archive/
 logs/
 data/*.jsonl
 server.log

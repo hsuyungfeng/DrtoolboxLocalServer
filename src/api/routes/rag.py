@@ -316,16 +316,21 @@ def ingest():
     # Check for file upload
     if 'file' in request.files:
         file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({"error": "No file selected"}), 400
 
+        from werkzeug.utils import secure_filename
+        filename = secure_filename(file.filename)
+        
         # Save to temp location
         import tempfile
         import os
 
         temp_dir = tempfile.mkdtemp()
-        file_path = os.path.join(temp_dir, file.filename)
+        file_path = os.path.join(temp_dir, filename)
         file.save(file_path)
         
-        metadata = {"filename": file.filename}
+        metadata = {"filename": filename}
         
     elif request.is_json:
         data = request.get_json()

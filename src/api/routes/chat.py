@@ -1,18 +1,14 @@
 from flask import Blueprint, request, jsonify
-from src.agent.hermes_router import HermesRouter
+from src.agent.hermes_core import get_hermes_agent
 from src.services.logger_service import logger_service
 import logging
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
 
-router = None
-
 @chat_bp.route('/message', methods=['POST'])
 def handle_message():
-    global router
-    if router is None:
-        router = HermesRouter()
+    agent = get_hermes_agent()
         
     data = request.json
     if not data or 'message' not in data:
@@ -23,8 +19,8 @@ def handle_message():
     
     logger.info(f"Received message from {user_id}: {prompt}")
     
-    # Let Hermes decide route and fetch response
-    response, route_used = router.chat(prompt)
+    # Let Unified Hermes decide route and fetch response
+    response, route_used = agent.chat(prompt)
     
     # Log the interaction for future model fine-tuning
     logger_service.log_interaction(
