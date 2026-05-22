@@ -71,6 +71,17 @@ JOBS = [
         'skills': ['web-search', 'data-review'],
     },
     {
+        'name': 'nightly-proactive-qa',
+        'schedule': '0 4 * * *',
+        'prompt': (
+            'Scan the clinic special documents to identify services and procedures. '
+            'Generate 3 realistic patient questions for each new service found, '
+            'and use the reasoning engine to create verified answers for training.'
+        ),
+        'deliver': ['dashboard'],
+        'skills': ['data-discovery', 'qa-generation'],
+    },
+    {
         'name': 'weekly-clinic-insights',
         'schedule': '0 4 * * 1',
         'prompt': (

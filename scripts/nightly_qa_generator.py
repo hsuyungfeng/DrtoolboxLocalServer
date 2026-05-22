@@ -1,8 +1,13 @@
 import os
+import sys
 import json
 import logging
 import random
 from datetime import datetime
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from src.llm_server import llm_instance
 from src.rag_engine import RAGEngine
 from config.settings import DATA_DIR, SPECIAL_DATA_DIR, LOG_DIR
@@ -19,17 +24,39 @@ class QAGenerator:
         """Scans clinic documents to identify potential service items/procedures."""
         services = []
         files = [f for f in os.listdir(SPECIAL_DATA_DIR) if f.endswith('.txt')]
+        if not files: return []
         
-        # Sample a few files to extract services from
-        sample_files = random.sample(files, min(len(files), 10))
+        # Priority patterns
+        patterns = ["readme", "療程", "介紹", "手冊", "manual", "2025", "2026"]
+        search_list = [f for f in files if any(p in f.lower() for p in patterns)]
         
-        for fname in sample_files:
-            with open(os.path.join(SPECIAL_DATA_DIR, fname), 'r', encoding='utf-8') as f:
-                content = f.read()[:2000]
-                prompt = f"請從以下文件中識別出該診所提供的一個主要服務項目或療程名稱（例如：水飛梭、皮秒雷射、玻尿酸填補）。只需回答名稱，若無則回『無』：\n\n{content}"
-                service = llm_instance.generate(prompt, max_tokens=50).strip()
-                if service and service != "無" and len(service) < 20:
-                    services.append(service)
+        # Add some random ones too
+        search_list += random.sample(files, min(len(files), 50))
+        search_list = list(set(search_list)) # deduplicate
+        
+        for fname in search_list:
+            try:
+                with open(os.path.join(SPECIAL_DATA_DIR, fname), 'r', encoding='utf-8') as f:
+                    content = f.read(5000).strip()
+                    if len(content) < 200: continue
+                    
+                    prompt = f"""你是一個專業的醫美診所顧問。請從以下文件中識別出該診所提供的一個主要『服務項目』或『療程名稱』（如：水飛梭、皮秒雷射、音波拉提、微創痔瘡手術）。
+
+要求：
+1. 只需回答名稱，不要包含思考過程或標籤。
+2. 如果沒發現請回『無』。
+
+內容：
+{content}
+"""
+                    service = llm_instance.generate(prompt, max_tokens=50).strip()
+                    if "<think>" in service: service = service.split("</think>")[-1].strip()
+                    service = service.replace("療程名稱：", "").replace("名稱：", "").replace("服務項目：", "").strip()
+                    
+                    if service and service != "無" and len(service) < 20 and "文件" not in service:
+                        services.append(service)
+                        if len(services) >= 15: break 
+            except Exception: continue
         
         return list(set(services))
 
@@ -42,11 +69,15 @@ class QAGenerator:
             logger.info(f"Generating QA for: {service}")
             
             # 1. Generate 3 diverse patient questions
-            q_prompt = f"針對醫美療程『{service}』，請模擬出 3 個病患最常問的專業問題（包含原理、術後、或效果）。請以繁體中文條列式輸出。"
+            q_prompt = f"針對醫美療程『{service}』，請以病患的口吻模擬出 3 個最常問的專業問題（包含原理、術後、或效果）。請直接輸出問題，每行一個，不要包含思考過程或標題。"
             questions_raw = llm_instance.generate(q_prompt, max_tokens=300)
             
+            # Remove thinking tags if present
+            if "<think>" in questions_raw:
+                questions_raw = questions_raw.split("</think>")[-1].strip()
+            
             # Simple parsing of lines
-            questions = [line.strip().lstrip('123456789. ') for line in questions_raw.split('\n') if line.strip()]
+            questions = [line.strip().lstrip('123456789. -*') for line in questions_raw.split('\n') if line.strip() and len(line.strip()) > 5]
             
             for question in questions[:3]:
                 if len(question) < 5: continue

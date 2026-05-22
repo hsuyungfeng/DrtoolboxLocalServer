@@ -53,5 +53,42 @@ class LocalLLM:
             logger.error(f"LLM API chat request failed: {e}")
             return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
 
+    def chat_generate_stream(self, messages, max_tokens=1024, temperature=0.2):
+        try:
+            import json
+            logger.info("Sending chat streaming request to LLM server on 8080...")
+            response = requests.post(
+                f"{self.api_base}/v1/chat/completions",
+                json={
+                    "model": "llama-qwen",
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "stream": True
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=600,
+                stream=True
+            )
+            response.raise_for_status()
+            
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data_str = line[6:]
+                        if data_str == '[DONE]':
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            delta = data.get('choices', [{}])[0].get('delta', {})
+                            if 'content' in delta:
+                                yield delta['content']
+                        except json.JSONDecodeError:
+                            continue
+        except Exception as e:
+            logger.error(f"LLM API streaming request failed: {e}")
+            yield f"\n[Streaming Error: {e}]"
+
 # Singleton instance
 llm_instance = LocalLLM()

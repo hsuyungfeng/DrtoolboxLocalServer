@@ -486,17 +486,34 @@ textarea:focus {
 
 /* Curation Draft Styles */
 .log-item.has-draft {
-    border-left: 4px solid var(--accent-color);
+    border-left: 4px solid #3b82f6; /* Blue for Fact-Check */
 }
 
-.draft-badge {
-    background: var(--accent-color);
+.log-item.proactive-item {
+    border-left: 4px solid #a855f7; /* Purple for Proactive */
+    background: rgba(168, 85, 247, 0.05);
+}
+
+.draft-badge, .proactive-badge {
     color: white;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 2px 8px;
     border-radius: 4px;
     margin-left: 10px;
     font-weight: 600;
+    text-transform: uppercase;
+}
+
+.draft-badge { background: #3b82f6; }
+.proactive-badge { background: #a855f7; }
+
+#evidencePanel {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 #editorResponse {

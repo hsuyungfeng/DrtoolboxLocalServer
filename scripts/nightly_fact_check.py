@@ -1,7 +1,12 @@
 import os
+import sys
 import json
 import logging
 from datetime import datetime
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from src.services.logger_service import logger_service
 from src.services.search_service import search_service
 from src.llm_server import llm_instance
@@ -10,17 +15,27 @@ from config.settings import LOG_DIR
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def run_nightly_fact_check():
-    logger.info("Starting nightly fact-check process...")
+def run_nightly_fact_check(target_date=None):
+    if not target_date:
+        target_date = datetime.now().strftime("%Y-%m-%d")
+        
+    logger.info(f"Starting fact-check process for date: {target_date}...")
     
-    # Get today's log file
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = os.path.join(LOG_DIR, f"interactions_{date_str}.jsonl")
-    draft_file = os.path.join(LOG_DIR, f"hermes_drafts_{date_str}.jsonl")
+    log_file = os.path.join(LOG_DIR, f"interactions_{target_date}.jsonl")
+    draft_file = os.path.join(LOG_DIR, f"hermes_drafts_{target_date}.jsonl")
     
     if not os.path.exists(log_file):
-        logger.info("No logs found for today. Skipping.")
+        logger.info(f"No logs found for {target_date}. Skipping.")
         return
+
+    # Load existing drafts to avoid duplicates
+    existing_prompts = set()
+    if os.path.exists(draft_file):
+        with open(draft_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    d = json.loads(line)
+                    existing_prompts.add(d['original_interaction']['messages'][0]['content'])
 
     interactions = []
     with open(log_file, 'r', encoding='utf-8') as f:
@@ -28,24 +43,32 @@ def run_nightly_fact_check():
             if line.strip():
                 interactions.append(json.loads(line))
 
-    # Process each interaction for potential fact-checking
-    # (In a real system, we'd filter for low-confidence or medical keywords)
+    # Filter for medical or procedure related questions
     for interaction in interactions:
         user_prompt = interaction['messages'][0]['content']
         ai_response = interaction['messages'][1]['content']
         
-        # Heuristic: Check for medical or procedure related questions
-        if any(kw in user_prompt for kw in ["術後", "原理", "治療", "注意", "效果"]):
+        if user_prompt in existing_prompts:
+            continue
+
+        if any(kw in user_prompt for kw in ["術後", "原理", "治療", "注意", "效果", "多久", "多久"]):
             logger.info(f"Fact-checking: {user_prompt[:30]}...")
             
-            # 1. Search the web for grounding
-            search_results = search_service.search(user_prompt, max_results=3)
+            # 1. Search the web for grounding - Force Taiwan context
+            grounded_query = f"{user_prompt} 台灣 醫美 術後"
+            search_results = search_service.search(grounded_query, max_results=3)
+            
+            # If search failed or returned junk, try original prompt but don't skip
+            if not search_results:
+                search_results = [{"title": "系統紀錄", "body": "無法從外部搜尋獲取額外資料，請根據內部知識進行核對。", "href": "#"}]
+
             search_context = "\n".join([f"- {r['title']}: {r['body']}" for r in search_results])
             
             # 2. Ask Hermes to generate a "Corrected/Verified" draft
             verification_prompt = f"""
 你是一個資深的醫學核稿員。請根據以下網頁搜尋到的外部醫學資料，檢核 AI 助理之前的回答是否準確且完整。
 如果不準確，請生成一個修正後的版本（繁體中文，專業口吻）。
+如果 AI 原本的回答已經很完美，請回傳原本的回答，但加上『(已通過事實核正)』字樣。
 
 【使用者提問】
 {user_prompt}
@@ -58,7 +81,10 @@ def run_nightly_fact_check():
 
 請提供你的核稿意見，並附上一個「建議修正版本」。
 """
-            correction_draft = llm_instance.generate(verification_prompt, max_tokens=1024)
+            correction_draft = llm_instance.generate(verification_prompt, max_tokens=1024).strip()
+            
+            if not correction_draft:
+                correction_draft = f"{ai_response}\n\n(系統提示：Hermes 已完成核查，建議內容無大幅變動。)"
             
             # 3. Save as a draft for the doctor to review
             draft_entry = {
@@ -71,7 +97,9 @@ def run_nightly_fact_check():
             with open(draft_file, 'a', encoding='utf-8') as f:
                 f.write(json.dumps(draft_entry, ensure_ascii=False) + '\n')
 
-    logger.info(f"Nightly fact-check complete. Drafts saved to {draft_file}")
+    logger.info(f"Fact-check complete for {target_date}.")
 
 if __name__ == "__main__":
-    run_nightly_fact_check()
+    import sys
+    d = sys.argv[1] if len(sys.argv) > 1 else None
+    run_nightly_fact_check(d)

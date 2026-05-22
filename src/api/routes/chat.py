@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from src.agent.hermes_core import get_hermes_agent
 from src.services.logger_service import logger_service
 import logging
@@ -16,8 +16,12 @@ def handle_message():
         
     user_id = data.get('user_id', 'anonymous')
     prompt = data['message']
+    stream = data.get('stream', False)
     
-    logger.info(f"Received message from {user_id}: {prompt}")
+    logger.info(f"Received message from {user_id}: {prompt} (stream: {stream})")
+    
+    if stream:
+        return Response(agent.chat_stream(prompt), mimetype='text/event-stream')
     
     # Let Unified Hermes decide route and fetch response
     response, route_used = agent.chat(prompt)

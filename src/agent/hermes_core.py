@@ -77,6 +77,26 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
         except:
             return "special"
 
+    def chat_stream(self, user_query: str, history: Optional[List[Dict[str, str]]] = None):
+        """Core chat loop with hybrid reasoning (Streaming)."""
+        if not self.context_loaded_at: self.init_with_context()
+        
+        # 1. Routing
+        route = self.determine_route(user_query)
+        logger.info(f"Unified Hermes routing (stream): {route}")
+        
+        # 2. Hybrid Reasoning
+        try:
+            # Yield chunks as they arrive, prepended with route metadata
+            yield f"data: {json.dumps({'route_used': route})}\n\n"
+            for chunk in self.rag.query_integrated_stream(user_query):
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error(f"Chat streaming failed: {e}")
+            yield f"data: {json.dumps({'content': '抱歉，我現在處理您的請求時遇到一點困難。'})}\n\n"
+            yield "data: [DONE]\n\n"
+
     def chat(self, user_query: str, history: Optional[List[Dict[str, str]]] = None) -> Tuple[str, str]:
         """Core chat loop with hybrid reasoning."""
         if not self.context_loaded_at: self.init_with_context()

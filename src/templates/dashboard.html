@@ -16,7 +16,10 @@
                 <button class="tab-btn" data-tab="chat">即時對話</button>
             </nav>
         </div>
-        <button class="export-btn" id="exportBtn">匯出 JSONL</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="tab-btn" id="triggerFactCheckBtn" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); white-space: nowrap; height: 42px;">🔍 執行今日網實核查</button>
+            <button class="export-btn" id="exportBtn" style="height: 42px;">匯出 JSONL</button>
+        </div>
     </header>
     
     <main>
@@ -30,6 +33,13 @@
             
             <div class="glass-panel editor-panel" id="editorPanel" style="display: none;">
                 <h2>校正編輯器</h2>
+
+                <!-- 新增：搜尋證據面板 -->
+                <div id="evidencePanel" style="display: none; margin-bottom: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;">
+                    <h3 style="font-size: 0.9rem; color: #60a5fa; margin-bottom: 8px;">🌐 Hermes 網路搜尋證據 (查證來源)</h3>
+                    <div id="evidenceContent" style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5;"></div>
+                </div>
+
                 <div class="field-group">
                     <label>使用者提問</label>
                     <div class="readonly-text" id="editorPrompt"></div>

@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from src.services.logger_service import logger_service
 import os
+import json
+import datetime
 from config.settings import LOG_DIR, SPECIAL_DATA_DIR
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -14,7 +16,7 @@ def get_logs():
 @dashboard_bp.route('/drafts', methods=['GET'])
 def get_hermes_drafts():
     """Fetches nightly Hermes correction drafts."""
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     draft_file = os.path.join(LOG_DIR, f"hermes_drafts_{date_str}.jsonl")
     drafts = []
     if os.path.exists(draft_file):
@@ -27,7 +29,7 @@ def get_hermes_drafts():
 @dashboard_bp.route('/proactive', methods=['GET'])
 def get_proactive_qa():
     """Fetches proactive simulated QA pairs."""
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
     proactive_file = os.path.join(LOG_DIR, f"proactive_qa_{date_str}.jsonl")
     proactive_data = []
     if os.path.exists(proactive_file):
