@@ -12,6 +12,7 @@
             <h1>訓練控制面板</h1>
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="curation">資料校正</button>
+                <button class="tab-btn" data-tab="articles">文章同步</button>
                 <button class="tab-btn" data-tab="upload">上傳資料</button>
                 <button class="tab-btn" data-tab="chat">即時對話</button>
             </nav>
@@ -41,14 +42,58 @@
                 </div>
 
                 <div class="field-group">
-                    <label>使用者提問</label>
-                    <div class="readonly-text" id="editorPrompt"></div>
+                    <label>使用者提問 (可修改)</label>
+                    <textarea id="editorPrompt" style="min-height: 80px; margin-bottom: 10px;"></textarea>
                 </div>
                 <div class="field-group">
                     <label>AI 回覆 (編輯以進行校正)</label>
                     <textarea id="editorResponse"></textarea>
                 </div>
-                <button class="save-btn" id="saveBtn">驗證並儲存</button>
+                <div style="display: flex; gap: 12px; margin-top: 20px;">
+                    <button class="save-btn" id="saveBtn" style="flex: 2;">驗證並儲存</button>
+                    <button class="tab-btn" id="discardBtn" style="flex: 1; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171;">🗑️ 捨棄此項目</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Article Sync -->
+        <div id="tab-articles" class="tab-content">
+            <div style="display: flex; gap: 20px; height: calc(100vh - 150px);">
+                <div class="glass-panel" style="width: 350px; flex-shrink: 0; overflow-y: auto;">
+                    <h2 style="margin-bottom: 15px;">待同步文章 (已批准)</h2>
+                    <div id="articleList" class="log-list">
+                        <!-- Articles will be loaded here -->
+                    </div>
+                </div>
+                <div class="glass-panel" id="articleEditorPanel" style="flex: 1; display: none; overflow-y: auto;">
+                    <h2>文章預覽 (Doctor Toolbox 格式)</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+                        請將以下內容複製並貼上到 <a href="https://doctor-toolbox.com/clinicBot" target="_blank" style="color: var(--accent-color);">Doctor Toolbox 後台</a>。
+                    </p>
+                    
+                    <div class="field-group" style="margin-bottom: 20px;">
+                        <label>標題* (機器人靠標題判斷哪篇文章最相關)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="articleTitle" readonly style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1);">
+                            <button class="tab-btn" id="copyTitleBtn" style="white-space: nowrap;">📋 複製標題</button>
+                        </div>
+                    </div>
+                    
+                    <div class="field-group" style="margin-bottom: 20px;">
+                        <label>類別</label>
+                        <input type="text" id="articleCategory" readonly style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1);">
+                    </div>
+                    
+                    <div class="field-group" style="margin-bottom: 20px;">
+                        <label>內容 (散文形式)*</label>
+                        <textarea id="articleContent" style="min-height: 350px; width: 100%; padding: 15px; border-radius: 8px; background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1); font-family: inherit; line-height: 1.6;"></textarea>
+                        <button class="tab-btn" id="copyContentBtn" style="margin-top: 10px;">📋 複製文章內容</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; margin-top: 30px;">
+                        <button class="save-btn" id="markSyncedBtn" style="flex: 1;">✅ 標記為已同步 (從清單移除)</button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -113,7 +158,13 @@
                 <div class="chat-history" id="chatHistory">
                     <div class="message bot-msg">您好！我是 Hermes 路由代理程式。今天能為您提供什麼協助？</div>
                 </div>
+                <div id="chatImagePreview" style="display: none; padding: 10px; background: rgba(255,255,255,0.05); border-top: 1px solid rgba(255,255,255,0.1); position: relative;">
+                    <img id="previewImg" src="" style="max-height: 100px; border-radius: 8px;">
+                    <button id="clearImageBtn" style="position: absolute; top: 5px; right: 5px; background: #ef4444; border: none; color: white; border-radius: 50%; width: 20px; height: 20px; cursor: pointer;">×</button>
+                </div>
                 <div class="chat-input-area">
+                    <button id="chatUploadBtn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); margin-right: 10px;">🖼️</button>
+                    <input type="file" id="chatImageInput" style="display: none;" accept="image/*">
                     <input type="text" id="chatInput" placeholder="輸入訊息..." autocomplete="off">
                     <button class="send-btn" id="chatSendBtn">傳送</button>
                 </div>
