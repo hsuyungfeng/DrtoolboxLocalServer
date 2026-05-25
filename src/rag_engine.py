@@ -22,6 +22,9 @@ class ReasonerWrapper:
     def reason_chat(self, messages):
         return self.llm.chat_generate(messages)
 
+    def reason_chat_stream(self, messages):
+        return self.llm.chat_generate_stream(messages)
+
 class SimpleIndex:
     def __init__(self, reasoner):
         self.reasoner = reasoner
@@ -87,8 +90,8 @@ class RAGEngine:
         self._pi_cache = [] 
         self._pi_cache_lock = threading.Lock()
         
-        # Worker Pool for background PageIndexing (Max 4 threads)
-        self.pi_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="PI_Worker")
+        # Worker Pool for background PageIndexing (Balanced default)
+        self.pi_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="PI_Worker")
         
     def ingest_special_data(self, documents):
         logger.info(f"Ingesting {len(documents)} special documents into Index.")
@@ -135,12 +138,11 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"PageIndex build failed for {doc_id}: {e}")
                 
-    def query(self, question, source="special"):
-        return self.query_integrated(question)
+    def query(self, question, source="special", image_data=None):
+        return self.query_integrated(question, image_data=image_data)
 
-    def query_integrated(self, question):
-        logger.info(f"Deep Hybrid Reasoning for: {question}")
-        
+    def _get_context(self, question):
+        """Internal helper to gather SQL, PI, and RAG context."""
         # 1. SQL
         db_path = os.path.join(DATA_DIR, 'db', 'clinic.db')
         sql_context = "無相關資料庫紀錄。"
@@ -158,16 +160,13 @@ class RAGEngine:
         # 2. PageIndex (Semantic Memory)
         pi_context_list = []
         keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question) 
-        
         with self._pi_cache_lock:
             cache_snapshot = list(self._pi_cache)
-            
         for item in cache_snapshot:
             summary = item.get('summary', '')
             score = sum(10 for k in keywords if k in summary)
             if score > 0:
                 pi_context_list.append((score, summary))
-        
         pi_context_list.sort(reverse=True, key=lambda x: x[0])
         pi_context = "\n\n".join([x[1] for x in pi_context_list[:5]])
         if not pi_context: pi_context = "無相關深度推理摘要。"
@@ -176,7 +175,6 @@ class RAGEngine:
         rag_scored_chunks = self.special_index.get_scored_chunks(question)
         rag_scored_chunks.extend(self.general_index.get_scored_chunks(question))
         rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
-        
         top_chunks = []
         seen = set()
         for score, chunk in rag_scored_chunks:
@@ -186,16 +184,32 @@ class RAGEngine:
                 text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電確認]', text)
                 top_chunks.append(text)
             if len(top_chunks) >= 8: break 
-                
         rag_context = "\n\n".join(top_chunks)
         if not rag_context: rag_context = "無相關原始文本片段。"
         
+        return sql_context, pi_context, rag_context
+
+    def query_integrated(self, question, image_data=None):
+        logger.info(f"Deep Hybrid Reasoning for: {question} (image: {image_data is not None})")
+        sql_context, pi_context, rag_context = self._get_context(question)
+        
         current_date = datetime.date.today()
+        
+        # Multimodal Content
+        if image_data:
+            user_content = [
+                {"type": "text", "text": question},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+            ]
+        else:
+            user_content = question
+
         messages = [
             {
                 "role": "system",
                 "content": f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
+{'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
 
 【核心資料來源：PageIndex 專業摘要 (具備高層次邏輯)】
 {pi_context}
@@ -215,70 +229,33 @@ class RAGEngine:
             },
             {
                 "role": "user",
-                "content": question
+                "content": user_content
             }
         ]
         
         return self.reasoner.reason_chat(messages).strip()
 
-    def query_integrated_stream(self, question):
-        logger.info(f"Deep Hybrid Reasoning (Stream) for: {question}")
-        
-        # 1. SQL
-        db_path = os.path.join(DATA_DIR, 'db', 'clinic.db')
-        sql_context = "無相關資料庫紀錄。"
-        if os.path.exists(db_path):
-            try:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                if any(k in question for k in ["門診", "時間", "開", "休息", "排班"]):
-                    cursor.execute("SELECT day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, evening_start, evening_end FROM v_clinic_hours_this_week LIMIT 7")
-                    records = cursor.fetchall()
-                    if records: sql_context = f"診所門診時間表:\n{records}"
-                conn.close()
-            except Exception as e: logger.error(f"SQL Error: {e}")
-
-        # 2. PageIndex (Semantic Memory)
-        pi_context_list = []
-        keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question) 
-        
-        with self._pi_cache_lock:
-            cache_snapshot = list(self._pi_cache)
-            
-        for item in cache_snapshot:
-            summary = item.get('summary', '')
-            score = sum(10 for k in keywords if k in summary)
-            if score > 0:
-                pi_context_list.append((score, summary))
-        
-        pi_context_list.sort(reverse=True, key=lambda x: x[0])
-        pi_context = "\n\n".join([x[1] for x in pi_context_list[:5]])
-        if not pi_context: pi_context = "無相關深度推理摘要。"
-
-        # 3. SimpleIndex
-        rag_scored_chunks = self.special_index.get_scored_chunks(question)
-        rag_scored_chunks.extend(self.general_index.get_scored_chunks(question))
-        rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
-        
-        top_chunks = []
-        seen = set()
-        for score, chunk in rag_scored_chunks:
-            if chunk not in seen:
-                seen.add(chunk)
-                text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電確認]', chunk)
-                text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電確認]', text)
-                top_chunks.append(text)
-            if len(top_chunks) >= 8: break 
-                
-        rag_context = "\n\n".join(top_chunks)
-        if not rag_context: rag_context = "無相關原始文本片段。"
+    def query_integrated_stream(self, question, image_data=None):
+        logger.info(f"Deep Hybrid Reasoning (Stream) for: {question} (image: {image_data is not None})")
+        sql_context, pi_context, rag_context = self._get_context(question)
         
         current_date = datetime.date.today()
+        
+        # Multimodal Content
+        if image_data:
+            user_content = [
+                {"type": "text", "text": question},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+            ]
+        else:
+            user_content = question
+
         messages = [
             {
                 "role": "system",
                 "content": f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
+{'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
 
 【核心資料來源：PageIndex 專業摘要 (具備高層次邏輯)】
 {pi_context}
@@ -298,7 +275,7 @@ class RAGEngine:
             },
             {
                 "role": "user",
-                "content": question
+                "content": user_content
             }
         ]
         

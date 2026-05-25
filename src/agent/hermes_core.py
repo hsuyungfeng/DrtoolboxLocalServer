@@ -5,6 +5,7 @@ Consolidates HermesAgent and HermesRouter into a single class with:
 - Intent Routing (Special/General)
 - Hybrid RAG (SQL + PageIndex + SimpleIndex)
 - HIS Context Awareness
+- High-Risk Medical Symptom Detection
 """
 
 import json
@@ -77,42 +78,108 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
         except:
             return "special"
 
-    def chat_stream(self, user_query: str, history: Optional[List[Dict[str, str]]] = None):
-        """Core chat loop with hybrid reasoning (Streaming)."""
+    def _check_high_risk(self, text: str) -> bool:
+        """Checks for high-risk medical keywords requiring staff escalation."""
+        risk_keywords = [
+            "劇烈疼痛", "非常痛", "痛到受不了", "發黑", "變黑", "變白", "發紫", "流膿", 
+            "化膿", "視力模糊", "看不清楚", "呼吸困難", "喘不過氣", "發燒", "高燒", "沒呼吸"
+        ]
+        return any(k in text for k in risk_keywords)
+
+    def _ocr_base64_image(self, image_data: str) -> str:
+        """Helper to OCR an image provided as base64."""
+        import base64
+        import io
+        from PIL import Image
+        import pytesseract
+        try:
+            img_bytes = base64.b64decode(image_data)
+            img = Image.open(io.BytesIO(img_bytes))
+            try:
+                text = pytesseract.image_to_string(img, lang='chi_tra+eng')
+            except:
+                text = pytesseract.image_to_string(img)
+            return text.strip()
+        except Exception as e:
+            logger.error(f"Local OCR fallback failed: {e}")
+            return ""
+
+    def chat_stream(self, user_query: str, history: Optional[List[Dict[str, str]]] = None, image_data: Optional[str] = None):
+        """Core chat loop with hybrid reasoning (Streaming + Vision support + Risk Detection)."""
         if not self.context_loaded_at: self.init_with_context()
         
-        # 1. Routing
+        # 1. Routing & Risk Detection
         route = self.determine_route(user_query)
-        logger.info(f"Unified Hermes routing (stream): {route}")
+        is_high_risk = self._check_high_risk(user_query)
+        logger.info(f"Unified Hermes routing (stream): {route} (High Risk: {is_high_risk})")
         
         # 2. Hybrid Reasoning
         try:
-            # Yield chunks as they arrive, prepended with route metadata
-            yield f"data: {json.dumps({'route_used': route})}\n\n"
-            for chunk in self.rag.query_integrated_stream(user_query):
+            # Yield metadata including risk status
+            yield f"data: {json.dumps({'route_used': route, 'is_high_risk': is_high_risk})}\n\n"
+            
+            is_fallback = False
+            for chunk in self.rag.query_integrated_stream(user_query, image_data=image_data):
+                if chunk == "ERROR_VISION_NOT_SUPPORTED":
+                    is_fallback = True
+                    break
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
+            
+            if is_fallback:
+                logger.warning("Local LLM does not support vision. Performing local OCR and falling back to text-only.")
+                ocr_text = self._ocr_base64_image(image_data) if image_data else ""
+                
+                msg = '⚠️ **系統提示**：目前的本地 AI 模型尚未配置「視覺辨識」組件（mmproj），但我已嘗試透過光學字元辨識 (OCR) 讀取您的照片內容。\n\n'
+                if ocr_text:
+                    msg += f"**[辨識出的文字內容]**：\n> {ocr_text[:300]}...\n\n---\n\n"
+                elif image_data:
+                    msg += "（很抱歉，我無法直接看到照片，且 OCR 也無法從中提取有效文字，請您改用文字描述。）\n\n---\n\n"
+                
+                yield f"data: {json.dumps({'content': msg})}\n\n"
+                
+                enhanced_query = user_query
+                if ocr_text:
+                    enhanced_query = f"[附件圖片辨識文字：{ocr_text}] {user_query}"
+                
+                for chunk in self.rag.query_integrated_stream(enhanced_query, image_data=None):
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
+            
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Chat streaming failed: {e}")
             yield f"data: {json.dumps({'content': '抱歉，我現在處理您的請求時遇到一點困難。'})}\n\n"
             yield "data: [DONE]\n\n"
 
-    def chat(self, user_query: str, history: Optional[List[Dict[str, str]]] = None) -> Tuple[str, str]:
-        """Core chat loop with hybrid reasoning."""
+    def chat(self, user_query: str, history: Optional[List[Dict[str, str]]] = None, image_data: Optional[str] = None) -> Tuple[str, str, bool]:
+        """Core chat loop with hybrid reasoning (Vision support + Risk Detection)."""
         if not self.context_loaded_at: self.init_with_context()
         
-        # 1. Routing
+        # 1. Routing & Risk Detection
         route = self.determine_route(user_query)
-        logger.info(f"Unified Hermes routing: {route}")
+        is_high_risk = self._check_high_risk(user_query)
+        logger.info(f"Unified Hermes routing: {route} (High Risk: {is_high_risk})")
         
-        # 2. Hybrid Reasoning (RAG + SQL)
+        # 2. Hybrid Reasoning
         try:
-            response = self.rag.query_integrated(user_query)
+            response = self.rag.query_integrated(user_query, image_data=image_data)
+            if response == "ERROR_VISION_NOT_SUPPORTED":
+                logger.warning("Local LLM does not support vision. Falling back to OCR + Text.")
+                ocr_text = self._ocr_base64_image(image_data) if image_data else ""
+                
+                prefix = "⚠️ **系統提示**：目前的本地 AI 模型尚未配置「視覺辨識」組件（mmproj）。\n\n"
+                enhanced_query = user_query
+                if ocr_text:
+                    prefix += f"**[辨識出的文字內容]**：\n> {ocr_text[:300]}...\n\n---\n\n"
+                    enhanced_query = f"[附件圖片辨識文字：{ocr_text}] {user_query}"
+                elif image_data:
+                    prefix += "（我無法看到照片，且無法辨識出文字，請用文字描述。）\n\n"
+
+                response = prefix + self.rag.query_integrated(enhanced_query, image_data=None)
         except Exception as e:
             logger.error(f"Chat reasoning failed: {e}")
             response = "抱歉，我現在處理您的請求時遇到一點困難。請稍後再試。"
             
-        return response, route
+        return response, route, is_high_risk
 
     def get_context_status(self) -> Dict[str, Any]:
         return {

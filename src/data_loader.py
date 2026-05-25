@@ -70,12 +70,21 @@ def extract_text_from_file(filepath):
                 return pytesseract.image_to_string(Image.open(filepath))
         elif ext in ['mp4', 'mp3', 'm4a', 'wav', 'flv']:
             logger.info(f"Starting Whisper transcription for {filepath}")
-            model = get_whisper_model()
-            segments, info = model.transcribe(filepath, beam_size=5)
-            text = f"--- 語音逐字稿 (語言: {info.language}) ---\n"
-            for segment in segments:
-                text += f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n"
-            return text
+            try:
+                model = get_whisper_model()
+                segments, info = model.transcribe(filepath, beam_size=5)
+                # Convert segments generator to a list with a timeout/limit
+                segments_list = list(segments)
+                if not segments_list:
+                    return "--- 語音逐字稿 (未偵測到任何語音內容) ---"
+                    
+                text = f"--- 語音逐字稿 (語言: {info.language}) ---\n"
+                for segment in segments_list:
+                    text += f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n"
+                return text
+            except Exception as whisper_e:
+                logger.error(f"Whisper transcription failed for {filepath}: {whisper_e}")
+                return f"--- 語音逐字稿失敗: {whisper_e} ---"
 
         # === Office File Parsing ===
         text = ""

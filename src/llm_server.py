@@ -34,7 +34,7 @@ class LocalLLM:
 
     def chat_generate(self, messages, max_tokens=1024, temperature=0.2):
         try:
-            logger.info("Sending chat generation request to LLM server on 8080...")
+            logger.info("Sending chat generation request (multimodal support) to LLM server on 8080...")
             response = requests.post(
                 f"{self.api_base}/v1/chat/completions",
                 json={
@@ -46,6 +46,14 @@ class LocalLLM:
                 headers={"Content-Type": "application/json"},
                 timeout=600
             )
+            # Check for specific vision support error from llama.cpp
+            if response.status_code == 500:
+                try:
+                    err_data = response.json()
+                    if "image input is not supported" in err_data.get('error', {}).get('message', ''):
+                        return "ERROR_VISION_NOT_SUPPORTED"
+                except: pass
+            
             response.raise_for_status()
             data = response.json()
             return data.get('choices', [{}])[0].get('message', {}).get('content', '')
@@ -54,9 +62,10 @@ class LocalLLM:
             return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
 
     def chat_generate_stream(self, messages, max_tokens=1024, temperature=0.2):
+        """Streams response with support for multimodal messages."""
         try:
             import json
-            logger.info("Sending chat streaming request to LLM server on 8080...")
+            logger.info("Sending chat streaming request (multimodal support) to LLM server on 8080...")
             response = requests.post(
                 f"{self.api_base}/v1/chat/completions",
                 json={
@@ -70,6 +79,15 @@ class LocalLLM:
                 timeout=600,
                 stream=True
             )
+            # Check for specific vision support error from llama.cpp
+            if response.status_code == 500:
+                try:
+                    err_data = response.json()
+                    if "image input is not supported" in err_data.get('error', {}).get('message', ''):
+                        yield "ERROR_VISION_NOT_SUPPORTED"
+                        return
+                except: pass
+
             response.raise_for_status()
             
             for line in response.iter_lines():

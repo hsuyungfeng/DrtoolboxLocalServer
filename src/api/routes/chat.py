@@ -17,24 +17,27 @@ def handle_message():
     user_id = data.get('user_id', 'anonymous')
     prompt = data['message']
     stream = data.get('stream', False)
+    image_data = data.get('image') # Base64 image data
     
-    logger.info(f"Received message from {user_id}: {prompt} (stream: {stream})")
+    logger.info(f"Received message from {user_id}: {prompt} (stream: {stream}, has_image: {image_data is not None})")
     
     if stream:
-        return Response(agent.chat_stream(prompt), mimetype='text/event-stream')
+        return Response(agent.chat_stream(prompt, image_data=image_data), mimetype='text/event-stream')
     
     # Let Unified Hermes decide route and fetch response
-    response, route_used = agent.chat(prompt)
+    response, route_used, is_high_risk = agent.chat(prompt, image_data=image_data)
     
     # Log the interaction for future model fine-tuning
     logger_service.log_interaction(
         user_id=user_id,
         prompt=prompt,
         response=response,
-        route_used=route_used
+        route_used=route_used,
+        is_high_risk=is_high_risk
     )
     
     return jsonify({
         "reply": response,
-        "route_used": route_used
+        "route_used": route_used,
+        "is_high_risk": is_high_risk
     })

@@ -7,17 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             tabBtns.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => c.classList.remove('active-tab'));
-            
             btn.classList.add('active');
             const targetId = `tab-${btn.dataset.tab}`;
             document.getElementById(targetId).classList.add('active-tab');
-            
             if (btn.dataset.tab === 'curation') loadLogs();
             if (btn.dataset.tab === 'articles') loadArticles();
         });
     });
 
-    // --- Global Helpers ---
     window.copyToClipboard = (elementId) => {
         const el = document.getElementById(elementId);
         el.select();
@@ -67,33 +64,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const index = proactiveQA.length - 1 - reversedIndex;
             const div = document.createElement('div');
             div.className = `log-item proactive-item ${isActiveProactive && index === activeLogIndex ? 'active' : ''}`;
-            div.innerHTML = `
-                <div class="log-meta">
-                    <span>模擬提問</span>
-                    <span class="proactive-badge">🚀 Proactive: ${pqa.service}</span>
-                </div>
-                <div class="log-prompt">${pqa.question}</div>
-            `;
+            div.innerHTML = `<div class="log-meta"><span>模擬提問</span><span class="proactive-badge">🚀 Proactive: ${pqa.service}</span></div><div class="log-prompt">${pqa.question}</div>`;
             div.addEventListener('click', () => selectProactive(index));
             logList.appendChild(div);
         });
-
         currentLogs.slice().reverse().forEach((log, reversedIndex) => {
             const index = currentLogs.length - 1 - reversedIndex;
             const userMsg = log.messages.find(m => m.role === 'user');
             const userPrompt = userMsg ? userMsg.content : '';
             const hasDraft = currentDrafts.some(d => d.original_interaction.messages[0].content === userPrompt);
-
             const div = document.createElement('div');
             div.className = `log-item ${!isActiveProactive && index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
-            div.innerHTML = `
-                <div class="log-meta">
-                    <span>${new Date(log.timestamp).toLocaleString()}</span>
-                    <span>路由: ${log.metadata.route_used}</span>
-                    ${hasDraft ? '<span class="draft-badge">Hermes 建議待審</span>' : ''}
-                </div>
-                <div class="log-prompt">${userPrompt || '無提問'}</div>
-            `;
+            div.innerHTML = `<div class="log-meta"><span>${new Date(log.timestamp).toLocaleString()}</span><span>路由: ${log.metadata.route_used}</span>${hasDraft ? '<span class="draft-badge">Hermes 建議待審</span>' : ''}</div><div class="log-prompt">${userPrompt || '無提問'}</div>`;
             div.addEventListener('click', () => { isActiveProactive = false; selectLog(index, hasDraft); });
             logList.appendChild(div);
         });
@@ -105,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const userMsg = log.messages.find(m => m.role === 'user');
         const astMsg = log.messages.find(m => m.role === 'assistant');
         editorPrompt.value = userMsg ? userMsg.content : '';
-        
         if (hasDraft) {
             const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === editorPrompt.value);
             editorResponse.value = draft.hermes_suggestion;
@@ -114,9 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (draft.search_results && draft.search_results.length > 0) {
                 evidenceContent.innerHTML = draft.search_results.map(r => `
                     <div style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <div style="font-weight: 600; color: #e2e8f0; font-size: 0.9rem;">${r.title}</div>
-                        <div style="margin: 4px 0;">${r.body}</div>
-                        <a href="${r.href}" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.8rem;">查看來源 ↗</a>
+                        <div style="font-weight: 600; color: #e2e8f0; font-size: 0.9rem;">${r.title}</div><div style="margin: 4px 0;">${r.body}</div><a href="${r.href}" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.8rem;">查看來源 ↗</a>
                     </div>`).join('');
                 evidencePanel.style.display = 'block';
             } else { evidencePanel.style.display = 'none'; }
@@ -209,65 +188,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const markSyncedBtn = document.getElementById('markSyncedBtn');
     const copyTitleBtn = document.getElementById('copyTitleBtn');
     const copyContentBtn = document.getElementById('copyContentBtn');
-
-    let currentArticles = [];
-    let activeArticleIndex = -1;
-
+    let currentArticles = []; let activeArticleIndex = -1;
     async function loadArticles() {
-        try {
-            const res = await fetch('/api/dashboard/articles');
-            currentArticles = await res.json();
-            renderArticles();
-        } catch (e) { console.error(e); }
+        try { const res = await fetch('/api/dashboard/articles'); currentArticles = await res.json(); renderArticles(); } catch (e) {}
     }
-
     function renderArticles() {
         articleList.innerHTML = '';
         currentArticles.forEach((art, index) => {
             const div = document.createElement('div');
             div.className = `log-item ${index === activeArticleIndex ? 'active' : ''}`;
-            div.innerHTML = `
-                <div class="log-meta">
-                    <span>類別: ${art.category}</span>
-                </div>
-                <div class="log-prompt">${art.title}</div>
-            `;
+            div.innerHTML = `<div class="log-meta"><span>類別: ${art.category}</span></div><div class="log-prompt">${art.title}</div>`;
             div.addEventListener('click', () => selectArticle(index));
             articleList.appendChild(div);
         });
     }
-
     function selectArticle(index) {
         activeArticleIndex = index; renderArticles();
         const art = currentArticles[index];
-        articleTitle.value = art.title;
-        articleCategory.value = art.category;
-        articleContent.value = art.content;
+        articleTitle.value = art.title; articleCategory.value = art.category; articleContent.value = art.content;
         articleEditorPanel.style.display = 'block';
     }
-
     copyTitleBtn.addEventListener('click', () => copyToClipboard('articleTitle'));
     copyContentBtn.addEventListener('click', () => copyToClipboard('articleContent'));
-
     markSyncedBtn.addEventListener('click', async () => {
         if (activeArticleIndex === -1) return;
         const art = currentArticles[activeArticleIndex];
         try {
-            const res = await fetch('/api/dashboard/articles/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: art.title })
-            });
-            if (res.ok) {
-                currentArticles.splice(activeArticleIndex, 1);
-                activeArticleIndex = -1;
-                articleEditorPanel.style.display = 'none';
-                renderArticles();
-            }
-        } catch (e) { console.error(e); }
+            const res = await fetch('/api/dashboard/articles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: art.title }) });
+            if (res.ok) { currentArticles.splice(activeArticleIndex, 1); activeArticleIndex = -1; articleEditorPanel.style.display = 'none'; renderArticles(); }
+        } catch (e) {}
     });
 
-    // --- Tab 2: Upload Data ---
+    // --- Tab 2: Upload Data (ULTIMATE BASE64 FALLBACK) ---
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const folderInput = document.getElementById('folderInput');
@@ -285,33 +237,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleFiles(files) {
         if (!files.length) return;
-        const fileArray = Array.from(files);
-        const toUpload = fileArray.filter(f => !f.name.startsWith('.'));
+        const fileArray = Array.from(files).filter(f => !f.name.startsWith('.') && !f.name.startsWith('~$'));
+        const totalToUpload = fileArray.length;
+        let successCount = 0, failCount = 0;
         const dataType = document.getElementById('dataTypeSelect').value;
         const progressContainer = document.getElementById('uploadProgressContainer');
         const progressBar = document.getElementById('uploadProgressBar');
         const statSuccess = document.getElementById('statSuccess');
         const statFail = document.getElementById('statFail');
+        const statPending = document.getElementById('statPending');
         
         progressContainer.style.display = 'block';
-        let success = 0, fail = 0;
-        for (let i = 0; i < toUpload.length; i++) {
-            const file = toUpload[i];
-            uploadStatus.innerHTML = `正在上傳: ${file.name}`;
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('data_type', dataType);
+        statPending.textContent = totalToUpload;
+        
+        for (let i = 0; i < totalToUpload; i++) {
+            const file = fileArray[i];
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            uploadStatus.innerHTML = `正在上傳 (${i+1}/${totalToUpload}): ${file.name} (${fileSizeMB} MB)`;
+            
             try {
-                const res = await fetch('/api/dashboard/upload', { method: 'POST', body: formData });
-                if (res.ok) success++; else fail++;
-            } catch (e) { fail++; }
-            progressBar.style.width = `${Math.round(((i + 1) / toUpload.length) * 100)}%`;
-            statSuccess.textContent = success; statFail.textContent = fail;
+                // Convert file to Base64 to bypass multipart parsing blocks
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const res = await fetch('/api/dashboard/upload_base64', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: file.name,
+                        file_data: base64Data,
+                        data_type: dataType
+                    })
+                });
+                
+                if (res.ok) {
+                    successCount++;
+                    statSuccess.textContent = successCount;
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (e) {
+                failCount++;
+                statFail.textContent = failCount;
+                console.error(`Base64 upload failed for ${file.name}:`, e);
+            }
+            
+            progressBar.style.width = `${Math.round(((i + 1) / totalToUpload) * 100)}%`;
+            statPending.textContent = totalToUpload - (i + 1);
+            await new Promise(r => setTimeout(r, 100));
         }
-        uploadStatus.innerHTML = fail === 0 ? '🎉 上傳成功！' : '⚠️ 上傳完成，部分失敗。';
+        
+        uploadStatus.innerHTML = failCount === 0 ? '🎉 上傳成功！' : `⚠️ 完成，失敗: ${failCount}`;
+        fileInput.value = ''; folderInput.value = '';
     }
 
-    // --- Tab 3: Live Chat with Vision ---
+    // --- Tab 3: Live Chat ---
     const chatHistory = document.getElementById('chatHistory');
     const chatInput = document.getElementById('chatInput');
     const chatSendBtn = document.getElementById('chatSendBtn');
@@ -322,105 +306,66 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearImageBtn = document.getElementById('clearImageBtn');
 
     let currentBase64Image = null;
-
     chatUploadBtn.addEventListener('click', () => chatImageInput.click());
     chatImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (re) => {
-                currentBase64Image = re.target.result.split(',')[1];
-                previewImg.src = re.target.result;
-                chatImagePreview.style.display = 'block';
-            };
+            reader.onload = (re) => { currentBase64Image = re.target.result.split(',')[1]; previewImg.src = re.target.result; chatImagePreview.style.display = 'block'; };
             reader.readAsDataURL(file);
         }
     });
+    clearImageBtn.addEventListener('click', () => { currentBase64Image = null; chatImageInput.value = ''; chatImagePreview.style.display = 'none'; });
 
-    clearImageBtn.addEventListener('click', () => {
-        currentBase64Image = null;
-        chatImageInput.value = '';
-        chatImagePreview.style.display = 'none';
-    });
-
-    function addMessageToChat(role, text, route = null) {
+    function addMessageToChat(role, text, route = null, isHighRisk = false) {
         const div = document.createElement('div');
-        div.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'}`;
+        div.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'} ${isHighRisk ? 'risk-alert' : ''}`;
+        if (isHighRisk) {
+            const badge = document.createElement('div'); badge.className = 'risk-badge'; badge.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管'; div.appendChild(badge);
+        }
         if (role === 'bot') {
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'markdown-content';
-            contentDiv.innerHTML = marked.parse(text);
-            div.appendChild(contentDiv);
+            const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = marked.parse(text); div.appendChild(contentDiv);
         } else { div.textContent = text; }
         if (route) {
-            const badge = document.createElement('span');
-            badge.className = 'route-badge';
-            badge.textContent = `經由 ${route}`;
-            div.appendChild(badge);
+            const badge = document.createElement('span'); badge.className = 'route-badge'; badge.textContent = `經由 ${route}`; div.appendChild(badge);
         }
-        chatHistory.appendChild(div);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
     async function sendMessage() {
         const text = chatInput.value.trim();
         if (!text && !currentBase64Image) return;
-        
         addMessageToChat('user', text);
         if (currentBase64Image) {
-            const imgDiv = document.createElement('div');
-            imgDiv.className = 'message user-msg';
-            imgDiv.innerHTML = `<img src="data:image/jpeg;base64,${currentBase64Image}" style="max-width: 200px; border-radius: 8px;">`;
-            chatHistory.appendChild(imgDiv);
+            const imgDiv = document.createElement('div'); imgDiv.className = 'message user-msg'; imgDiv.innerHTML = `<img src="data:image/jpeg;base64,${currentBase64Image}" style="max-width: 200px; border-radius: 8px;">`; chatHistory.appendChild(imgDiv);
         }
-
         const imageToSend = currentBase64Image;
-        // Reset inputs
         chatInput.value = ''; currentBase64Image = null; chatImagePreview.style.display = 'none';
         chatInput.disabled = true; chatSendBtn.disabled = true;
-        
-        const div = document.createElement('div');
-        div.className = 'message bot-msg';
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'markdown-content';
+        const div = document.createElement('div'); div.className = 'message bot-msg';
+        const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content';
         contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
-        div.appendChild(contentDiv);
-        chatHistory.appendChild(div);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-
+        div.appendChild(contentDiv); chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight;
         let fullResponse = '';
         try {
-            const res = await fetch('/api/chat/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: 'dashboard_user', message: text, stream: true, image: imageToSend })
-            });
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let buffer = '';
+            const res = await fetch('/api/chat/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: 'dashboard_user', message: text, stream: true, image: imageToSend }) });
+            const reader = res.body.getReader(); const decoder = new TextDecoder('utf-8'); let buffer = '';
             while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n\n');
-                buffer = lines.pop();
+                const { done, value } = await reader.read(); if (done) break;
+                buffer += decoder.decode(value, { stream: true }); const lines = buffer.split('\n\n'); buffer = lines.pop();
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
-                        const dataStr = line.substring(6);
-                        if (dataStr === '[DONE]') break;
+                        const dataStr = line.substring(6); if (dataStr === '[DONE]') break;
                         try {
                             const data = JSON.parse(dataStr);
-                            if (data.route_used) {
-                                const badge = document.createElement('span');
-                                badge.className = 'route-badge';
-                                badge.textContent = `經由 ${data.route_used}`;
-                                div.appendChild(badge);
+                            if (data.is_high_risk) {
+                                div.classList.add('risk-alert');
+                                if (!div.querySelector('.risk-badge')) {
+                                    const b = document.createElement('div'); b.className = 'risk-badge'; b.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管'; div.insertBefore(b, div.firstChild);
+                                }
                             }
-                            if (data.content) {
-                                fullResponse += data.content;
-                                contentDiv.innerHTML = marked.parse(fullResponse);
-                                chatHistory.scrollTop = chatHistory.scrollHeight;
-                            }
+                            if (data.route_used) { const badge = document.createElement('span'); badge.className = 'route-badge'; badge.textContent = `經由 ${data.route_used}`; div.appendChild(badge); }
+                            if (data.content) { fullResponse += data.content; contentDiv.innerHTML = marked.parse(fullResponse); chatHistory.scrollTop = chatHistory.scrollHeight; }
                         } catch (e) {}
                     }
                 }
@@ -428,7 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) { contentDiv.innerHTML = '錯誤。'; }
         finally { chatInput.disabled = false; chatSendBtn.disabled = false; chatInput.focus(); }
     }
-
     chatSendBtn.addEventListener('click', sendMessage);
     chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
@@ -443,16 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.logs && data.logs.length > 0) {
                     if (lastOcrLogIndex === 0) ocrLogContainer.innerHTML = '';
                     data.logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.style.marginBottom = '4px';
+                        const div = document.createElement('div'); div.style.marginBottom = '4px';
                         if (log.includes('✅')) div.style.color = '#4ade80';
                         else if (log.includes('❌') || log.includes('⚠️')) div.style.color = '#f87171';
                         else div.style.color = '#e5e7eb';
-                        div.textContent = log;
-                        ocrLogContainer.appendChild(div);
+                        div.textContent = log; ocrLogContainer.appendChild(div);
                     });
-                    lastOcrLogIndex = data.next_index;
-                    ocrLogContainer.scrollTop = ocrLogContainer.scrollHeight;
+                    lastOcrLogIndex = data.next_index; ocrLogContainer.scrollTop = ocrLogContainer.scrollHeight;
                 }
             }
         } catch (e) {}
