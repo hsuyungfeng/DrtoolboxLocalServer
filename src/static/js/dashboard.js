@@ -27,6 +27,37 @@ document.addEventListener('DOMContentLoaded', () => {
         document.execCommand('copy');
     };
 
+    // --- Header Actions ---
+    const triggerFactCheckBtn = document.getElementById('triggerFactCheckBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    if (triggerFactCheckBtn) {
+        triggerFactCheckBtn.addEventListener('click', async () => {
+            triggerFactCheckBtn.disabled = true;
+            triggerFactCheckBtn.textContent = '⏳ 處理中...';
+            try {
+                const res = await fetch('/api/dashboard/drafts/trigger', { method: 'POST' });
+                if (res.ok) {
+                    alert("網實核查已啟動！背景正在執行查證、模擬提問與 CRM 分析，請稍候重新載入。");
+                } else {
+                    alert("啟動失敗，請查看伺服器日誌。");
+                }
+            } catch (e) {
+                console.error("Trigger fact check failed:", e);
+                alert("連線失敗。");
+            } finally {
+                triggerFactCheckBtn.disabled = false;
+                triggerFactCheckBtn.textContent = '🔍 執行今日網實核查';
+            }
+        });
+    }
+
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            window.location.href = '/api/dashboard/export';
+        });
+    }
+
     // --- Tab 1: Curation (Batch Workflow) ---
     const logList = document.getElementById('logList');
     const editorPanel = document.getElementById('editorPanel');
@@ -35,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = document.getElementById('saveBtn');
     const discardBtn = document.getElementById('discardBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectHighConfBtn = document.getElementById('selectHighConfBtn');
     const batchSaveBtn = document.getElementById('batchSaveBtn');
     const evidencePanel = document.getElementById('evidencePanel');
     const evidenceContent = document.getElementById('evidenceContent');
@@ -201,30 +233,70 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLogs();
     });
 
+    if (selectHighConfBtn) selectHighConfBtn.addEventListener('click', () => {
+        // Clear selection first
+        pendingEdits = {};
+        
+        // Select only items with confidence >= 85
+        currentLogs.forEach((l, i) => {
+            const score = l.metadata?.confidence_score || 0;
+            if (score >= 85) {
+                _saveCurrentToPending(false, i);
+            }
+        });
+        
+        // Proactive items are usually considered high quality
+        proactiveQA.forEach((p, i) => _saveCurrentToPending(true, i));
+        
+        renderLogs();
+        const selectedCount = Object.keys(pendingEdits).length;
+        if (selectedCount > 0) {
+            console.log(`Auto-selected ${selectedCount} high confidence items.`);
+        } else {
+            alert("目前沒有信心分數 >= 85% 的項目。");
+        }
+    });
+
     if (batchSaveBtn) batchSaveBtn.addEventListener('click', async () => {
         const keys = Object.keys(pendingEdits);
         if (keys.length === 0) { alert("請先勾選項目。"); return; }
         if (!confirm(`批量儲存 ${keys.length} 筆資料？`)) return;
+        
         batchSaveBtn.textContent = '處理中...';
-        let success = 0;
-        for (const key of keys) {
+        
+        const corrections = keys.map(key => {
             const item = pendingEdits[key];
-            try {
-                const res = await fetch('/api/dashboard/logs/correct', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        original_log: item.isProactive ? { messages: [{role:'user', content:item.prompt}] } : currentLogs[item.index],
-                        corrected_prompt: item.prompt, corrected_response: item.response,
-                        item_type: item.type, item_id: item.id
-                    })
-                });
-                if (res.ok) success++;
-            } catch (e) {}
+            return {
+                original_log: item.isProactive ? { messages: [{role:'user', content:item.prompt}] } : currentLogs[item.index],
+                corrected_prompt: item.prompt,
+                corrected_response: item.response,
+                item_type: item.type,
+                item_id: item.id
+            };
+        });
+
+        try {
+            const res = await fetch('/api/dashboard/logs/batch_correct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ corrections })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                alert(`完成！成功: ${result.success_count} 筆。`);
+                pendingEdits = {}; 
+                activeLogIndex = -1; 
+                editorPanel.style.display = 'none';
+                loadLogs();
+            } else {
+                alert(`儲存失敗: ${result.error || '未知錯誤'}`);
+            }
+        } catch (e) {
+            console.error("Batch save failed:", e);
+            alert("批量儲存發生錯誤，請查看主控台。");
+        } finally {
+            batchSaveBtn.textContent = '批量儲存已選';
         }
-        alert(`完成！成功: ${success} 筆。`);
-        pendingEdits = {}; activeLogIndex = -1; editorPanel.style.display = 'none';
-        loadLogs(); batchSaveBtn.textContent = '批量儲存已選';
     });
 
     if (saveBtn) saveBtn.addEventListener('click', async () => {

@@ -3,6 +3,7 @@ import sys
 import json
 import logging
 import requests
+import time
 from datetime import datetime
 
 # Add project root to path
@@ -19,8 +20,6 @@ CHAT_API_URL = "http://127.0.0.1:5000/api/chat/message"
 
 os.makedirs(REPORT_DIR, exist_ok=True)
 
-import time
-
 def evaluate():
     if not os.path.exists(GOLDEN_SET_PATH):
         logger.error(f"Golden set not found at {GOLDEN_SET_PATH}")
@@ -31,10 +30,11 @@ def evaluate():
 
     results = []
     total_score = 0
+    total_latency = 0
 
-    print("\n" + "="*50)
-    print("🚀 Starting RAG Golden Set Evaluation")
-    print("="*50 + "\n")
+    print("\n" + "="*60)
+    print("🚀 Starting PageIndex / Reasoning RAG Evaluation")
+    print("="*60 + "\n")
 
     for entry in golden_set:
         qid = entry['id']
@@ -42,17 +42,25 @@ def evaluate():
         ground_truth = entry['ground_truth']
         criteria = entry['evaluation_criteria']
         
-        print(f"[{qid}] Evaluating: {question}")
+        print(f"[{qid}] 📥 Question: {question}")
         
         # 1. Get AI Answer from the live system
+        start_time = time.time()
         try:
-            # Increased timeout to 180s for deep reasoning
             res = requests.post(CHAT_API_URL, json={"message": question, "user_id": "eval_bot"}, timeout=180)
             res.raise_for_status()
-            ai_answer = res.json().get('reply', '')
+            data = res.json()
+            ai_answer = data.get('reply', '')
+            sys_confidence = data.get('confidence_score', 0)
+            route = data.get('route_used', 'unknown')
         except Exception as e:
             logger.error(f"Failed to get AI answer for {qid}: {e}")
             ai_answer = f"ERROR: Could not get response. {e}"
+            sys_confidence = 0
+            route = "error"
+        
+        latency = time.time() - start_time
+        total_latency += latency
 
         # 2. Use LLM as a Judge to score the answer
         judge_prompt = f"""你是一個專業的醫療 RAG 評測員。
@@ -72,13 +80,13 @@ def evaluate():
 
 ---
 評分說明：
-5分：完全準確，包含所有關鍵點，語氣專業。
-4分：準確且包含主要關鍵點，但有細微遺漏。
-3分：部分準確，主要觀點有提到但細節不夠。
-2分：嚴重不足，漏掉核心警訊或包含錯誤資訊。
-1分：完全錯誤、包含敏感報價或與問題無關。
+5分：完全準確，包含所有關鍵點，語氣專業，邏輯清晰。
+4分：準確且包含主要關鍵點，但有細微遺漏或冗餘。
+3分：部分準確，主要觀點有提到但細節不足或有輕微偏差。
+2分：嚴重不足，漏掉核心警訊，或包含錯誤資訊。
+1分：完全錯誤、包含敏感報價、答非所問或具備醫療風險。
 
-要求：請直接以 JSON 格式回傳評分結果，不要包含任何思考過程或額外說明。
+要求：請直接以 JSON 格式回傳評分結果。
 格式範例：{{"score": 5, "reason": "說明理由"}}
 """
         try:
@@ -88,26 +96,22 @@ def evaluate():
             if "<think>" in judge_res_raw:
                 judge_res_raw = judge_res_raw.split("</think>")[-1].strip()
             
-            # Handle markdown blocks
+            # Extract JSON block
             if "```json" in judge_res_raw:
                 judge_res_raw = judge_res_raw.split("```json")[1].split("```")[0].strip()
             elif "```" in judge_res_raw:
                 judge_res_raw = judge_res_raw.split("```")[1].split("```")[0].strip()
             
-            # Clean up trailing/leading junk
-            judge_res_raw = judge_res_raw.strip()
-            if not judge_res_raw.startswith("{"):
-                # Try to find the first { and last }
-                start = judge_res_raw.find("{")
-                end = judge_res_raw.rfind("}")
-                if start != -1 and end != -1:
-                    judge_res_raw = judge_res_raw[start:end+1]
+            start = judge_res_raw.find("{")
+            end = judge_res_raw.rfind("}")
+            if start != -1 and end != -1:
+                judge_res_raw = judge_res_raw[start:end+1]
             
             judge_data = json.loads(judge_res_raw)
             score = int(judge_data.get('score', 0))
             reason = judge_data.get('reason', 'No reason provided.')
         except Exception as e:
-            logger.error(f"Judge failed for {qid}: {e}. Raw response: {judge_res_raw if 'judge_res_raw' in locals() else 'N/A'}")
+            logger.error(f"Judge failed for {qid}: {e}")
             score = 0
             reason = f"Judging Error: {e}"
 
@@ -118,32 +122,64 @@ def evaluate():
             "ai_answer": ai_answer,
             "ground_truth": ground_truth,
             "score": score,
-            "reason": reason
+            "reason": reason,
+            "latency": round(latency, 2),
+            "sys_confidence": sys_confidence,
+            "route": route
         })
-        print(f"   -> Score: {score}/5 | Reason: {reason[:60]}...")
+        print(f"   -> ⏱️ {latency:.2f}s | 🎯 Sys Confidence: {sys_confidence}% | ⭐ Judge: {score}/5")
+        print(f"   -> 💬 Reason: {reason[:80]}...")
         
-        # Small sleep to let GPU cool down
-        time.sleep(2)
+        time.sleep(1)
 
-    # Final Report
-    avg_score = total_score / len(golden_set) if golden_set else 0
+    # Final Stats
+    count = len(golden_set)
+    avg_score = total_score / count if count else 0
+    avg_latency = total_latency / count if count else 0
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = os.path.join(REPORT_DIR, f"eval_report_{timestamp}.json")
     
-    report = {
-        "timestamp": timestamp,
-        "average_score": avg_score,
-        "detail_results": results
-    }
+    # Save JSON Report
+    json_report_file = os.path.join(REPORT_DIR, f"eval_report_{timestamp}.json")
+    with open(json_report_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            "timestamp": timestamp,
+            "summary": {
+                "total_cases": count,
+                "average_score": round(avg_score, 2),
+                "average_latency": round(avg_latency, 2)
+            },
+            "results": results
+        }, f, ensure_ascii=False, indent=4)
 
-    with open(report_file, 'w', encoding='utf-8') as f:
-        json.dump(report, f, ensure_ascii=False, indent=4)
+    # Generate Markdown Report
+    md_report_file = os.path.join(REPORT_DIR, f"eval_report_{timestamp}.md")
+    with open(md_report_file, 'w', encoding='utf-8') as f:
+        f.write(f"# Drtoolbox RAG Evaluation Report ({timestamp})\n\n")
+        f.write(f"## 📊 Summary\n")
+        f.write(f"- **Total Cases:** {count}\n")
+        f.write(f"- **Average Judge Score:** {avg_score:.2f} / 5.00\n")
+        f.write(f"- **Average Latency:** {avg_latency:.2f} seconds\n\n")
+        
+        f.write(f"## 📝 Detailed Results\n")
+        f.write(f"| ID | Question | Score | Latency | Sys Conf | Route |\n")
+        f.write(f"|---|---|---|---|---|---|\n")
+        for r in results:
+            f.write(f"| {r['id']} | {r['question']} | {r['score']}/5 | {r['latency']}s | {r['sys_confidence']}% | {r['route']} |\n")
+        
+        f.write(f"\n## 🔍 Content Analysis\n")
+        for r in results:
+            f.write(f"### [{r['id']}] {r['question']}\n")
+            f.write(f"**AI Answer:**\n> {r['ai_answer']}\n\n")
+            f.write(f"**Ground Truth:**\n> {r['ground_truth']}\n\n")
+            f.write(f"**Judge Reason:** {r['reason']}\n\n")
+            f.write(f"---\n")
 
-    print("\n" + "="*50)
+    print("\n" + "="*60)
     print(f"✅ Evaluation Complete!")
     print(f"📊 Average Score: {avg_score:.2f} / 5.00")
-    print(f"📄 Report saved to: {report_file}")
-    print("="*50 + "\n")
+    print(f"⏱️ Average Latency: {avg_latency:.2f}s")
+    print(f"📄 MD Report: {md_report_file}")
+    print("="*60 + "\n")
 
 if __name__ == "__main__":
     evaluate()

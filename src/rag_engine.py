@@ -96,12 +96,14 @@ class RAGEngine:
     def ingest_special_data(self, documents):
         logger.info(f"Ingesting {len(documents)} special documents into Index.")
         for doc in documents:
+            if not doc.get('content'): continue
             self.special_index.add_document(doc)
             self.pi_executor.submit(self._background_pi_index, doc, "special")
             
     def ingest_general_data(self, documents):
         logger.info(f"Ingesting {len(documents)} general documents into Index.")
         for doc in documents:
+            if not doc.get('content'): continue
             self.general_index.add_document(doc)
             self.pi_executor.submit(self._background_pi_index, doc, "general")
 

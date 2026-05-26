@@ -186,13 +186,9 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
                     {"messages": [{"role": "user", "content": user_query}]},
                     full_response
                 )
-                # Ensure it's hidden from curation list immediately
-                try:
-                    from src.api.routes.dashboard import _remove_from_source
-                    # We use the timestamp as ID for logs
-                    # Note: This requires getting the timestamp from the entry we just logged
-                    # For simplicity, we'll let the user refresh, but to hide it 'now', we'd need its ID.
-                except: pass
+                # Note: Removal from source files requires knowing the interaction timestamp
+                # which is generated inside logger_service.log_interaction.
+                # For now, we rely on the UI refresh to show it's gone if filters are applied.
             
             yield "data: [DONE]\n\n"
         except Exception as e:

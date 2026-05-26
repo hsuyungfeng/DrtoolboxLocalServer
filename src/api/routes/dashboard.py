@@ -6,8 +6,10 @@ import json
 import datetime
 import concurrent.futures
 import time
-from config.settings import LOG_DIR, SPECIAL_DATA_DIR, GENERAL_DATA_DIR, PROJECT_ROOT
+import logging
+from config.settings import LOG_DIR, SPECIAL_DATA_DIR, GENERAL_DATA_DIR, PROJECT_ROOT, DATA_DIR
 
+logger = logging.getLogger(__name__)
 dashboard_bp = Blueprint('dashboard', __name__)
 
 # --- Background Worker Pool ---
@@ -176,6 +178,40 @@ def upload_files():
             except Exception: continue
                 
     return jsonify({"status": "success", "files": saved_files})
+
+@dashboard_bp.route('/logs/batch_correct', methods=['POST'])
+def save_batch_corrections():
+    data = request.json
+    if not data or 'corrections' not in data:
+        return jsonify({"error": "Missing corrections list"}), 400
+    
+    corrections = data['corrections']
+    success_count = 0
+    errors = []
+    
+    for item in corrections:
+        try:
+            original_log = item['original_log']
+            corrected_response = item['corrected_response']
+            edited_prompt = item.get('corrected_prompt')
+            
+            if edited_prompt:
+                original_log['messages'][0]['content'] = edited_prompt
+                
+            success = logger_service.save_correction(original_log, corrected_response)
+            if success:
+                _remove_from_source(item.get('item_type'), item.get('item_id'))
+                success_count += 1
+            else:
+                errors.append(f"Failed to save item {item.get('item_id')}")
+        except Exception as e:
+            errors.append(str(e))
+            
+    return jsonify({
+        "status": "success" if not errors else "partial_success",
+        "success_count": success_count,
+        "errors": errors
+    })
 
 @dashboard_bp.route('/logs/correct', methods=['POST'])
 def save_correction():
