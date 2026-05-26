@@ -100,8 +100,9 @@ class LocalLLM:
                         try:
                             data = json.loads(data_str)
                             delta = data.get('choices', [{}])[0].get('delta', {})
-                            if 'content' in delta:
-                                yield delta['content']
+                            content = delta.get('content')
+                            if content:
+                                yield content
                         except json.JSONDecodeError:
                             continue
         except Exception as e:

@@ -47,12 +47,19 @@ def run_nightly_fact_check(target_date=None):
     for interaction in interactions:
         user_prompt = interaction['messages'][0]['content']
         ai_response = interaction['messages'][1]['content']
+        meta = interaction.get('metadata', {})
+        conf_score = meta.get('confidence_score', 100)
+        is_high_risk = meta.get('is_high_risk', False)
         
         if user_prompt in existing_prompts:
             continue
 
-        if any(kw in user_prompt for kw in ["術後", "原理", "治療", "注意", "效果", "多久", "多久"]):
-            logger.info(f"Fact-checking: {user_prompt[:30]}...")
+        # 🟢 NEW CRITERIA: Check if low confidence (<= 75), high risk, OR manually tagged
+        keyword_match = any(kw in user_prompt for kw in ["術後", "原理", "治療", "注意", "效果", "多久", "多久"])
+        should_fact_check = conf_score <= 75 or is_high_risk or keyword_match
+
+        if should_fact_check:
+            logger.info(f"Fact-checking ({conf_score}%): {user_prompt[:30]}...")
             
             # 1. Search the web for grounding - Force Taiwan context
             grounded_query = f"{user_prompt} 台灣 醫美 術後"

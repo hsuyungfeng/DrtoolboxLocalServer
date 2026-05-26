@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drtoolbox - 訓練控制面板</title>
-    <link rel="stylesheet" href="/static/css/index.css?v=10">
+    <link rel="stylesheet" href="/static/css/index.css?v=11">
 </head>
 <body>
     <header>
@@ -27,6 +27,13 @@
         <!-- Tab 1: Curation -->
         <div id="tab-curation" class="tab-content active-tab">
             <div class="glass-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
+                    <h2 style="margin:0;">待校正清單</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="tab-btn" id="selectAllBtn" style="font-size: 0.8rem; padding: 5px 12px; background: rgba(255,255,255,0.05);">全選</button>
+                        <button class="save-btn" id="batchSaveBtn" style="font-size: 0.8rem; padding: 5px 15px; width: auto; height: 32px; box-shadow: none;">批量儲存已選</button>
+                    </div>
+                </div>
                 <div class="log-list" id="logList">
                     <!-- Logs will be injected here via JS -->
                 </div>
@@ -172,6 +179,6 @@
         </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="/static/js/dashboard.js?v=10"></script>
+    <script src="/static/js/dashboard.js?v=11"></script>
 </body>
 </html>

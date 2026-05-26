@@ -40,6 +40,12 @@ def create_app():
     def health():
         return {"status": "ok", "service": "drtoolbox-local-server"}
         
+    @app.route('/。')
+    def typo_handler():
+        # Redirect common Chinese typo to root
+        from flask import redirect
+        return redirect('/')
+        
     @app.route('/favicon.ico')
     def favicon():
         return "", 204

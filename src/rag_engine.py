@@ -193,9 +193,8 @@ class RAGEngine:
         logger.info(f"Deep Hybrid Reasoning for: {question} (image: {image_data is not None})")
         sql_context, pi_context, rag_context = self._get_context(question)
         
+        # 1. First, get the answer
         current_date = datetime.date.today()
-        
-        # Multimodal Content
         if image_data:
             user_content = [
                 {"type": "text", "text": question},
@@ -233,7 +232,30 @@ class RAGEngine:
             }
         ]
         
-        return self.reasoner.reason_chat(messages).strip()
+        answer = self.reasoner.reason_chat(messages).strip()
+
+        # 2. Ask LLM to evaluate its own confidence based on the provided context
+        eval_prompt = f"""請針對你剛才的回答（問題：『{question}』）進行「資料依賴度」評分。
+
+評分邏輯：
+- 100分：答案完全精準對應資料來源中的每一點。
+- 80分：答案核心來自資料來源，但有些微輔助詞來自常識。
+- 50分：資料來源模糊，你主要靠通用醫學知識推論。
+- 10分：資料來源完全無關，你是純靠通用知識回答。
+
+請僅回傳一個數字（如 95 或 40），不要有任何其他文字說明。"""
+        
+        try:
+            score_res = llm_instance.generate(eval_prompt, max_tokens=10).strip()
+            if "<think>" in score_res: score_res = score_res.split("</think>")[-1].strip()
+            # Find all digits in the response
+            digits = re.findall(r'\d+', score_res)
+            confidence_score = int(digits[0]) if digits else 50
+        except Exception as e:
+            logger.error(f"Scoring error: {e}")
+            confidence_score = 50 
+            
+        return answer, confidence_score
 
     def query_integrated_stream(self, question, image_data=None):
         logger.info(f"Deep Hybrid Reasoning (Stream) for: {question} (image: {image_data is not None})")
@@ -279,4 +301,20 @@ class RAGEngine:
             }
         ]
         
-        return self.reasoner.reason_chat_stream(messages)
+        full_answer = ""
+        for chunk in self.reasoner.reason_chat_stream(messages):
+            if chunk:
+                full_answer += chunk
+                yield chunk
+
+        # Evaluate confidence after stream finishes
+        eval_prompt = f"""針對剛才的回答（內容摘要：{full_answer[:200]}...），請評估其對『資料來源』的依賴程度。
+請給出 1 到 100 的信心分數。只需回傳純數字。"""
+        try:
+            score_res = llm_instance.generate(eval_prompt, max_tokens=10).strip()
+            if "<think>" in score_res: score_res = score_res.split("</think>")[-1].strip()
+            confidence_score = int(re.search(r'\d+', score_res).group())
+        except:
+            confidence_score = 50
+            
+        yield f"__CONFIDENCE_SCORE__{confidence_score}"

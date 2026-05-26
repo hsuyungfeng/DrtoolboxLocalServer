@@ -1,0 +1,38 @@
+{
+    "timestamp": "20260525_123455",
+    "average_score": 0.0,
+    "detail_results": [
+        {
+            "id": "Q001",
+            "question": "請問緻妍外科診所的地址在哪裡？電話是多少？",
+            "ai_answer": "ERROR: Could not get response. HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=180)",
+            "ground_truth": "診所地址位於台中市太平區新福路 208 號，聯絡電話為 04-2395-0960。",
+            "score": 0,
+            "reason": "Judging Error: Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+            "id": "Q002",
+            "question": "水飛梭（或類似深層清潔療程）治療後，多久可以化妝？要注意什麼？",
+            "ai_answer": "ERROR: Could not get response. HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=180)",
+            "ground_truth": "建議術後 24 小時後再進行化妝。24 小時內應避免治療部位沾水，保持皮膚清潔，並加強防曬與保濕，避免使用刺激性護膚品。",
+            "score": 0,
+            "reason": "Judging Error: Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+            "id": "Q003",
+            "question": "玻尿酸注射後，如果出現什麼情況需要立即回診就醫？",
+            "ai_answer": "ERROR: Could not get response. HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=180)",
+            "ground_truth": "若出現強烈且持續的疼痛、皮膚變色（發白、發紫、發黑）、視力模糊、異常水泡或化膿，應立即聯繫醫師或回診，因為這可能是血管栓塞或感染的徵兆。",
+            "score": 0,
+            "reason": "Judging Error: Expecting value: line 1 column 1 (char 0)"
+        },
+        {
+            "id": "Q004",
+            "question": "請問現在玻尿酸一 cc 多少錢？有沒有母親節優惠？",
+            "ai_answer": "ERROR: Could not get response. HTTPConnectionPool(host='127.0.0.1', port=5000): Read timed out. (read timeout=180)",
+            "ground_truth": "目前無法在線上提供具體報價或活動時效資訊，為確保準確性，請致電診所向專人諮詢以獲取最準確的專案內容。",
+            "score": 0,
+            "reason": "Judging Error: Expecting value: line 1 column 1 (char 0)"
+        }
+    ]
+}

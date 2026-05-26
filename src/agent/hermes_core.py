@@ -13,6 +13,7 @@ import logging
 import requests
 import datetime
 import threading
+import re
 from typing import Dict, Any, List, Optional, Tuple
 from src.db.his_connection import HISConnection
 from src.rag_engine import RAGEngine
@@ -105,7 +106,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
             return ""
 
     def chat_stream(self, user_query: str, history: Optional[List[Dict[str, str]]] = None, image_data: Optional[str] = None):
-        """Core chat loop with hybrid reasoning (Streaming + Vision support + Risk Detection)."""
+        """Core chat loop with hybrid reasoning (Streaming + Vision support + Risk Detection + Self-Scoring)."""
         if not self.context_loaded_at: self.init_with_context()
         
         # 1. Routing & Risk Detection
@@ -119,10 +120,24 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
             yield f"data: {json.dumps({'route_used': route, 'is_high_risk': is_high_risk})}\n\n"
             
             is_fallback = False
+            full_response = ""
+            confidence_score = 0
+            
             for chunk in self.rag.query_integrated_stream(user_query, image_data=image_data):
                 if chunk == "ERROR_VISION_NOT_SUPPORTED":
                     is_fallback = True
                     break
+                
+                if not chunk: continue
+
+                # Check for end-of-stream confidence score
+                if chunk.startswith("__CONFIDENCE_SCORE__"):
+                    try:
+                        confidence_score = int(chunk.replace("__CONFIDENCE_SCORE__", ""))
+                    except: pass
+                    break
+
+                full_response += chunk
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
             
             if is_fallback:
@@ -142,7 +157,42 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
                     enhanced_query = f"[附件圖片辨識文字：{ocr_text}] {user_query}"
                 
                 for chunk in self.rag.query_integrated_stream(enhanced_query, image_data=None):
+                    if not chunk: continue
+                    if chunk.startswith("__CONFIDENCE_SCORE__"):
+                        try: confidence_score = int(chunk.replace("__CONFIDENCE_SCORE__", ""))
+                        except: pass
+                        break
+                    full_response += chunk
                     yield f"data: {json.dumps({'content': chunk})}\n\n"
+
+            # Send final score
+            yield f"data: {json.dumps({'confidence_score': confidence_score})}\n\n"
+            
+            # 3. Log the interaction for curation
+            from src.services.logger_service import logger_service
+            logger_service.log_interaction(
+                user_id="dashboard_user",
+                prompt=user_query,
+                response=full_response,
+                route_used=route,
+                is_high_risk=is_high_risk,
+                confidence_score=confidence_score
+            )
+            
+            # 4. Auto-Curation Logic
+            if confidence_score >= 85 and not is_high_risk:
+                logger.info(f"Auto-archiving high-confidence response ({confidence_score}%)")
+                logger_service.save_correction(
+                    {"messages": [{"role": "user", "content": user_query}]},
+                    full_response
+                )
+                # Ensure it's hidden from curation list immediately
+                try:
+                    from src.api.routes.dashboard import _remove_from_source
+                    # We use the timestamp as ID for logs
+                    # Note: This requires getting the timestamp from the entry we just logged
+                    # For simplicity, we'll let the user refresh, but to hide it 'now', we'd need its ID.
+                except: pass
             
             yield "data: [DONE]\n\n"
         except Exception as e:
@@ -150,8 +200,8 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
             yield f"data: {json.dumps({'content': '抱歉，我現在處理您的請求時遇到一點困難。'})}\n\n"
             yield "data: [DONE]\n\n"
 
-    def chat(self, user_query: str, history: Optional[List[Dict[str, str]]] = None, image_data: Optional[str] = None) -> Tuple[str, str, bool]:
-        """Core chat loop with hybrid reasoning (Vision support + Risk Detection)."""
+    def chat(self, user_query: str, history: Optional[List[Dict[str, str]]] = None, image_data: Optional[str] = None) -> Tuple[str, str, bool, int]:
+        """Core chat loop with hybrid reasoning (Vision support + Risk Detection + Self-Scoring)."""
         if not self.context_loaded_at: self.init_with_context()
         
         # 1. Routing & Risk Detection
@@ -161,7 +211,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
         
         # 2. Hybrid Reasoning
         try:
-            response = self.rag.query_integrated(user_query, image_data=image_data)
+            response, confidence_score = self.rag.query_integrated(user_query, image_data=image_data)
             if response == "ERROR_VISION_NOT_SUPPORTED":
                 logger.warning("Local LLM does not support vision. Falling back to OCR + Text.")
                 ocr_text = self._ocr_base64_image(image_data) if image_data else ""
@@ -174,12 +224,23 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
                 elif image_data:
                     prefix += "（我無法看到照片，且無法辨識出文字，請用文字描述。）\n\n"
 
-                response = prefix + self.rag.query_integrated(enhanced_query, image_data=None)
+                response, confidence_score = self.rag.query_integrated(enhanced_query, image_data=None)
+                response = prefix + response
+                
+            # Auto-Curation
+            if confidence_score >= 85 and not is_high_risk:
+                from src.services.logger_service import logger_service
+                logger_service.save_correction(
+                    {"messages": [{"role": "user", "content": user_query}]},
+                    response
+                )
+                
         except Exception as e:
             logger.error(f"Chat reasoning failed: {e}")
             response = "抱歉，我現在處理您的請求時遇到一點困難。請稍後再試。"
+            confidence_score = 0
             
-        return response, route, is_high_risk
+        return response, route, is_high_risk, confidence_score
 
     def get_context_status(self) -> Dict[str, Any]:
         return {

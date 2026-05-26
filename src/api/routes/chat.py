@@ -25,7 +25,7 @@ def handle_message():
         return Response(agent.chat_stream(prompt, image_data=image_data), mimetype='text/event-stream')
     
     # Let Unified Hermes decide route and fetch response
-    response, route_used, is_high_risk = agent.chat(prompt, image_data=image_data)
+    response, route_used, is_high_risk, confidence_score = agent.chat(prompt, image_data=image_data)
     
     # Log the interaction for future model fine-tuning
     logger_service.log_interaction(
@@ -33,11 +33,13 @@ def handle_message():
         prompt=prompt,
         response=response,
         route_used=route_used,
-        is_high_risk=is_high_risk
+        is_high_risk=is_high_risk,
+        confidence_score=confidence_score
     )
     
     return jsonify({
         "reply": response,
         "route_used": route_used,
-        "is_high_risk": is_high_risk
+        "is_high_risk": is_high_risk,
+        "confidence_score": confidence_score
     })

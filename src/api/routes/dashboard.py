@@ -203,8 +203,13 @@ def _remove_from_source(item_type, item_id):
     try:
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         files_to_check = []
-        if item_type == 'draft': files_to_check.append(f"hermes_drafts_{date_str}.jsonl")
-        else: files_to_check.extend([f"proactive_qa_special_{date_str}.jsonl", f"proactive_qa_general_{date_str}.jsonl", f"proactive_qa_{date_str}.jsonl"])
+        if item_type == 'draft':
+            files_to_check.append(f"hermes_drafts_{date_str}.jsonl")
+        elif item_type == 'log':
+            files_to_check.append(f"interactions_{date_str}.jsonl")
+        else: # proactive
+            files_to_check.extend([f"proactive_qa_special_{date_str}.jsonl", f"proactive_qa_general_{date_str}.jsonl", f"proactive_qa_{date_str}.jsonl"])
+            
         for filename in files_to_check:
             filepath = os.path.join(LOG_DIR, filename)
             if os.path.exists(filepath):
@@ -212,13 +217,21 @@ def _remove_from_source(item_type, item_id):
                 with open(filepath, 'r', encoding='utf-8') as f:
                     for line in f:
                         if not line.strip(): continue
-                        d = json.loads(line)
-                        is_match = False
-                        if item_type.startswith('proactive') and d.get('question') == item_id: is_match = True
-                        elif item_type == 'draft' and d.get('timestamp') == item_id: is_match = True
-                        if not is_match: remaining_lines.append(line)
-                with open(filepath, 'w', encoding='utf-8') as f: f.writelines(remaining_lines)
-    except Exception: pass
+                        try:
+                            d = json.loads(line)
+                            is_match = False
+                            if item_type.startswith('proactive') and d.get('question') == item_id: is_match = True
+                            elif item_type == 'draft' and d.get('timestamp') == item_id: is_match = True
+                            elif item_type == 'log' and d.get('timestamp') == item_id: is_match = True
+                            
+                            if not is_match: remaining_lines.append(line)
+                        except: remaining_lines.append(line)
+                        
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.writelines(remaining_lines)
+    except Exception as e:
+        import logging
+        logging.error(f"Cleanup of item failed: {e}")
 
 @dashboard_bp.route('/export', methods=['GET'])
 def export_training_data():

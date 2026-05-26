@@ -16,7 +16,7 @@ class JSONLLogger:
         date_str = datetime.now().strftime("%Y-%m-%d")
         return os.path.join(LOG_DIR, f"interactions_{date_str}.jsonl")
         
-    def log_interaction(self, user_id, prompt, response, route_used, context_nodes=None):
+    def log_interaction(self, user_id, prompt, response, route_used, is_high_risk=False, confidence_score=0, context_nodes=None):
         """Logs the interaction safely across threads into a daily JSONL file."""
         log_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -27,6 +27,8 @@ class JSONLLogger:
             ],
             "metadata": {
                 "route_used": route_used,
+                "is_high_risk": is_high_risk,
+                "confidence_score": confidence_score,
                 "context_nodes": context_nodes or []
             }
         }

@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("Dashboard JS V12 Loading...");
+
     // --- Navigation Tabs ---
     const tabBtns = document.querySelectorAll('nav.nav-tabs .tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -9,7 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tabContents.forEach(c => c.classList.remove('active-tab'));
             btn.classList.add('active');
             const targetId = `tab-${btn.dataset.tab}`;
-            document.getElementById(targetId).classList.add('active-tab');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.classList.add('active-tab');
+            
             if (btn.dataset.tab === 'curation') loadLogs();
             if (btn.dataset.tab === 'articles') loadArticles();
         });
@@ -17,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.copyToClipboard = (elementId) => {
         const el = document.getElementById(elementId);
+        if (!el) return;
         el.select();
         document.execCommand('copy');
     };
@@ -28,14 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorResponse = document.getElementById('editorResponse');
     const saveBtn = document.getElementById('saveBtn');
     const discardBtn = document.getElementById('discardBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const triggerFactCheckBtn = document.getElementById('triggerFactCheckBtn');
-
-    const evidencePanel = document.createElement('div');
-    evidencePanel.id = 'evidencePanel';
-    evidencePanel.style.cssText = 'display: none; margin-bottom: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px;';
-    evidencePanel.innerHTML = '<h3 style="font-size: 0.9rem; color: #60a5fa; margin-bottom: 8px;">🌐 Hermes 網路搜尋證據 (查證來源)</h3><div id="evidenceContent" style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5;"></div>';
-    editorPanel.insertBefore(evidencePanel, editorPanel.firstChild.nextSibling.nextSibling);
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const batchSaveBtn = document.getElementById('batchSaveBtn');
+    const evidencePanel = document.getElementById('evidencePanel');
     const evidenceContent = document.getElementById('evidenceContent');
     
     let currentLogs = [];
@@ -43,134 +43,299 @@ document.addEventListener('DOMContentLoaded', () => {
     let proactiveQA = []; 
     let activeLogIndex = -1;
     let isActiveProactive = false;
+    let pendingEdits = {}; // To store unsaved edits locally: { "type_id": { prompt, response } }
 
     async function loadLogs() {
+        if (logList) logList.innerHTML = '<div style="padding:20px; color:#666;">載入中...</div>';
         try {
             const [logsRes, draftsRes, proactiveRes] = await Promise.all([
-                fetch('/api/dashboard/logs'),
-                fetch('/api/dashboard/drafts'),
-                fetch('/api/dashboard/proactive')
+                fetch('/api/dashboard/logs').then(r => r.ok ? r.json() : []),
+                fetch('/api/dashboard/drafts').then(r => r.ok ? r.json() : []),
+                fetch('/api/dashboard/proactive').then(r => r.ok ? r.json() : [])
             ]);
-            currentLogs = await logsRes.json();
-            currentDrafts = await draftsRes.json();
-            proactiveQA = await proactiveRes.json();
+            currentLogs = logsRes || [];
+            currentDrafts = draftsRes || [];
+            proactiveQA = proactiveRes || [];
             renderLogs();
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Load logs failed:", e); }
+    }
+
+    function _getItemKey(type, id) {
+        return `${type}_${id}`;
     }
 
     function renderLogs() {
+        if (!logList) return;
         logList.innerHTML = '';
-        proactiveQA.slice().reverse().forEach((pqa, reversedIndex) => {
-            const index = proactiveQA.length - 1 - reversedIndex;
+
+        if (currentLogs.length === 0 && currentDrafts.length === 0 && proactiveQA.length === 0) {
+            logList.innerHTML = '<div style="padding:20px; color:#666;">尚無資料。</div>';
+            return;
+        }
+
+        // Helper to create log item
+        const createItem = (item, type, index, isProactive = false) => {
             const div = document.createElement('div');
-            div.className = `log-item proactive-item ${isActiveProactive && index === activeLogIndex ? 'active' : ''}`;
-            div.innerHTML = `<div class="log-meta"><span>模擬提問</span><span class="proactive-badge">🚀 Proactive: ${pqa.service}</span></div><div class="log-prompt">${pqa.question}</div>`;
-            div.addEventListener('click', () => selectProactive(index));
-            logList.appendChild(div);
-        });
-        currentLogs.slice().reverse().forEach((log, reversedIndex) => {
-            const index = currentLogs.length - 1 - reversedIndex;
-            const userMsg = log.messages.find(m => m.role === 'user');
-            const userPrompt = userMsg ? userMsg.content : '';
-            const hasDraft = currentDrafts.some(d => d.original_interaction.messages[0].content === userPrompt);
-            const div = document.createElement('div');
-            div.className = `log-item ${!isActiveProactive && index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
-            div.innerHTML = `<div class="log-meta"><span>${new Date(log.timestamp).toLocaleString()}</span><span>路由: ${log.metadata.route_used}</span>${hasDraft ? '<span class="draft-badge">Hermes 建議待審</span>' : ''}</div><div class="log-prompt">${userPrompt || '無提問'}</div>`;
-            div.addEventListener('click', () => { isActiveProactive = false; selectLog(index, hasDraft); });
-            logList.appendChild(div);
-        });
+            const userPrompt = isProactive ? item.question : (item.messages?.find(m => m.role === 'user')?.content || '無提問');
+            const itemId = isProactive ? item.question : (type === 'draft' ? item.timestamp : item.timestamp);
+            const key = _getItemKey(isProactive ? 'proactive' : type, itemId);
+            const isSelected = !!pendingEdits[key];
+            const hasDraft = !isProactive && currentDrafts.some(d => d.original_interaction?.messages[0]?.content === userPrompt);
+
+            div.className = `log-item ${isProactive ? 'proactive-item' : ''} ${!isProactive && !isActiveProactive && index === activeLogIndex ? 'active' : ''} ${isActiveProactive && isProactive && index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
+            
+            let metaHtml = '';
+            if (isProactive) {
+                metaHtml = `<span>模擬提問</span><span class="proactive-badge">🚀 Proactive: ${item.service}</span>`;
+            } else {
+                const score = item.metadata?.confidence_score || 0;
+                let sClass = score >= 85 ? 'score-high' : (score >= 60 ? 'score-mid' : 'score-low');
+                metaHtml = `<span>${new Date(item.timestamp).toLocaleString()}</span><span class="score-badge ${sClass}">${score}%</span>${hasDraft ? '<span class="draft-badge">Hermes 建議待審</span>' : ''}`;
+            }
+
+            div.innerHTML = `
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <input type="checkbox" class="bulk-check" data-key="${key}" ${isSelected ? 'checked' : ''} style="margin-top:5px; transform: scale(1.2);">
+                    <div style="flex:1;">
+                        <div class="log-meta">${metaHtml}</div>
+                        <div class="log-prompt" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${userPrompt}</div>
+                    </div>
+                </div>
+            `;
+
+            // Prevent selection when clicking checkbox
+            div.querySelector('.bulk-check').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (e.target.checked) {
+                    // Mark as selected with current text
+                    _saveCurrentToPending(isProactive, index);
+                } else {
+                    delete pendingEdits[key];
+                }
+            });
+
+            div.addEventListener('click', () => {
+                isActiveProactive = isProactive;
+                if (isProactive) selectProactive(index); else selectLog(index, hasDraft);
+            });
+            return div;
+        };
+
+        proactiveQA.slice().reverse().forEach((pqa, i) => logList.appendChild(createItem(pqa, 'proactive', proactiveQA.length - 1 - i, true)));
+        currentLogs.slice().reverse().forEach((log, i) => logList.appendChild(createItem(log, 'log', currentLogs.length - 1 - i, false)));
+    }
+
+    function _saveCurrentToPending(isProactive, index) {
+        let type = 'log', id, prompt, response;
+        if (isProactive) {
+            const p = proactiveQA[index];
+            type = 'proactive'; id = p.question; prompt = p.question; response = p.answer;
+        } else {
+            const l = currentLogs[index];
+            id = l.timestamp; 
+            const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === l.messages[0].content);
+            if (draft) { type = 'draft'; id = draft.timestamp; response = draft.hermes_suggestion; }
+            else { response = l.messages.find(m => m.role === 'assistant')?.content || ''; }
+            prompt = l.messages[0].content;
+        }
+        pendingEdits[_getItemKey(type, id)] = { prompt, response, index, isProactive, type, id };
     }
 
     function selectLog(index, hasDraft = false) {
+        // First, if we have an active item, save its edits to pending if it's checked
+        _updatePendingFromEditor();
+
         activeLogIndex = index; renderLogs();
         const log = currentLogs[index];
+        if (!log) return;
         const userMsg = log.messages.find(m => m.role === 'user');
         const astMsg = log.messages.find(m => m.role === 'assistant');
-        editorPrompt.value = userMsg ? userMsg.content : '';
-        if (hasDraft) {
-            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === editorPrompt.value);
-            editorResponse.value = draft.hermes_suggestion;
-            editorResponse.style.border = '2px solid var(--accent-color)';
-            saveBtn.innerHTML = '✅ 批准 Hermes 修正版本';
-            if (draft.search_results && draft.search_results.length > 0) {
-                evidenceContent.innerHTML = draft.search_results.map(r => `
-                    <div style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <div style="font-weight: 600; color: #e2e8f0; font-size: 0.9rem;">${r.title}</div><div style="margin: 4px 0;">${r.body}</div><a href="${r.href}" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.8rem;">查看來源 ↗</a>
-                    </div>`).join('');
-                evidencePanel.style.display = 'block';
-            } else { evidencePanel.style.display = 'none'; }
+        
+        const key = _getItemKey(hasDraft ? 'draft' : 'log', hasDraft ? currentDrafts.find(d => d.original_interaction?.messages[0]?.content === userMsg.content)?.timestamp : log.timestamp);
+        
+        if (pendingEdits[key]) {
+            editorPrompt.value = pendingEdits[key].prompt;
+            editorResponse.value = pendingEdits[key].response;
         } else {
-            editorResponse.value = astMsg ? astMsg.content : '';
-            editorResponse.style.border = '1px solid rgba(255,255,255,0.1)';
-            saveBtn.innerHTML = '驗證並儲存';
-            evidencePanel.style.display = 'none';
+            editorPrompt.value = userMsg ? userMsg.content : '';
+            if (hasDraft) {
+                const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === userMsg.content);
+                editorResponse.value = draft.hermes_suggestion;
+            } else {
+                editorResponse.value = astMsg ? astMsg.content : '';
+            }
         }
-        editorPanel.style.display = 'block';
+        
+        if (hasDraft) {
+            const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === userMsg.content);
+            editorResponse.style.border = '2px solid var(--accent-color)';
+            saveBtn.innerHTML = '✅ 批准並存入訓練集';
+            if (evidencePanel && evidenceContent) {
+                if (draft.search_results && draft.search_results.length > 0) {
+                    evidenceContent.innerHTML = draft.search_results.map(r => `
+                        <div style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                            <div style="font-weight: 600; color: #e2e8f0; font-size: 0.9rem;">${r.title}</div>
+                            <div style="margin: 4px 0;">${r.body}</div>
+                            <a href="${r.href}" target="_blank" style="color: #60a5fa; text-decoration: none; font-size: 0.8rem;">查看來源 ↗</a>
+                        </div>`).join('');
+                    evidencePanel.style.display = 'block';
+                } else { evidencePanel.style.display = 'none'; }
+            }
+        } else {
+            editorResponse.style.border = '1px solid rgba(255,255,255,0.1)';
+            saveBtn.innerHTML = '✅ 驗證並儲存';
+            if (evidencePanel) evidencePanel.style.display = 'none';
+        }
+        if (editorPanel) editorPanel.style.display = 'block';
     }
 
     function selectProactive(index) {
+        _updatePendingFromEditor();
         isActiveProactive = true; activeLogIndex = index; renderLogs();
         const pqa = proactiveQA[index];
-        editorPrompt.value = pqa.question;
-        editorResponse.value = pqa.answer;
+        const key = _getItemKey('proactive', pqa.question);
+
+        if (pendingEdits[key]) {
+            editorPrompt.value = pendingEdits[key].prompt;
+            editorResponse.value = pendingEdits[key].response;
+        } else {
+            editorPrompt.value = pqa.question;
+            editorResponse.value = pqa.answer;
+        }
+        
         editorResponse.style.border = '2px solid #a855f7';
         saveBtn.innerHTML = '✅ 批准並存入訓練集';
-        evidencePanel.style.display = 'none';
-        editorPanel.style.display = 'block';
+        if (evidencePanel) evidencePanel.style.display = 'none';
+        if (editorPanel) editorPanel.style.display = 'block';
     }
 
-    saveBtn.addEventListener('click', async () => {
+    function _updatePendingFromEditor() {
         if (activeLogIndex === -1) return;
-        let originalLog, correctedText, correctedPrompt, itemType, itemId;
-        correctedPrompt = editorPrompt.value; correctedText = editorResponse.value;
-        if (isActiveProactive) {
-            const pqa = proactiveQA[activeLogIndex];
-            originalLog = { messages: [{role: 'user', content: pqa.question}], metadata: { type: 'proactive', service: pqa.service } };
-            itemType = 'proactive'; itemId = pqa.question;
+        const key = _getActiveKey();
+        if (pendingEdits[key]) {
+            pendingEdits[key].prompt = editorPrompt.value;
+            pendingEdits[key].response = editorResponse.value;
+        }
+    }
+
+    function _getActiveKey() {
+        if (activeLogIndex === -1) return null;
+        if (isActiveProactive) return _getItemKey('proactive', proactiveQA[activeLogIndex].question);
+        const log = currentLogs[activeLogIndex];
+        const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === log.messages[0].content);
+        return _getItemKey(draft ? 'draft' : 'log', draft ? draft.timestamp : log.timestamp);
+    }
+
+    selectAllBtn.addEventListener('click', () => {
+        const anyUnchecked = Array.from(document.querySelectorAll('.bulk-check')).some(c => !c.checked);
+        if (anyUnchecked) {
+            proactiveQA.forEach((p, i) => _saveCurrentToPending(true, i));
+            currentLogs.forEach((l, i) => _saveCurrentToPending(false, i));
         } else {
-            originalLog = currentLogs[activeLogIndex];
-            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === originalLog.messages[0].content);
-            if (draft) { itemType = 'draft'; itemId = draft.timestamp; }
+            pendingEdits = {};
         }
-        saveBtn.textContent = '儲存中...';
-        try {
-            const res = await fetch('/api/dashboard/logs/correct', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ original_log: originalLog, corrected_prompt: correctedPrompt, corrected_response: correctedText, item_type: itemType, item_id: itemId })
-            });
-            if (res.ok) { _removeItemFromLocal(itemType, itemId); activeLogIndex = -1; editorPanel.style.display = 'none'; renderLogs(); }
-        } catch (e) { console.error(e); } finally { saveBtn.textContent = '驗證並儲存'; }
+        renderLogs();
     });
 
-    discardBtn.addEventListener('click', async () => {
-        if (activeLogIndex === -1) return;
-        if (!confirm('確定要捨棄此項目嗎？')) return;
-        let itemType, itemId;
-        if (isActiveProactive) { itemType = 'proactive'; itemId = proactiveQA[activeLogIndex].question; }
-        else {
-            const log = currentLogs[activeLogIndex];
-            const draft = currentDrafts.find(d => d.original_interaction.messages[0].content === log.messages[0].content);
-            if (draft) { itemType = 'draft'; itemId = draft.timestamp; }
+    batchSaveBtn.addEventListener('click', async () => {
+        const keys = Object.keys(pendingEdits);
+        if (keys.length === 0) { alert("請先勾選要儲存的項目。"); return; }
+        if (!confirm(`確定要批量儲存這 ${keys.length} 筆資料嗎？`)) return;
+
+        batchSaveBtn.textContent = '處理中...';
+        let success = 0;
+        for (const key of keys) {
+            const item = pendingEdits[key];
+            try {
+                const res = await fetch('/api/dashboard/logs/correct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        original_log: item.isProactive ? { messages: [{role:'user', content:item.prompt}] } : currentLogs[item.index],
+                        corrected_prompt: item.prompt,
+                        corrected_response: item.response,
+                        item_type: item.type,
+                        item_id: item.id
+                    })
+                });
+                if (res.ok) success++;
+            } catch (e) { console.error(e); }
         }
-        if (!itemType) { activeLogIndex = -1; editorPanel.style.display = 'none'; renderLogs(); return; }
-        discardBtn.textContent = '移除中...';
-        try {
-            const res = await fetch('/api/dashboard/logs/discard', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ item_type: itemType, item_id: itemId })
-            });
-            if (res.ok) { _removeItemFromLocal(itemType, itemId); activeLogIndex = -1; editorPanel.style.display = 'none'; renderLogs(); }
-        } catch (e) { console.error(e); } finally { discardBtn.textContent = '🗑️ 捨棄此項目'; }
+        alert(`批量儲存完成！成功: ${success} 筆。`);
+        pendingEdits = {};
+        activeLogIndex = -1;
+        editorPanel.style.display = 'none';
+        loadLogs();
+        batchSaveBtn.textContent = '批量儲存已選';
     });
 
-    function _removeItemFromLocal(type, id) {
-        if (isActiveProactive) proactiveQA.splice(activeLogIndex, 1);
-        else if (type === 'draft') { const idx = currentDrafts.findIndex(d => d.timestamp === id); if (idx !== -1) currentDrafts.splice(idx, 1); }
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            if (activeLogIndex === -1) return;
+            _updatePendingFromEditor();
+            const key = _getActiveKey();
+            const item = pendingEdits[key] || {
+                prompt: editorPrompt.value,
+                response: editorResponse.value,
+                isProactive: isActiveProactive,
+                index: activeLogIndex
+            };
+            
+            let originalLog, itemType, itemId;
+            if (isActiveProactive) {
+                const p = proactiveQA[activeLogIndex];
+                originalLog = { messages: [{role: 'user', content: p.question}], metadata: { type: 'proactive', service: p.service } };
+                itemType = 'proactive'; itemId = p.question;
+            } else {
+                originalLog = currentLogs[activeLogIndex];
+                const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === originalLog?.messages[0]?.content);
+                if (draft) { itemType = 'draft'; itemId = draft.timestamp; }
+                else { itemType = 'log'; itemId = originalLog.timestamp; }
+            }
+
+            saveBtn.textContent = '儲存中...';
+            try {
+                const res = await fetch('/api/dashboard/logs/correct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ original_log: originalLog, corrected_prompt: item.prompt, corrected_response: item.response, item_type: itemType, item_id: itemId })
+                });
+                if (res.ok) { 
+                    delete pendingEdits[key];
+                    activeLogIndex = -1; 
+                    if (editorPanel) editorPanel.style.display = 'none'; 
+                    loadLogs(); 
+                }
+            } catch (e) { console.error(e); } finally { saveBtn.textContent = '驗證並儲存'; }
+        });
     }
 
-    exportBtn.addEventListener('click', () => { window.location.href = '/api/dashboard/export'; });
+    if (discardBtn) {
+        discardBtn.addEventListener('click', async () => {
+            if (activeLogIndex === -1) return;
+            if (!confirm('確定要捨棄此項目嗎？')) return;
+            let itemType, itemId;
+            const key = _getActiveKey();
+            if (isActiveProactive) { itemType = 'proactive'; itemId = proactiveQA[activeLogIndex].question; }
+            else {
+                const log = currentLogs[activeLogIndex];
+                const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === log.messages[0].content);
+                if (draft) { itemType = 'draft'; itemId = draft.timestamp; }
+                else { itemType = 'log'; itemId = log.timestamp; }
+            }
+            discardBtn.textContent = '移除中...';
+            try {
+                const res = await fetch('/api/dashboard/logs/discard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_type: itemType, item_id: itemId })
+                });
+                if (res.ok) { delete pendingEdits[key]; activeLogIndex = -1; if (editorPanel) editorPanel.style.display = 'none'; loadLogs(); }
+            } catch (e) { console.error(e); } finally { discardBtn.textContent = '🗑️ 捨棄此項目'; }
+        });
+    }
+
+    if (exportBtn) exportBtn.addEventListener('click', () => { window.location.href = '/api/dashboard/export'; });
     if (triggerFactCheckBtn) {
         triggerFactCheckBtn.addEventListener('click', async () => {
             triggerFactCheckBtn.textContent = '⌛ 正在排程...'; triggerFactCheckBtn.disabled = true;
@@ -190,10 +355,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyContentBtn = document.getElementById('copyContentBtn');
     let currentArticles = []; let activeArticleIndex = -1;
     async function loadArticles() {
+        if (articleList) articleList.innerHTML = '<div>載入中...</div>';
         try { const res = await fetch('/api/dashboard/articles'); currentArticles = await res.json(); renderArticles(); } catch (e) {}
     }
     function renderArticles() {
+        if (!articleList) return;
         articleList.innerHTML = '';
+        if (currentArticles.length === 0) { articleList.innerHTML = '<div style="padding:20px; color:#666;">無資料。</div>'; return; }
         currentArticles.forEach((art, index) => {
             const div = document.createElement('div');
             div.className = `log-item ${index === activeArticleIndex ? 'active' : ''}`;
@@ -205,94 +373,77 @@ document.addEventListener('DOMContentLoaded', () => {
     function selectArticle(index) {
         activeArticleIndex = index; renderArticles();
         const art = currentArticles[index];
-        articleTitle.value = art.title; articleCategory.value = art.category; articleContent.value = art.content;
-        articleEditorPanel.style.display = 'block';
+        if (articleTitle) articleTitle.value = art.title;
+        if (articleCategory) articleCategory.value = art.category;
+        if (articleContent) articleContent.value = art.content;
+        if (articleEditorPanel) articleEditorPanel.style.display = 'block';
     }
-    copyTitleBtn.addEventListener('click', () => copyToClipboard('articleTitle'));
-    copyContentBtn.addEventListener('click', () => copyToClipboard('articleContent'));
-    markSyncedBtn.addEventListener('click', async () => {
-        if (activeArticleIndex === -1) return;
-        const art = currentArticles[activeArticleIndex];
-        try {
-            const res = await fetch('/api/dashboard/articles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: art.title }) });
-            if (res.ok) { currentArticles.splice(activeArticleIndex, 1); activeArticleIndex = -1; articleEditorPanel.style.display = 'none'; renderArticles(); }
-        } catch (e) {}
-    });
+    if (copyTitleBtn) copyTitleBtn.addEventListener('click', () => copyToClipboard('articleTitle'));
+    if (copyContentBtn) copyContentBtn.addEventListener('click', () => copyToClipboard('articleContent'));
+    if (markSyncedBtn) {
+        markSyncedBtn.addEventListener('click', async () => {
+            if (activeArticleIndex === -1) return;
+            const art = currentArticles[activeArticleIndex];
+            try {
+                const res = await fetch('/api/dashboard/articles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: art.title }) });
+                if (res.ok) { currentArticles.splice(activeArticleIndex, 1); activeArticleIndex = -1; if (articleEditorPanel) articleEditorPanel.style.display = 'none'; renderArticles(); }
+            } catch (e) {}
+        });
+    }
 
-    // --- Tab 2: Upload Data (ULTIMATE BASE64 FALLBACK) ---
+    // --- Tab 2: Upload Data ---
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const folderInput = document.getElementById('folderInput');
     const btnSelectFiles = document.getElementById('btnSelectFiles');
     const btnSelectFolder = document.getElementById('btnSelectFolder');
     const uploadStatus = document.getElementById('uploadStatus');
-
-    btnSelectFiles.addEventListener('click', () => fileInput.click());
-    btnSelectFolder.addEventListener('click', () => folderInput.click());
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
-    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
-    folderInput.addEventListener('change', () => handleFiles(folderInput.files));
-
+    if (btnSelectFiles) btnSelectFiles.addEventListener('click', () => fileInput.click());
+    if (btnSelectFolder) btnSelectFolder.addEventListener('click', () => folderInput.click());
+    if (dropzone) {
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+        dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+    }
+    if (fileInput) fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+    if (folderInput) folderInput.addEventListener('change', () => handleFiles(folderInput.files));
     async function handleFiles(files) {
         if (!files.length) return;
         const fileArray = Array.from(files).filter(f => !f.name.startsWith('.') && !f.name.startsWith('~$'));
         const totalToUpload = fileArray.length;
         let successCount = 0, failCount = 0;
-        const dataType = document.getElementById('dataTypeSelect').value;
+        const dataTypeSelect = document.getElementById('dataTypeSelect');
+        const dataType = dataTypeSelect ? dataTypeSelect.value : 'special';
         const progressContainer = document.getElementById('uploadProgressContainer');
         const progressBar = document.getElementById('uploadProgressBar');
         const statSuccess = document.getElementById('statSuccess');
         const statFail = document.getElementById('statFail');
         const statPending = document.getElementById('statPending');
-        
-        progressContainer.style.display = 'block';
-        statPending.textContent = totalToUpload;
-        
+        if (progressContainer) progressContainer.style.display = 'block';
+        if (statPending) statPending.textContent = totalToUpload;
         for (let i = 0; i < totalToUpload; i++) {
             const file = fileArray[i];
-            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-            uploadStatus.innerHTML = `正在上傳 (${i+1}/${totalToUpload}): ${file.name} (${fileSizeMB} MB)`;
-            
+            if (uploadStatus) uploadStatus.innerHTML = `正在上傳 (${i+1}/${totalToUpload}): ${file.name}`;
             try {
-                // Convert file to Base64 to bypass multipart parsing blocks
                 const base64Data = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result.split(',')[1]);
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
                 });
-
                 const res = await fetch('/api/dashboard/upload_base64', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filename: file.name,
-                        file_data: base64Data,
-                        data_type: dataType
-                    })
+                    body: JSON.stringify({ filename: file.name, file_data: base64Data, data_type: dataType })
                 });
-                
-                if (res.ok) {
-                    successCount++;
-                    statSuccess.textContent = successCount;
-                } else {
-                    throw new Error('Server error');
-                }
-            } catch (e) {
-                failCount++;
-                statFail.textContent = failCount;
-                console.error(`Base64 upload failed for ${file.name}:`, e);
-            }
-            
-            progressBar.style.width = `${Math.round(((i + 1) / totalToUpload) * 100)}%`;
-            statPending.textContent = totalToUpload - (i + 1);
+                if (res.ok) { successCount++; if (statSuccess) statSuccess.textContent = successCount; } else { throw new Error('Fail'); }
+            } catch (e) { failCount++; if (statFail) statFail.textContent = failCount; }
+            if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / totalToUpload) * 100)}%`;
+            if (statPending) statPending.textContent = totalToUpload - (i + 1);
             await new Promise(r => setTimeout(r, 100));
         }
-        
-        uploadStatus.innerHTML = failCount === 0 ? '🎉 上傳成功！' : `⚠️ 完成，失敗: ${failCount}`;
-        fileInput.value = ''; folderInput.value = '';
+        if (uploadStatus) uploadStatus.innerHTML = failCount === 0 ? '🎉 全部完成！' : `⚠️ 完畢。失敗: ${failCount}`;
+        if (fileInput) fileInput.value = ''; if (folderInput) folderInput.value = '';
     }
 
     // --- Tab 3: Live Chat ---
@@ -304,48 +455,77 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatImagePreview = document.getElementById('chatImagePreview');
     const previewImg = document.getElementById('previewImg');
     const clearImageBtn = document.getElementById('clearImageBtn');
-
     let currentBase64Image = null;
-    chatUploadBtn.addEventListener('click', () => chatImageInput.click());
-    chatImageInput.addEventListener('change', (e) => {
+    if (chatUploadBtn) chatUploadBtn.addEventListener('click', () => chatImageInput.click());
+    if (chatImageInput) chatImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (re) => { currentBase64Image = re.target.result.split(',')[1]; previewImg.src = re.target.result; chatImagePreview.style.display = 'block'; };
+            reader.onload = (re) => { currentBase64Image = re.target.result.split(',')[1]; if (previewImg) previewImg.src = re.target.result; if (chatImagePreview) chatImagePreview.style.display = 'block'; };
             reader.readAsDataURL(file);
         }
     });
-    clearImageBtn.addEventListener('click', () => { currentBase64Image = null; chatImageInput.value = ''; chatImagePreview.style.display = 'none'; });
-
-    function addMessageToChat(role, text, route = null, isHighRisk = false) {
+    if (clearImageBtn) clearImageBtn.addEventListener('click', () => { currentBase64Image = null; if (chatImageInput) chatImageInput.value = ''; if (chatImagePreview) chatImagePreview.style.display = 'none'; });
+    
+    function addMessageToChat(role, text, route = null, isHighRisk = false, confidenceScore = null) {
+        if (!chatHistory) return;
         const div = document.createElement('div');
         div.className = `message ${role === 'user' ? 'user-msg' : 'bot-msg'} ${isHighRisk ? 'risk-alert' : ''}`;
+        
         if (isHighRisk) {
-            const badge = document.createElement('div'); badge.className = 'risk-badge'; badge.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管'; div.appendChild(badge);
+            const badge = document.createElement('div'); badge.className = 'risk-badge'; badge.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管';
+            div.appendChild(badge);
         }
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content';
         if (role === 'bot') {
-            const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = marked.parse(text); div.appendChild(contentDiv);
-        } else { div.textContent = text; }
-        if (route) {
-            const badge = document.createElement('span'); badge.className = 'route-badge'; badge.textContent = `經由 ${route}`; div.appendChild(badge);
+            if (typeof marked !== 'undefined') contentDiv.innerHTML = marked.parse(text); else contentDiv.textContent = text;
+        } else { contentDiv.textContent = text; }
+        div.appendChild(contentDiv);
+        
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display:flex; justify-content:flex-end; gap:10px; margin-top:10px; opacity:0.6; font-size:0.7rem; font-family:Outfit;';
+        
+        if (confidenceScore !== null) {
+            let sClass = confidenceScore >= 85 ? 'score-high' : (confidenceScore >= 60 ? 'score-mid' : 'score-low');
+            footer.innerHTML += `<span class="score-badge ${sClass}">🎯 數據依賴度: ${confidenceScore}%</span>`;
         }
+        if (route) {
+            footer.innerHTML += `<span class="route-badge" style="position:static;">經由 ${route}</span>`;
+        }
+        
+        div.appendChild(footer);
         chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight;
+        return div;
     }
 
     async function sendMessage() {
+        if (!chatInput) return;
         const text = chatInput.value.trim();
         if (!text && !currentBase64Image) return;
+        
         addMessageToChat('user', text);
         if (currentBase64Image) {
-            const imgDiv = document.createElement('div'); imgDiv.className = 'message user-msg'; imgDiv.innerHTML = `<img src="data:image/jpeg;base64,${currentBase64Image}" style="max-width: 200px; border-radius: 8px;">`; chatHistory.appendChild(imgDiv);
+            const imgDiv = document.createElement('div'); imgDiv.className = 'message user-msg';
+            imgDiv.innerHTML = `<img src="data:image/jpeg;base64,${currentBase64Image}" style="max-width: 200px; border-radius: 8px;">`;
+            if (chatHistory) chatHistory.appendChild(imgDiv);
         }
+
         const imageToSend = currentBase64Image;
-        chatInput.value = ''; currentBase64Image = null; chatImagePreview.style.display = 'none';
-        chatInput.disabled = true; chatSendBtn.disabled = true;
+        chatInput.value = ''; currentBase64Image = null; if (chatImagePreview) chatImagePreview.style.display = 'none';
+        chatInput.disabled = true; if (chatSendBtn) chatSendBtn.disabled = true;
+        
         const div = document.createElement('div'); div.className = 'message bot-msg';
         const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content';
         contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
-        div.appendChild(contentDiv); chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight;
+        div.appendChild(contentDiv); 
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display:flex; justify-content:flex-end; gap:10px; margin-top:10px; opacity:0.6; font-size:0.7rem; font-family:Outfit;';
+        div.appendChild(footer);
+
+        if (chatHistory) { chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight; }
+        
         let fullResponse = '';
         try {
             const res = await fetch('/api/chat/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: 'dashboard_user', message: text, stream: true, image: imageToSend }) });
@@ -358,28 +538,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dataStr = line.substring(6); if (dataStr === '[DONE]') break;
                         try {
                             const data = JSON.parse(dataStr);
-                            if (data.is_high_risk) {
-                                div.classList.add('risk-alert');
-                                if (!div.querySelector('.risk-badge')) {
-                                    const b = document.createElement('div'); b.className = 'risk-badge'; b.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管'; div.insertBefore(b, div.firstChild);
-                                }
+                            if (data.is_high_risk) { div.classList.add('risk-alert'); if (!div.querySelector('.risk-badge')) { const b = document.createElement('div'); b.className = 'risk-badge'; b.textContent = '🚨 檢測到高風險徵兆 - 請醫師接管'; div.insertBefore(b, div.firstChild); } }
+                            if (data.route_used) { if (!footer.innerHTML.includes('經由')) footer.innerHTML += `<span class="route-badge" style="position:static;">經由 ${data.route_used}</span>`; }
+                            if (data.confidence_score !== undefined) {
+                                let sClass = data.confidence_score >= 85 ? 'score-high' : (data.confidence_score >= 60 ? 'score-mid' : 'score-low');
+                                footer.innerHTML = `<span class="score-badge ${sClass}">🎯 數據依賴度: ${data.confidence_score}%</span>` + footer.innerHTML;
                             }
-                            if (data.route_used) { const badge = document.createElement('span'); badge.className = 'route-badge'; badge.textContent = `經由 ${data.route_used}`; div.appendChild(badge); }
-                            if (data.content) { fullResponse += data.content; contentDiv.innerHTML = marked.parse(fullResponse); chatHistory.scrollTop = chatHistory.scrollHeight; }
+                            if (data.content) {
+                                fullResponse += data.content; if (typeof marked !== 'undefined') contentDiv.innerHTML = marked.parse(fullResponse);
+                                else contentDiv.textContent = fullResponse; if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+                            }
                         } catch (e) {}
                     }
                 }
             }
         } catch (e) { contentDiv.innerHTML = '錯誤。'; }
-        finally { chatInput.disabled = false; chatSendBtn.disabled = false; chatInput.focus(); }
+        finally { chatInput.disabled = false; if (chatSendBtn) chatSendBtn.disabled = false; chatInput.focus(); }
     }
-    chatSendBtn.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+    if (chatSendBtn) chatSendBtn.addEventListener('click', sendMessage);
+    if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
     // --- OCR Log Polling ---
     const ocrLogContainer = document.getElementById('ocrLogContainer');
     let lastOcrLogIndex = 0;
     async function pollOcrLogs() {
+        if (!ocrLogContainer) return;
         try {
             const res = await fetch(`/api/dashboard/ocr_logs?after=${lastOcrLogIndex}`);
             if (res.ok) {
@@ -388,9 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (lastOcrLogIndex === 0) ocrLogContainer.innerHTML = '';
                     data.logs.forEach(log => {
                         const div = document.createElement('div'); div.style.marginBottom = '4px';
-                        if (log.includes('✅')) div.style.color = '#4ade80';
-                        else if (log.includes('❌') || log.includes('⚠️')) div.style.color = '#f87171';
-                        else div.style.color = '#e5e7eb';
+                        if (log.includes('✅')) div.style.color = '#4ade80'; else if (log.includes('❌') || log.includes('⚠️')) div.style.color = '#f87171'; else div.style.color = '#e5e7eb';
                         div.textContent = log; ocrLogContainer.appendChild(div);
                     });
                     lastOcrLogIndex = data.next_index; ocrLogContainer.scrollTop = ocrLogContainer.scrollHeight;
