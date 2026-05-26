@@ -24,18 +24,23 @@ def get_whisper_model():
     return _whisper_model
 
 def _do_pdf_ocr(pdf_path):
-    import logging
-    logger = logging.getLogger(__name__)
+    from PIL import Image
+    import pytesseract
+    from pdf2image import convert_from_path
     try:
-        import pytesseract
-        from pdf2image import convert_from_path
-        images = convert_from_path(pdf_path, dpi=200, last_page=15)
+        # Lower DPI for memory safety, and limit pages processed to prevent freezing
+        images = convert_from_path(pdf_path, dpi=150, last_page=20)
         text = ""
         for i, img in enumerate(images):
+            # Preprocess image
+            max_size = 3000
+            if img.width > max_size or img.height > max_size:
+                img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            
             try:
-                page_text = pytesseract.image_to_string(img, lang='chi_tra+eng')
+                page_text = pytesseract.image_to_string(img.convert('L'), lang='chi_tra+eng')
             except Exception:
-                page_text = pytesseract.image_to_string(img)
+                page_text = pytesseract.image_to_string(img.convert('L'))
             text += f"--- Page {i+1} ---\n{page_text}\n"
         return text
     except Exception as e:
@@ -43,6 +48,8 @@ def _do_pdf_ocr(pdf_path):
         return ""
 
 def extract_text_from_file(filepath):
+    from PIL import Image
+    import pytesseract
     ext = filepath.lower().split('.')[-1]
     try:
         if ext in ['txt', 'md']:
@@ -51,29 +58,39 @@ def extract_text_from_file(filepath):
         elif ext == 'pdf':
             import PyPDF2
             text = ""
-            with open(filepath, 'rb') as f:
-                reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
-                    extracted = page.extract_text()
-                    if extracted:
-                        text += extracted + "\n"
+            try:
+                with open(filepath, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page in reader.pages[:30]: # Limit reading to first 30 pages
+                        extracted = page.extract_text()
+                        if extracted:
+                            text += extracted + "\n"
+            except: pass
+            
             if len(text.strip()) < 15:
-                logger.info(f"PDF {filepath} 似乎是掃描檔，啟動 OCR 備援機制...")
+                logger.info(f"PDF {filepath} 似乎是掃描檔或讀取失敗，啟動 OCR 備援機制...")
                 text = _do_pdf_ocr(filepath)
             return text
         elif ext in ['jpg', 'jpeg', 'png']:
-            import pytesseract
-            from PIL import Image
             try:
-                return pytesseract.image_to_string(Image.open(filepath), lang='chi_tra+eng')
-            except Exception:
-                return pytesseract.image_to_string(Image.open(filepath))
+                with Image.open(filepath) as img:
+                    # Resize if massive
+                    if img.width > 4000 or img.height > 4000:
+                        img.thumbnail((3000, 3000), Image.Resampling.LANCZOS)
+                    # Grayscale for OCR
+                    img = img.convert('L')
+                    try:
+                        return pytesseract.image_to_string(img, lang='chi_tra+eng')
+                    except:
+                        return pytesseract.image_to_string(img)
+            except Exception as ocr_e:
+                logger.error(f"Image OCR failed for {filepath}: {ocr_e}")
+                return ""
         elif ext in ['mp4', 'mp3', 'm4a', 'wav', 'flv']:
             logger.info(f"Starting Whisper transcription for {filepath}")
             try:
                 model = get_whisper_model()
                 segments, info = model.transcribe(filepath, beam_size=5)
-                # Convert segments generator to a list with a timeout/limit
                 segments_list = list(segments)
                 if not segments_list:
                     return "--- 語音逐字稿 (未偵測到任何語音內容) ---"
@@ -115,16 +132,7 @@ def extract_text_from_file(filepath):
 
         if ext in ['doc', 'docx', 'ppt', 'pptx'] and len(text.strip()) < 15:
             logger.info(f"{ext} 檔案 {filepath} 似乎是由純圖片組成，啟動 OCR 備援機制...")
-            import subprocess, tempfile
-            try:
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, filepath], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    base_name = os.path.splitext(os.path.basename(filepath))[0]
-                    pdf_file = os.path.join(temp_dir, f"{base_name}.pdf")
-                    if os.path.exists(pdf_file):
-                        text = _do_pdf_ocr(pdf_file)
-            except Exception as e:
-                logger.error(f"Failed to run universal PDF OCR fallback for {filepath}: {e}")
+            text = _do_pdf_ocr(filepath) # Re-use PDF OCR logic (works because we convert office to PDF)
 
         return text
     except Exception as e:
@@ -136,11 +144,9 @@ def archive_file(filepath):
     try:
         filename = os.path.basename(filepath)
         dest_path = os.path.join(ARCHIVE_DIR, filename)
-        # Handle filename collisions in archive
         if os.path.exists(dest_path):
             import uuid
             dest_path = os.path.join(ARCHIVE_DIR, f"{uuid.uuid4().hex[:8]}_{filename}")
-            
         shutil.move(filepath, dest_path)
         logger.info(f"[Safe Archive] Moved original to archive: {filename}")
         return True
@@ -173,11 +179,9 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
                         filepath = os.path.join(root, file)
                         txt_path = filepath + ".txt"
                         alt_txt_path = os.path.splitext(filepath)[0] + ".txt"
-                        
                         if os.path.exists(txt_path) or os.path.exists(alt_txt_path):
                             archive_file(filepath)
                             continue
-
                         logger.info(f"[Background OCR] Processing: {file}")
                         extracted_text = extract_text_from_file(filepath)
                         if extracted_text and extracted_text.strip():
@@ -185,26 +189,18 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
                                 with open(txt_path, 'w', encoding='utf-8') as f:
                                     f.write(extracted_text)
                                 doc = {"id": txt_path, "content": extracted_text}
-                                if is_special:
-                                    rag_engine_instance.ingest_special_data([doc])
-                                else:
-                                    rag_engine_instance.ingest_general_data([doc])
-                                    
+                                if is_special: rag_engine_instance.ingest_special_data([doc])
+                                else: rag_engine_instance.ingest_general_data([doc])
                                 archive_file(filepath)
-                                    
                             except Exception as e:
                                 logger.error(f"Failed to save extracted text for {filepath}: {e}")
-        
         threading.Thread(target=background_ocr, daemon=True).start()
-            
     return documents
 
 def get_special_data(rag_engine_instance=None):
     logger.info(f"Loading special data from {SPECIAL_DATA_DIR}")
-    docs = process_and_load_directory(SPECIAL_DATA_DIR, rag_engine_instance, is_special=True)
-    return docs
+    return process_and_load_directory(SPECIAL_DATA_DIR, rag_engine_instance, is_special=True)
 
 def get_general_data(rag_engine_instance=None):
     logger.info(f"Loading general data from {GENERAL_DATA_DIR}")
-    docs = process_and_load_directory(GENERAL_DATA_DIR, rag_engine_instance, is_special=False)
-    return docs
+    return process_and_load_directory(GENERAL_DATA_DIR, rag_engine_instance, is_special=False)

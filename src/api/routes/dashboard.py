@@ -239,6 +239,15 @@ def export_training_data():
     if not os.path.exists(correction_file): return jsonify({"error": "No training data"}), 404
     return send_file(correction_file, as_attachment=True, download_name="verified_training_data.jsonl")
 
+@dashboard_bp.route('/analytics', methods=['GET'])
+def get_analytics():
+    """Fetches structured analytics data for the BI Dashboard."""
+    path = os.path.join(DATA_DIR, "analytics_data.json")
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            return jsonify(json.load(f))
+    return jsonify({"top_procedures": [], "pain_points": []})
+
 @dashboard_bp.route('/ocr_logs', methods=['GET'])
 def get_ocr_logs():
     after = int(request.args.get('after', 0))

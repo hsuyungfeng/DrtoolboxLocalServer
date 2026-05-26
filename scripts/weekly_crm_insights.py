@@ -63,7 +63,38 @@ def generate_weekly_report():
         if "<think>" in report_md:
             report_md = report_md.split("</think>")[-1].strip()
             
-        # 3. Save the report
+        # 3. Request structured data for BI Dashboard
+        json_prompt = f"""請根據以下對話摘要，整理出本週的數據統計（繁體中文）：
+{prompts_summary}
+
+請嚴格依照以下 JSON 格式輸出：
+{{
+    "top_procedures": [
+        {{"name": "項目名稱", "count": 數字}},
+        ...
+    ],
+    "pain_points": [
+        {{"name": "痛點類別", "count": 數字}},
+        ...
+    ]
+}}
+"""
+        try:
+            json_res = llm_instance.generate(json_prompt, max_tokens=800).strip()
+            if "<think>" in json_res: json_res = json_res.split("</think>")[-1].strip()
+            # Find the JSON part
+            import re
+            json_match = re.search(r'\{.*\}', json_res, re.DOTALL)
+            if json_match:
+                analytics_data = json.loads(json_match.group())
+                analytics_path = os.path.join(DATA_DIR, "analytics_data.json")
+                with open(analytics_path, 'w', encoding='utf-8') as f:
+                    json.dump(analytics_data, f, ensure_ascii=False, indent=4)
+                logger.info(f"Structured analytics data saved: {analytics_path}")
+        except Exception as je:
+            logger.error(f"Failed to generate structured JSON: {je}")
+
+        # 4. Save the Markdown report
         report_name = f"weekly_insights_{datetime.now().strftime('%Y%m%d')}.md"
         report_path = os.path.join(REPORT_DIR, report_name)
         
