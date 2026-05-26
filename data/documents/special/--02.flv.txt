@@ -1,0 +1,84 @@
+--- 語音逐字稿 (語言: en) ---
+[0.00s -> 10.00s]  oh
+[10.00s -> 20.00s]  i get wings to fly oh i'm alive
+[20.00s -> 38.00s]  When you call on me, when I hear you breathe
+[38.00s -> 48.00s]  I can't wait to fly, I feel that I'm alive
+[48.00s -> 56.00s]  When you look at me, I can't touch the sky
+[56.00s -> 60.00s]  I know that I'm alive
+[60.00s -> 80.00s]  When you last the day, I just drift away
+[81.00s -> 91.00s]  Oh my world is there, I'm glad that I'm alive
+[91.00s -> 97.00s]  You set my heart on fire, fill me with love
+[97.00s -> 102.00s]  Made me a woman, I'm glad to burn
+[110.00s -> 118.00s]  When you call on me, I can't wait to fly, I'm glad that I'm alive
+[118.00s -> 129.00s]  You set my heart on fire, I'm glad that I'm alive
+[129.00s -> 138.00s]  You set my heart on fire, I'm glad that I'm alive
+[138.00s -> 156.00s]  You set my heart on fire, fill me with love
+[156.00s -> 176.00s]  You set my heart on fire, fill me with love
+[176.00s -> 200.00s]  You set my heart on fire, fill me with love
+[200.00s -> 220.00s]  You set my heart on fire, fill me with love
+[220.00s -> 246.00s]  You set my heart on fire, fill me with love
+[246.00s -> 272.00s]  You set my heart on fire, fill me with love
+[272.00s -> 298.00s]  You set my heart on fire, fill me with love
+[298.00s -> 324.00s]  You set my heart on fire, fill me with love
+[324.00s -> 353.00s]  You set my heart on fire, fill me with love
+[353.00s -> 379.00s]  You set my heart on fire, fill me with love
+[379.00s -> 405.00s]  You set my heart on fire, fill me with love
+[405.00s -> 431.00s]  You set my heart on fire, fill me with love
+[431.00s -> 457.00s]  You set my heart on fire, fill me with love
+[457.00s -> 483.00s]  You set my heart on fire, fill me with love
+[483.00s -> 509.00s]  You set my heart on fire, fill me with love
+[509.00s -> 535.00s]  You set my heart on fire, fill me with love
+[535.00s -> 561.00s]  You set my heart on fire, fill me with love
+[561.00s -> 587.00s]  You set my heart on fire, fill me with love
+[587.00s -> 613.00s]  You set my heart on fire, fill me with love
+[613.00s -> 639.00s]  You set my heart on fire, fill me with love
+[639.00s -> 665.00s]  You set my heart on fire, fill me with love
+[665.00s -> 691.00s]  You set my heart on fire, fill me with love
+[691.00s -> 717.00s]  You set my heart on fire, fill me with love
+[717.00s -> 743.00s]  You set my heart on fire, fill me with love
+[743.00s -> 769.00s]  You set my heart on fire, fill me with love
+[769.00s -> 795.00s]  You set my heart on fire, fill me with love
+[795.00s -> 821.00s]  You set my heart on fire, fill me with love
+[821.00s -> 847.00s]  You set my heart on fire, fill me with love
+[847.00s -> 873.00s]  You set my heart on fire, fill me with love
+[873.00s -> 899.00s]  You set my heart on fire, fill me with love
+[899.00s -> 925.00s]  You set my heart on fire, fill me with love
+[925.00s -> 951.00s]  You set my heart on fire, fill me with love
+[951.00s -> 977.00s]  You set my heart on fire, fill me with love
+[977.00s -> 1003.00s]  You set my heart on fire, fill me with love
+[1003.00s -> 1029.00s]  You set my heart on fire, fill me with love
+[1029.00s -> 1055.00s]  You set my heart on fire, fill me with love
+[1055.00s -> 1081.00s]  You set my heart on fire, fill me with love
+[1081.00s -> 1107.00s]  You set my heart on fire, fill me with love
+[1107.00s -> 1133.00s]  You set my heart on fire, fill me with love
+[1133.00s -> 1159.00s]  You set my heart on fire, fill me with love
+[1159.00s -> 1185.00s]  You set my heart on fire, fill me with love
+[1185.00s -> 1211.00s]  You set my heart on fire, fill me with love
+[1211.00s -> 1237.00s]  You set my heart on fire, fill me with love
+[1237.00s -> 1263.00s]  You set my heart on fire, fill me with love
+[1263.00s -> 1289.00s]  You set my heart on fire, fill me with love
+[1289.00s -> 1315.00s]  You set my heart on fire, fill me with love
+[1315.00s -> 1341.00s]  You set my heart on fire, fill me with love
+[1341.00s -> 1367.00s]  You set my heart on fire, fill me with love
+[1367.00s -> 1393.00s]  You set my heart on fire, fill me with love
+[1393.00s -> 1419.00s]  You set my heart on fire, fill me with love
+[1419.00s -> 1445.00s]  You set my heart on fire, fill me with love
+[1445.00s -> 1471.00s]  You set my heart on fire, fill me with love
+[1471.00s -> 1497.00s]  You set my heart on fire, fill me with love
+[1497.00s -> 1523.00s]  You set my heart on fire, fill me with love
+[1523.00s -> 1549.00s]  You set my heart on fire, fill me with love
+[1549.00s -> 1575.00s]  You set my heart on fire, fill me with love
+[1575.00s -> 1601.00s]  You set my heart on fire, fill me with love
+[1601.00s -> 1627.00s]  You set my heart on fire, fill me with love
+[1627.00s -> 1653.00s]  You set my heart on fire, fill me with love
+[1653.00s -> 1679.00s]  You set my heart on fire, fill me with love
+[1679.00s -> 1705.00s]  You set my heart on fire, fill me with love
+[1705.00s -> 1731.00s]  You set my heart on fire, fill me with love
+[1731.00s -> 1757.00s]  You set my heart on fire, fill me with love
+[1757.00s -> 1783.00s]  You set my heart on fire, fill me with love
+[1783.00s -> 1809.00s]  You set my heart on fire, fill me with love
+[1809.00s -> 1835.00s]  You set my heart on fire, fill me with love
+[1835.00s -> 1861.00s]  You set my heart on fire, fill me with love
+[1861.00s -> 1887.00s]  You set my heart on fire, fill me with love
+[1887.00s -> 1913.00s]  You set my heart on fire, fill me with love
+[1913.00s -> 1939.00s]  You set my heart on fire, fill me with love

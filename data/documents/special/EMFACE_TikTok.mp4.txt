@@ -1,0 +1,1 @@
+--- 語音逐字稿失敗: tuple index out of range ---
