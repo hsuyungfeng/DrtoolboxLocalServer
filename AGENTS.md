@@ -53,3 +53,15 @@
 * **開發原則**：
   * 所有核心推理必須使用本地運行的模型，不依賴雲端 API（除非 local 服務完全不可用時的備援）。
   * 保持 API 與 RAG 邏輯在 `pytest` 測試中的覆蓋，修改後應至 `tests/` 進行驗證。
+
+## 5. 技能與工具擴充 (Skills & Tools)
+
+### A. CloakBrowser 技能 (stealth browser for bot-detection-bypassed sites)
+* **位置**：`skills/web/cloakbrowser/SKILL.md`
+* **用途**：當標準 `browser` 工具被 Cloudflare、reCAPTCHA 等反機器人系統擋下時，使用 CloakBrowser（58 個 C++ 層級修補的 Chromium）作為替代。
+* **安裝狀態**：已安裝 (v0.3.30, Chromium 146)
+* **觸發條件**：`browser` 工具報錯、Cloudflare 驗證失敗、reCAPTCHA 擋住時
+* **注意事項**：
+  * 不要使用 `page.wait_for_timeout()`（reCAPTCHA 會偵測）
+  * 使用 `page.type()` 而非 `page.fill()` 填寫表單
+  * 使用 `time.sleep()` 而非 CDP 定時器
