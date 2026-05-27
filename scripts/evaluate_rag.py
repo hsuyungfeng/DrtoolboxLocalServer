@@ -47,7 +47,7 @@ def evaluate():
         # 1. Get AI Answer from the live system
         start_time = time.time()
         try:
-            res = requests.post(CHAT_API_URL, json={"message": question, "user_id": "eval_bot"}, timeout=180)
+            res = requests.post(CHAT_API_URL, json={"message": question, "user_id": "eval_bot"}, timeout=300)
             res.raise_for_status()
             data = res.json()
             ai_answer = data.get('reply', '')

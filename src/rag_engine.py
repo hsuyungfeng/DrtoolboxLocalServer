@@ -140,8 +140,8 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"PageIndex build failed for {doc_id}: {e}")
                 
-    def query(self, question, source="special", image_data=None):
-        return self.query_integrated(question, image_data=image_data)
+    def query(self, question, route="special", image_data=None):
+        return self.query_integrated(question, route=route, image_data=image_data)
 
     def _get_context(self, question):
         """Internal helper to gather SQL, PI, and RAG context."""
@@ -191,8 +191,8 @@ class RAGEngine:
         
         return sql_context, pi_context, rag_context
 
-    def query_integrated(self, question, image_data=None):
-        logger.info(f"Deep Hybrid Reasoning for: {question} (image: {image_data is not None})")
+    def query_integrated(self, question, route="special", image_data=None):
+        logger.info(f"Deep Hybrid Reasoning ({route}) for: {question} (image: {image_data is not None})")
         sql_context, pi_context, rag_context = self._get_context(question)
         
         # 1. First, get the answer
@@ -205,10 +205,8 @@ class RAGEngine:
         else:
             user_content = question
 
-        messages = [
-            {
-                "role": "system",
-                "content": f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
+        if route == "special":
+            system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
 {'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
 
@@ -222,11 +220,30 @@ class RAGEngine:
 {sql_context}
 
 【專業回答指南】
-1. **嚴禁簡體中文**：全程必須使用繁體中文，且口氣要專業、親切、具備權威性。
-2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。若原始片段有補充細節，請一併整合。
-3. **禁止報價**：絕對不能出現任何金錢數字、價格、特價資訊。遇到價格一律引導致電診所。
-4. **細節補充**：請儘可能整理成條列式，讓使用者一眼就能看到重點（如冰敷時間、禁忌食物等）。
-5. **找不到資料時**：若真的完全沒有關於該主題的資料，請不要胡謅。請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+1. **嚴禁簡體中文**：全程必須使用繁體中文。
+2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
+3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。遇到價格一律引導致電診所。
+4. **找不到資料時**：若真的完全沒有關於該主題的資料，請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+        else:
+            # General Knowledge Mode
+            system_instruction = f"""你是一個專業的醫學與健康知識 AI 助理。今天是 {current_date}。
+你可以結合「提供的參考資料」與你的「專業醫學知識庫」來回答使用者的健康問題。
+{'如果你看到圖片，請結合圖片中的徵兆進行分析。' if image_data else ''}
+
+【參考資料 (診所提供)】
+{pi_context}
+{rag_context}
+
+【回答原則】
+1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答，確保資訊正確且有益。
+2. **專業且繁體**：使用親切且專業的繁體中文回答。
+3. **安全性**：提醒使用者你的建議僅供參考，若症狀持續應尋求醫師診斷。
+4. **嚴禁報價**：絕對禁止提及任何具體價格。"""
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_instruction
             },
             {
                 "role": "user",
@@ -236,21 +253,20 @@ class RAGEngine:
         
         answer = self.reasoner.reason_chat(messages).strip()
 
-        # 2. Ask LLM to evaluate its own confidence based on the provided context
-        eval_prompt = f"""請針對你剛才的回答（問題：『{question}』）進行「資料依賴度」評分。
+        # 2. Ask LLM to evaluate its own confidence
+        eval_prompt = f"""請針對你剛才的回答（問題：『{question}』）進行評分。
 
 評分邏輯：
-- 100分：答案完全精準對應資料來源中的每一點。
-- 80分：答案核心來自資料來源，但有些微輔助詞來自常識。
-- 50分：資料來源模糊，你主要靠通用醫學知識推論。
-- 10分：資料來源完全無關，你是純靠通用知識回答。
+- 100分：如果是診所資訊，答案完全對應資料來源；如果是醫療常識，答案準確且專業。
+- 80分：答案核心正確，但部分細節來自通用知識補充。
+- 50分：資料來源模糊，你主要靠推論回答。
+- 10分：完全沒有資料，你也無法確定答案。
 
 請僅回傳一個數字（如 95 或 40），不要有任何其他文字說明。"""
         
         try:
             score_res = llm_instance.generate(eval_prompt, max_tokens=10).strip()
             if "<think>" in score_res: score_res = score_res.split("</think>")[-1].strip()
-            # Find all digits in the response
             digits = re.findall(r'\d+', score_res)
             confidence_score = int(digits[0]) if digits else 50
         except Exception as e:
@@ -259,8 +275,8 @@ class RAGEngine:
             
         return answer, confidence_score
 
-    def query_integrated_stream(self, question, image_data=None):
-        logger.info(f"Deep Hybrid Reasoning (Stream) for: {question} (image: {image_data is not None})")
+    def query_integrated_stream(self, question, route="special", image_data=None):
+        logger.info(f"Deep Hybrid Reasoning (Stream, {route}) for: {question} (image: {image_data is not None})")
         sql_context, pi_context, rag_context = self._get_context(question)
         
         current_date = datetime.date.today()
@@ -274,10 +290,8 @@ class RAGEngine:
         else:
             user_content = question
 
-        messages = [
-            {
-                "role": "system",
-                "content": f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
+        if route == "special":
+            system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
 {'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
 
@@ -291,11 +305,29 @@ class RAGEngine:
 {sql_context}
 
 【專業回答指南】
-1. **嚴禁簡體中文**：全程必須使用繁體中文，且口氣要專業、親切、具備權威性。
-2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。若原始片段有補充細節，請一併整合。
-3. **禁止報價**：絕對不能出現任何金錢數字、價格、特價資訊。遇到價格一律引導致電診所。
-4. **細節補充**：請儘可能整理成條列式，讓使用者一眼就能看到重點（如冰敷時間、禁忌食物等）。
-5. **找不到資料時**：若真的完全沒有關於該主題的資料，請不要胡謅。請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+1. **嚴禁簡體中文**：全程必須使用繁體中文。
+2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
+3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。
+4. **找不到資料時**：若真的完全沒有關於該主題的資料，請告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+        else:
+            system_instruction = f"""你是一個專業的醫學與健康知識 AI 助理。今天是 {current_date}。
+你可以結合「提供的參考資料」與你的「專業醫學知識庫」來回答使用者的健康問題。
+{'如果你看到圖片，請結合圖片中的徵兆進行分析。' if image_data else ''}
+
+【參考資料 (診所提供)】
+{pi_context}
+{rag_context}
+
+【回答原則】
+1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答。
+2. **專業且繁體**：使用親切且專業的繁體中文回答。
+3. **安全性**：提醒使用者你的建議僅供參考。
+4. **嚴禁報價**：絕對禁止提及任何具體價格。"""
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_instruction
             },
             {
                 "role": "user",
@@ -310,8 +342,9 @@ class RAGEngine:
                 yield chunk
 
         # Evaluate confidence after stream finishes
-        eval_prompt = f"""針對剛才的回答（內容摘要：{full_answer[:200]}...），請評估其對『資料來源』的依賴程度。
-請給出 1 到 100 的信心分數。只需回傳純數字。"""
+        eval_prompt = f"""針對剛才的回答（內容摘要：{full_answer[:200]}...），請評估其準確度與專業程度。
+如果是診所資訊，請評估其與資料來源的符合度；如果是醫療常識，請評估其是否準確專業。
+請給出 1 到 100 的分數。只需回傳純數字。"""
         try:
             score_res = llm_instance.generate(eval_prompt, max_tokens=10).strip()
             if "<think>" in score_res: score_res = score_res.split("</think>")[-1].strip()

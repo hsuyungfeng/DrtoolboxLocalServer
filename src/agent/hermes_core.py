@@ -66,7 +66,11 @@ class HermesAgent:
     def determine_route(self, prompt: str) -> str:
         """Decides which knowledge base to prioritize."""
         router_prompt = f"""<|im_start|>system
-You are a clinic AI. Classify the user query as 'special' (clinic-specific procedures, marketing, hours) or 'general' (general medical knowledge, healthy tips). Reply only with one word.
+你是一個門診分流機器人。請將使用者的問題分類為以下兩類之一：
+- 'special'：關於診所「本身」的資訊（地址、電話、營業時間、特定醫師、價格諮詢、預約、特定的療程項目）。
+- 'general'：一般的「醫學健康知識」（例如：感冒吃什麼、保養秘訣、不適症狀的通用解釋）。
+
+請只回傳一個單字：'special' 或 'general'。
 <|im_end|>
 <|im_start|>user
 {prompt}
@@ -123,7 +127,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
             full_response = ""
             confidence_score = 0
             
-            for chunk in self.rag.query_integrated_stream(user_query, image_data=image_data):
+            for chunk in self.rag.query_integrated_stream(user_query, route=route, image_data=image_data):
                 if chunk == "ERROR_VISION_NOT_SUPPORTED":
                     is_fallback = True
                     break
@@ -156,7 +160,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
                 if ocr_text:
                     enhanced_query = f"[附件圖片辨識文字：{ocr_text}] {user_query}"
                 
-                for chunk in self.rag.query_integrated_stream(enhanced_query, image_data=None):
+                for chunk in self.rag.query_integrated_stream(enhanced_query, route=route, image_data=None):
                     if not chunk: continue
                     if chunk.startswith("__CONFIDENCE_SCORE__"):
                         try: confidence_score = int(chunk.replace("__CONFIDENCE_SCORE__", ""))
@@ -207,7 +211,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
         
         # 2. Hybrid Reasoning
         try:
-            response, confidence_score = self.rag.query_integrated(user_query, image_data=image_data)
+            response, confidence_score = self.rag.query_integrated(user_query, route=route, image_data=image_data)
             if response == "ERROR_VISION_NOT_SUPPORTED":
                 logger.warning("Local LLM does not support vision. Falling back to OCR + Text.")
                 ocr_text = self._ocr_base64_image(image_data) if image_data else ""
@@ -220,7 +224,7 @@ You are a clinic AI. Classify the user query as 'special' (clinic-specific proce
                 elif image_data:
                     prefix += "（我無法看到照片，且無法辨識出文字，請用文字描述。）\n\n"
 
-                response, confidence_score = self.rag.query_integrated(enhanced_query, image_data=None)
+                response, confidence_score = self.rag.query_integrated(enhanced_query, route=route, image_data=None)
                 response = prefix + response
                 
             # Auto-Curation

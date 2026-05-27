@@ -72,10 +72,28 @@ def run_nightly_fact_check(target_date=None):
             search_context = "\n".join([f"- {r['title']}: {r['body']}" for r in search_results])
             
             # 2. Ask Hermes to generate a "Corrected/Verified" draft
-            verification_prompt = f"""
-你是一個資深的醫學核稿員。請根據以下網頁搜尋到的外部醫學資料，檢核 AI 助理之前的回答是否準確且完整。
-如果不準確，請生成一個修正後的版本（繁體中文，專業口吻）。
-如果 AI 原本的回答已經很完美，請回傳原本的回答，但加上『(已通過事實核正)』字樣。
+            route = meta.get('route_used', 'special')
+            
+            if route == "special":
+                verification_prompt = f"""你是一個專業的診所營運核稿員。
+請根據以下網頁搜尋到的「參考資料」，檢核 AI 助理原本關於診所業務的回答。
+注意：診所資訊（地址、特定流程）必須極度精準。若 AI 之前回答模糊或錯誤，請修正。
+
+【使用者提問】
+{user_prompt}
+
+【AI 之前的回答】
+{ai_response}
+
+【網頁搜尋參考資料 (輔助)】
+{search_context}
+
+請提供你的核稿意見，並附上一個「建議修正版本」（繁體中文）。
+"""
+            else:
+                verification_prompt = f"""你是一個權威的醫學知識核稿員。
+請根據以下網頁搜尋到的「外部醫學資料」，檢核 AI 助理之前的通用醫學回答。
+重點在於醫學正確性與安全性。
 
 【使用者提問】
 {user_prompt}
@@ -86,7 +104,7 @@ def run_nightly_fact_check(target_date=None):
 【網頁搜尋參考資料】
 {search_context}
 
-請提供你的核稿意見，並附上一個「建議修正版本」。
+請提供你的核稿意見，並附上一個「建議修正版本」（繁體中文，專業口吻）。
 """
             correction_draft = llm_instance.generate(verification_prompt, max_tokens=1024).strip()
             

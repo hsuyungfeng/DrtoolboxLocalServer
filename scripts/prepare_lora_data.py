@@ -21,12 +21,20 @@ def convert_to_alpaca(input_file, output_file):
             try:
                 data = json.loads(line)
                 messages = data.get('messages', [])
+                meta = data.get('metadata', {})
+                route = meta.get('route', 'special')
+                
                 if len(messages) >= 2:
                     user_query = messages[0]['content']
                     ai_response = messages[1]['content']
                     
+                    if route == "special":
+                        instruction = "你是一個專業的診所助理，請根據診所準則回答。嚴禁報價，確保資訊來自診所內部資料。"
+                    else:
+                        instruction = "你是一個專業的醫學健康 AI 助理，請運用豐富的醫學知識提供專業且具備衛教價值的建議。"
+
                     alpaca_data.append({
-                        "instruction": "你是一個專業的醫美與診所助理，請根據診所準則回答病患提問。不可報價，語氣親切專業。",
+                        "instruction": instruction,
                         "input": user_query,
                         "output": ai_response
                     })

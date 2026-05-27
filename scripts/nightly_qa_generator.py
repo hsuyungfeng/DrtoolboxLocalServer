@@ -85,7 +85,8 @@ class QAGenerator:
                 logger.info(f"Processing generated question: {question}")
                 
                 # 2. Use the existing Deep RAG to answer
-                answer = self.rag.query_integrated(question)
+                # Pass the category as the route (special or general)
+                answer, confidence = self.rag.query_integrated(question, route=category)
                 
                 # 3. Save to log
                 entry = {
@@ -93,10 +94,12 @@ class QAGenerator:
                     "service": topic,
                     "question": question,
                     "answer": answer,
+                    "confidence": confidence,
                     "timestamp": datetime.now().isoformat(),
                     "metadata": {
                         "source": "hermes_proactive_generator",
-                        "category": category
+                        "category": category,
+                        "route": category
                     }
                 }
                 
