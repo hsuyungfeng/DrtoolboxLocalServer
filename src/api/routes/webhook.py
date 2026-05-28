@@ -17,9 +17,15 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN) if LINE_CHANNEL_ACCESS_TOKEN else None
 handler = WebhookHandler(LINE_CHANNEL_SECRET) if LINE_CHANNEL_SECRET else None
 
-@webhook_bp.route('/webhook/line', methods=['POST'])
+@webhook_bp.route('/webhook/line', methods=['GET', 'POST'], strict_slashes=False)
 def line_webhook():
-    """LINE Messaging API Webhook endpoint."""
+    """LINE Messaging API Webhook endpoint with GET support for connectivity tests."""
+    if request.method == 'GET':
+        return jsonify({
+            "status": "active",
+            "message": "Drtoolbox LINE Webhook is running. Please use POST for actual messaging events."
+        }), 200
+
     if not handler:
         logger.error("LINE Webhook Handler not initialized. Check credentials.")
         return "Not Configured", 500
@@ -30,7 +36,11 @@ def line_webhook():
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
+        logger.warning("Invalid signature from LINE platform.")
         abort(400)
+    except Exception as e:
+        logger.error(f"Webhook Handler error: {e}")
+        return "Error", 500
 
     return 'OK'
 
@@ -80,7 +90,7 @@ MESSENGER_PAGE_ACCESS_TOKEN = os.getenv('MESSENGER_PAGE_ACCESS_TOKEN')
 MESSENGER_VERIFY_TOKEN = os.getenv('MESSENGER_VERIFY_TOKEN')
 MESSENGER_APP_SECRET = os.getenv('MESSENGER_APP_SECRET')
 
-@webhook_bp.route('/webhook/messenger', methods=['GET', 'POST'])
+@webhook_bp.route('/webhook/messenger', methods=['GET', 'POST'], strict_slashes=False)
 def messenger_webhook():
     """Messenger Webhook for Meta Graph API."""
     if request.method == 'GET':
