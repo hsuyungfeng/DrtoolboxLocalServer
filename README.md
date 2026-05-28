@@ -8,7 +8,7 @@ Drtoolbox 是一個專為診所設計的**隱私優先 (Privacy-First)** 本地 
 本專案已成功實現「數據閉環 (Data Loop)」，系統具備自我進化與深度洞察能力：
 - **模型架構**：採用本地 Qwen-35B 等級模型，結合 PageIndex 語義邏輯樹實現深度醫療推理。
 - **混合路由技術**：導入 **Dynamic Knowledge Fallback (動態知識回退)** 機制，平衡診所專有數據與通用醫學知識。
-- **數據價值**：醫師校正的數據可一鍵轉換為國際標準訓練格式，為未來專屬模型微調做準備。
+- **全通路對接**：支援 LINE 與 Facebook Messenger 串接，讓病患能在熟悉平台獲得 AI 服務。
 
 ---
 
@@ -17,65 +17,73 @@ Drtoolbox 是一個專為診所設計的**隱私優先 (Privacy-First)** 本地 
 ### 1. 🧠 動態知識路由 (Dynamic Knowledge Routing)
 系統自動偵測問題類型，並採用不同的推理模式：
 - **Clinic Special (診所專用路由)**：
-  - **範圍**：地址、電話、營業時間、特定醫師、價格諮詢、診所特定療程項目。
+  - **範圍**：地址、電話、營業時間、特定醫師、預約、診所特定療程項目。
   - **準則**：嚴格基於本地文件 (PageIndex + SQL) 回答，絕不胡謅，嚴禁輸出任何報價。
 - **General Medicine (通用醫學路由)**：
-  - **範圍**：一般感冒諮詢、術後通用保養、健康飲食建議、常見症狀解釋。
-  - **準則**：結合本地文件與 LLM 內建的專業醫學知識庫，提供更豐富且具備衛教價值的建議，提升病患滿意度。
+  - **範圍**：感冒諮詢、術後保養、健康飲食、常見症狀解釋。
+  - **準則**：結合本地文件與 LLM 內建的專業醫學知識庫，提供更豐富的衛教內容。
 
-### 2. 🤖 自主數據生產線 (Auto-QA & Curation)
-- **主動式 QA 生成**：系統每晚自動掃描 `data/documents`，針對新療程或醫學主題自動生成高品質的問答對 (QA Pairs)，並依照路由類別（Special/General）進行分類標註。
-- **智慧自我評估**：每一筆回覆均會顯示 **「🎯 信心分數 %」**，評估答案與資料來源的符合度或其專業程度。
-- **高信心自動歸檔**：信心分數 **≥ 85%** 的高品質回答會自動存入訓練集，實現無感數據累積。
+### 2. 💬 全通路病患服務 (Messaging Gateway)
+- **多平台整合**：透過 Webhook 同時對接 LINE 與 Messenger。
+- **安全防護網**：病患輸入「紅旗症狀」時自動攔截並發送就醫警告；偵測到「價格查詢」時自動轉向引導致電諮詢。
+- **知識回流**：醫師在後端校正過的答案，會自動更新 PageIndex 推理樹，讓 AI 「越答越聰明」。
 
-### 3. 📊 視覺化營運看板 (BI Dashboard)
-- **趨勢追蹤**：自動統計本週**「熱門療程排名」**與**「病患痛點分布」**（如：術後反黑、結節擔心等）。
-- **衛教缺口分析**：識別 AI 無法回答的問題，提醒醫師補充相關 PageIndex 數據。
-- **每週營運洞察**：每週一自動產出 Markdown 報表與 JSON 數據，供診所經營者決策參考。
-
-### 4. 🚨 醫療安全監控 (Safety Escalation)
-- **紅旗徵兆偵測**：即時監控對話中的 15 個核心嚴重症狀（如劇烈疼痛、視力模糊、皮膚發黑）。
-- **視覺脈衝警示**：偵測到風險時，Dashboard 立即出現**紅色閃爍警報**，確保醫師及時介入。
-
----
-
-## 📁 檔案結構用途 (File Structure Roles)
-
-### 🏗️ 核心系統 (`/src`)
-- `agent/hermes_core.py`: **系統大腦**。處理分類路由、高風險偵測與自動記錄。
-- `rag_engine.py`: **混合檢索引擎**。整合 SQL、PageIndex 語義樹與 N-gram 快速快取，並支援路由感知 (Route-Aware) 推理。
-- `data_loader.py`: **效能優化處理器**。實作大圖自動壓縮與灰階預處理，確保穩定 OCR。
-
-### ⚙️ 自動化排程 (`/scripts`)
-- `nightly_qa_generator.py`: **主動成長引擎**。每晚自動產出 Special/General 類別的專業問答對。
-- `nightly_fact_check.py`: 自動檢證低信心對話，產生事實核查報告。
-- `weekly_crm_insights.py`: 同時產出每週營運分析報表。
-- `auto_post_to_toolbox.py`: 官網知識庫一鍵同步自動化腳本。
+### 3. 🤖 自主數據生產線 (Auto-QA & Curation)
+- **主動式 QA 生成**：每晚自動針對新療程生成高品質問答對，並提供醫師「AI 重新潤飾」功能。
+- **智慧分流審核**：Dashboard 自動標註高信心回答，協助醫師在秒級時間內完成批量核准。
 
 ---
 
 ## 🛠️ 部署與使用說明 (Deployment & Usage)
 
-### 1. 啟動步驟 (Getting Started)
-
-#### 第一步：啟動 LLM 伺服器
-確保 `llama-qwen` 容器已在運行。預設埠口為 `8080`。
-
-#### 第二步：安裝依賴並啟動後端
+### 1. 基礎啟動步驟
 ```bash
+# 1. 確保 LLM 容器已在運行 (Port 8080)
+docker start llama-qwen
+
+# 2. 安裝依賴並啟動後端 (Port 5000)
 uv sync
 uv run python src/api/app.py
 ```
 
-#### 第三步：執行主動數據生成
-若需立即測試自動 QA 生成功能：
-```bash
-uv run python scripts/nightly_qa_generator.py
-```
+### 2. 通訊軟體對接設定 (LINE & Messenger)
+
+#### **第一步：建立外網隧道 (Tunneling)**
+由於您的伺服器在本地，雲端平台需透過隧道才能連線。
+1. 安裝 [ngrok](https://ngrok.com/)。
+2. 執行指令：`ngrok http 5000`。
+3. 取得產生的 `https://xxxx.ngrok-free.app` 網址。
+
+#### **第二步：LINE 設定**
+1. 至 [LINE Developers](https://developers.line.biz/) 建立 **Messaging API** 頻道（需使用您的個人 LINE 帳號登入）。
+2. 在 **Messaging settings** 下：
+   - 將 **Webhook URL** 設定為：`https://您的隧道網址/webhook/line`。
+   - 開啟 **Use webhook** 選項。
+3. 在 `.env` 檔案中設定 `LINE_CHANNEL_SECRET` 與 `LINE_CHANNEL_ACCESS_TOKEN`。
+
+#### **第三步：Facebook Messenger 設定**
+1. 至 [Meta for Developers](https://developers.facebook.com/) 建立應用程式並添加 **Messenger**。
+2. 在 **Webhook** 設定中：
+   - **Callback URL**：`https://您的隧道網址/webhook/messenger`。
+   - **Verify Token**：自訂一個字串（需與 `.env` 中的 `MESSENGER_VERIFY_TOKEN` 一致）。
+3. 點擊「驗證並儲存」。
+
+---
+
+## ❓ 常見問題 (FAQ)
+
+### Q: 我可以使用個人的 Facebook 或 LINE 進行測試嗎？
+**可以。** 
+- **LINE**：您需要建立一個「LINE 官方帳號」(LINE Official Account)，這會與您的個人帳號綁定。測試時，您可以用您的個人帳號去加這個官方帳號為好友。
+- **Messenger**：您需要建立一個「Facebook 粉絲專頁」，並在 Meta 開發者後台將其與 App 綁定。測試時，您可以用您的個人帳號私訊該粉專。
+- **注意**：在開發模式下，只有被您設為「Tester」的個人帳號才能收到回覆。
+
+### Q: 隧道網址每次重啟 ngrok 都會變，怎麼辦？
+在 ngrok 官網註冊免費帳號後，可以獲得一個固定的 **Static Domain**，這樣您就不需要每次都去 LINE/Meta 後台修改 Webhook URL。
 
 ---
 
 ## 🛡️ 核心運作準則
-1. **路由先行**：先判斷問題類別，再決定推理強度與資料依賴度。
-2. **嚴禁報價**：絕對不輸出金錢數字。遇到價格引導致電診所。
-3. **本地優先**：所有病患隱私與原始文件絕不上雲端，保護個資。
+1. **路由先行**：先判斷問題類別，再決定推理強度。
+2. **嚴禁報價**：絕對不輸出金錢數字。
+3. **本地優先**：病患隱私與原始文件絕不上雲端。

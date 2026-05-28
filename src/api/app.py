@@ -29,10 +29,12 @@ def create_app():
     from src.api.routes.chat import chat_bp
     from src.api.routes.dashboard import dashboard_bp
     from src.api.routes.staff_actions import staff_actions_bp
+    from src.api.routes.webhook import webhook_bp
     
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(staff_actions_bp)
+    app.register_blueprint(webhook_bp)
     
     @app.route('/', methods=['GET'])
     def index():
