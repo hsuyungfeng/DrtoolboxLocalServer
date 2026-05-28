@@ -55,6 +55,30 @@ class JSONLLogger:
                         logs.append(json.loads(line))
         return logs[-limit:]
 
+    def get_triage_logs(self, limit=100):
+        """Returns logs categorized for the Triage UI."""
+        all_logs = self.get_recent_logs(limit=limit)
+        
+        triage = {
+            "auto_approve": [],
+            "focus_review": []
+        }
+        
+        for log in all_logs:
+            meta = log.get('metadata', {})
+            conf = meta.get('confidence_score', 0)
+            is_high_risk = meta.get('is_high_risk', False)
+            
+            # Triage Logic:
+            # - Auto-Approve: Confidence >= 90% AND NO high risk
+            # - Focus-Review: Everything else (Low confidence OR High risk)
+            if conf >= 90 and not is_high_risk:
+                triage["auto_approve"].append(log)
+            else:
+                triage["focus_review"].append(log)
+                
+        return triage
+
     def save_correction(self, original_log, corrected_response):
         """Saves a verified training pair to a special corrections file."""
         correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")

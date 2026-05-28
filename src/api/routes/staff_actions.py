@@ -706,8 +706,104 @@ def broadcast_message():
 
 
 # ============================================================================
-# Page Routes (員工頁面)
+# Curation & Triage APIs
 # ============================================================================
+
+@staff_actions_bp.route('/api/v1/curation/triage', methods=['GET'])
+def get_curation_triage():
+    """取得自動分流的數據審核列表"""
+    staff_id, error, status = require_staff_auth()
+    if error: return error, status
+    
+    from src.services.logger_service import logger_service
+    limit = request.args.get('limit', default=100, type=int)
+    triage_data = logger_service.get_triage_logs(limit=limit)
+    
+    return jsonify({
+        'success': True,
+        'data': triage_data
+    })
+
+@staff_actions_bp.route('/api/v1/curation/batch_approve', methods=['POST'])
+def batch_approve_curation():
+    """批量核准數據"""
+    staff_id, error, status = require_staff_auth()
+    if error: return error, status
+    
+    data = request.get_json()
+    items = data.get('items', []) # List of full log entries
+    
+    from src.services.logger_service import logger_service
+    success_count = 0
+    for item in items:
+        # Assuming the UI passes back the corrected response (or original if approved as is)
+        user_prompt = item['messages'][0]['content']
+        ai_response = item['messages'][1]['content']
+        if logger_service.save_correction(item, ai_response):
+            success_count += 1
+            
+    return jsonify({
+        'success': True,
+        'approved_count': success_count
+    })
+
+@staff_actions_bp.route('/api/v1/curation/suggest_correction', methods=['POST'])
+def suggest_curation_correction():
+    """使用 AI + 聯網搜尋生成建議的修正版本"""
+    staff_id, error, status = require_staff_auth()
+    if error: return error, status
+
+    data = request.get_json()
+    user_prompt = data.get('prompt')
+    current_answer = data.get('current_answer')
+    route = data.get('route', 'general')
+
+    if not user_prompt:
+        return jsonify({'success': False, 'error': 'Missing prompt'}), 400
+
+    from src.llm_server import llm_instance
+    from src.services.search_service import search_service
+
+    # 1. Perform Web Search for Grounding
+    search_query = f"{user_prompt} 台灣 醫學 建議"
+    search_results = search_service.search(search_query, max_results=3)
+    search_context = "\n".join([f"- {r['title']}: {r['body']}" for r in search_results]) if search_results else "無外部搜尋資料。"
+
+    # 2. Structure Prompt for Synthesis
+    if route == "special":
+        system_instruction = "你是一個資深的診所顧問。請結合「內部準則」與「外部搜尋參考」，優化以下回答。確保資訊極度精準且嚴禁報價。"
+    else:
+        system_instruction = "你是一個權威的醫學健康 AI 助理。請結合「醫學知識」與「外部最新搜尋資料」，提供一個專業、嚴謹且具備高度衛教價值的繁體中文修正版本。"
+
+    prompt = f"""
+【使用者提問】
+{user_prompt}
+
+【目前初步回答】
+{current_answer}
+
+【聯網搜尋參考資料】
+{search_context}
+
+請彙整以上資訊，提供一個更完美、更具備深度且正確的修正版本：
+"""
+    try:
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ]
+        suggestion = llm_instance.chat_generate(messages, max_tokens=1024).strip()
+        if "<think>" in suggestion: suggestion = suggestion.split("</think>")[-1].strip()
+
+        return jsonify({
+            'success': True,
+            'suggestion': suggestion,
+            'has_searched': True
+        })
+    except Exception as e:
+        logger.error(f"AI Suggestion failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @staff_actions_bp.route('/dashboard/staff/approvals/')
 def approvals_page():

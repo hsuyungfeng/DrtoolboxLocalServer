@@ -76,65 +76,135 @@
         margin-bottom: 1rem;
         opacity: 0.4;
     }
+    .btn-outline-magic {
+        color: #6f42c1;
+        border-color: #6f42c1;
+    }
+    .btn-outline-magic:hover {
+        background-color: #6f42c1;
+        color: white;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1 class="page-title">⚖️ 升級審批</h1>
+    <h1 class="page-title">⚖️ 數據分流審核 (Curation Triage)</h1>
     <div>
-        <span class="badge bg-danger fs-6">待處理: <span id="pending-count">--</span></span>
+        <button class="btn btn-primary" onclick="batchApproveSelected()">🚀 批量核准已選項目</button>
     </div>
 </div>
 
 <!-- Tab Navigation -->
 <ul class="nav nav-tabs tab-nav" role="tablist">
     <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pending" type="button">
-            待處理
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#focus-review" type="button">
+            🔍 重點關注區 <span class="badge bg-danger" id="focus-count">0</span>
         </button>
     </li>
     <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#history" type="button">
-            歷史記錄
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#auto-approve" type="button">
+            ✅ 自動通過區 (建議) <span class="badge bg-success" id="auto-count">0</span>
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#escalations" type="button">
+            🚨 醫療升級 <span class="badge bg-warning text-dark" id="escalation-count">0</span>
         </button>
     </li>
 </ul>
 
 <!-- Tab Content -->
 <div class="tab-content">
-    <!-- Pending Tab -->
-    <div class="tab-pane fade show active" id="pending">
-        <div id="error-alert" class="alert alert-danger" style="display: none;"></div>
-
+    <!-- Focus Review Tab -->
+    <div class="tab-pane fade show active" id="focus-review">
+        <div class="alert alert-warning mb-3">
+            以下對話信心分數較低或包含風險關鍵字，請優先核對其準確性。
+        </div>
         <div class="escalation-table">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>患者姓名</th>
-                        <th>患者電話</th>
-                        <th>升級原因</th>
+                        <th width="40"><input type="checkbox" id="select-all-focus"></th>
+                        <th>用戶問題</th>
+                        <th>AI 回答</th>
                         <th>信心度</th>
-                        <th>申請時間</th>
-                        <th style="width: 180px;">操作</th>
+                        <th>路由</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
-                <tbody id="escalations-tbody">
-                    <tr>
-                        <td colspan="6" class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <span class="ms-2">正在載入...</span>
-                        </td>
-                    </tr>
-                </tbody>
+                <tbody id="focus-tbody"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- History Tab -->
-    <div class="tab-pane fade" id="history">
-        <div class="alert alert-info">
-            歷史記錄功能即將推出...
+    <!-- Auto Approve Tab -->
+    <div class="tab-pane fade" id="auto-approve">
+        <div class="alert alert-success mb-3">
+            系統判定這些回答準確度極高 (>= 90%) 且無風險。建議直接批量核准以存入訓練集。
+        </div>
+        <div class="escalation-table">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="select-all-auto" checked></th>
+                        <th>用戶問題</th>
+                        <th>AI 回答</th>
+                        <th>信心度</th>
+                        <th>路由</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="auto-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legacy Escalations Tab -->
+    <div class="tab-pane fade" id="escalations">
+        <div id="error-alert" class="alert alert-danger" style="display: none;"></div>
+        <div class="escalation-table">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>患者</th>
+                        <th>內容</th>
+                        <th>信心度</th>
+                        <th>時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="escalations-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ 數據校正編輯器</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">患者提問：</label>
+                    <div id="modal-user-q" class="p-2 bg-light border rounded"></div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-bold mb-0">AI 回答內容：</label>
+                        <button class="btn btn-sm btn-outline-magic" id="btn-ai-suggest" onclick="getAiSuggestion()">
+                            ✨ AI 重新潤飾
+                        </button>
+                    </div>
+                    <textarea id="modal-ai-a" class="form-control" rows="10" style="font-size: 0.9rem;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveModalEdit()">暫存修正</button>
+            </div>
         </div>
     </div>
 </div>
@@ -142,174 +212,194 @@
 
 {% block scripts %}
 <script>
-    const STAFF_ID = 'staff-001';  // 預設員工 ID
+    const STAFF_ID = 'staff-001';
+    let triageData = { auto_approve: [], focus_review: [] };
 
     document.addEventListener('DOMContentLoaded', function() {
-        loadEscalations();
+        loadTriage();
+        loadLegacyEscalations();
+
+        document.getElementById('select-all-focus').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('#focus-tbody input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+        });
+
+        document.getElementById('select-all-auto').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('#auto-tbody input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+        });
     });
 
-    async function loadEscalations() {
+    async function loadTriage() {
         try {
-            const response = await fetch('/api/v1/escalations/list', {
-                headers: {
+            const response = await fetch('/api/v1/curation/triage', {
+                headers: { 'X-Staff-ID': STAFF_ID }
+            });
+            const result = await response.json();
+            if (result.success) {
+                triageData = result.data;
+                renderTriage();
+            }
+        } catch (e) { console.error("Triage load failed", e); }
+    }
+
+    function renderTriage() {
+        const focusTbody = document.getElementById('focus-tbody');
+        const autoTbody = document.getElementById('auto-tbody');
+
+        document.getElementById('focus-count').textContent = triageData.focus_review.length;
+        document.getElementById('auto-count').textContent = triageData.auto_approve.length;
+
+        focusTbody.innerHTML = triageData.focus_review.map((item, idx) => renderRow(item, idx, 'focus')).join('');
+        autoTbody.innerHTML = triageData.auto_approve.map((item, idx) => renderRow(item, idx, 'auto')).join('');
+    }
+
+    function renderRow(item, idx, type) {
+        const meta = item.metadata || {};
+        const conf = meta.confidence_score || 0;
+        const confClass = conf >= 90 ? 'bg-success' : (conf >= 70 ? 'bg-warning text-dark' : 'bg-danger');
+
+        return `
+            <tr data-type="${type}" data-idx="${idx}">
+                <td><input type="checkbox" data-idx="${idx}" data-type="${type}" ${type === 'auto' ? 'checked' : ''}></td>
+                <td class="user-q">${escapeHtml(item.messages[0].content)}</td>
+                <td class="ai-a">${escapeHtml(truncate(item.messages[1].content, 40))}</td>
+                <td><span class="badge ${confClass}">${conf}%</span></td>
+                <td><span class="badge bg-secondary route-badge">${meta.route_used || 'general'}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('${type}', ${idx})">✏️ 校正</button>
+                </td>
+            </tr>
+        `;
+    }
+
+    let currentEditing = null;
+
+    function openEditModal(type, idx) {
+        currentEditing = { type, idx, data: triageData[type][idx] };
+        const item = currentEditing.data;
+
+        document.getElementById('modal-user-q').textContent = item.messages[0].content;
+        document.getElementById('modal-ai-a').value = item.messages[1].content;
+
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+    }
+
+    async function getAiSuggestion() {
+        const btn = document.getElementById('btn-ai-suggest');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 思考中...';
+
+        try {
+            const response = await fetch('/api/v1/curation/suggest_correction', {
+                method: 'POST',
+                headers: { 
+                    'X-Staff-ID': STAFF_ID,
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                    prompt: currentEditing.data.messages[0].content,
+                    current_answer: document.getElementById('modal-ai-a').value,
+                    route: currentEditing.data.metadata.route_used || 'general'
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                document.getElementById('modal-ai-a').value = result.suggestion;
+                showToast("AI 已生成建議修正！");
+            }
+        } catch (e) { alert("AI 建議獲取失敗"); }
+        finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    async function saveModalEdit() {
+        const newAnswer = document.getElementById('modal-ai-a').value;
+        const item = currentEditing.data;
+
+        // Optimistically update the UI
+        item.messages[1].content = newAnswer;
+        renderTriage();
+
+        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        showToast("已暫存修正，請點擊上方『批量核准』以正式存入訓練集。");
+    }
+    async function batchApproveSelected() {
+        const selectedItems = [];
+        document.querySelectorAll('input[type="checkbox"][data-idx]').forEach(cb => {
+            if (cb.checked) {
+                const type = cb.dataset.type === 'auto' ? 'auto_approve' : 'focus_review';
+                selectedItems.push(triageData[type][cb.dataset.idx]);
+            }
+        });
+
+        if (selectedItems.length === 0) {
+            alert("請先選擇要核准的項目");
+            return;
+        }
+
+        if (!confirm(`確定要批量核准這 ${selectedItems.length} 筆對話嗎？`)) return;
+
+        try {
+            const response = await fetch('/api/v1/curation/batch_approve', {
+                method: 'POST',
+                headers: { 
                     'X-Staff-ID': STAFF_ID,
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ items: selectedItems })
             });
-
-            if (!response.ok) {
-                throw new Error('無法取得升級列表');
-            }
-
             const result = await response.json();
-
             if (result.success) {
-                renderEscalations(result.data.escalations);
-                document.getElementById('pending-count').textContent = result.data.total;
-            } else {
-                showError(result.error || '載入失敗');
+                showToast(`成功核准 ${result.approved_count} 筆數據！`);
+                loadTriage(); // Refresh
             }
-        } catch (error) {
-            console.error('Error loading escalations:', error);
-            showError('無法載入升級列表，請稍後再試');
-        }
+        } catch (e) { alert("批量核准失敗"); }
+    }
+
+    // Keep legacy escalation loading
+    async function loadLegacyEscalations() {
+        try {
+            const response = await fetch('/api/v1/escalations/list', {
+                headers: { 'X-Staff-ID': STAFF_ID }
+            });
+            const result = await response.json();
+            if (result.success) {
+                const tbody = document.getElementById('escalations-tbody');
+                document.getElementById('escalation-count').textContent = result.data.total;
+                renderEscalations(result.data.escalations);
+            }
+        } catch (e) { console.error("Escalation load failed", e); }
     }
 
     function renderEscalations(escalations) {
         const tbody = document.getElementById('escalations-tbody');
-
         if (!escalations || escalations.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6">
-                        <div class="empty-state">
-                            <div class="empty-icon">✅</div>
-                            <p class="mb-0">目前沒有待處理的升級</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">目前無待處理升級</td></tr>';
             return;
         }
-
         tbody.innerHTML = escalations.map(e => `
-            <tr data-escalation-id="${e.id}">
-                <td>
-                    <a href="/dashboard/staff/patient/${e.patient_id}" class="patient-link">
-                        ${escapeHtml(e.patient_name)}
-                    </a>
-                </td>
-                <td>${escapeHtml(e.patient_phone)}</td>
-                <td>
-                    <span title="${escapeHtml(e.message)}">
-                        ${escapeHtml(truncate(e.message, 30))}
-                    </span>
-                </td>
-                <td>
-                    <span class="confidence-badge confidence-low">
-                        ${e.confidence !== null ? (e.confidence * 100).toFixed(0) + '%' : 'N/A'}
-                    </span>
-                </td>
+            <tr>
+                <td>${escapeHtml(e.patient_name)}</td>
+                <td>${truncate(e.message, 30)}</td>
+                <td>${e.confidence ? (e.confidence * 100).toFixed(0) + '%' : 'N/A'}</td>
                 <td>${formatDateTime(e.created_at)}</td>
                 <td>
-                    <button class="btn btn-sm btn-success me-1" onclick="approveEscalation(${e.id})">
-                        ✅ 批准
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="rejectEscalation(${e.id})">
-                        ❌ 拒絕
-                    </button>
+                    <button class="btn btn-sm btn-success" onclick="approveEscalation(${e.id})">✅</button>
+                    <button class="btn btn-sm btn-danger" onclick="rejectEscalation(${e.id})">❌</button>
                 </td>
             </tr>
         `).join('');
     }
 
-    async function approveEscalation(escalationId) {
-        if (!confirm('確定要批准此升級嗎？')) return;
-
-        try {
-            const response = await fetch(`/api/v1/escalations/${escalationId}/approve`, {
-                method: 'POST',
-                headers: {
-                    'X-Staff-ID': STAFF_ID,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ notes: '' })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // 移除該行
-                const row = document.querySelector(`tr[data-escalation-id="${escalationId}"]`);
-                if (row) row.remove();
-
-                // 更新計數
-                const count = parseInt(document.getElementById('pending-count').textContent) - 1;
-                document.getElementById('pending-count').textContent = Math.max(0, count);
-
-                showToast('升級已批准');
-            } else {
-                showError(result.error || '批准失敗');
-            }
-        } catch (error) {
-            console.error('Error approving escalation:', error);
-            showError('批准失敗，請稍後再試');
-        }
-    }
-
-    async function rejectEscalation(escalationId) {
-        if (!confirm('確定要拒絕此升級嗎？')) return;
-
-        try {
-            const response = await fetch(`/api/v1/escalations/${escalationId}/reject`, {
-                method: 'POST',
-                headers: {
-                    'X-Staff-ID': STAFF_ID,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ notes: '' })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // 移除該行
-                const row = document.querySelector(`tr[data-escalation-id="${escalationId}"]`);
-                if (row) row.remove();
-
-                // 更新計數
-                const count = parseInt(document.getElementById('pending-count').textContent) - 1;
-                document.getElementById('pending-count').textContent = Math.max(0, count);
-
-                showToast('升級已拒絕');
-            } else {
-                showError(result.error || '拒絕失敗');
-            }
-        } catch (error) {
-            console.error('Error rejecting escalation:', error);
-            showError('拒絕失敗，請稍後再試');
-        }
-    }
-
-    function showError(message) {
-        const alert = document.getElementById('error-alert');
-        alert.textContent = message;
-        alert.style.display = 'block';
-        setTimeout(() => {
-            alert.style.display = 'none';
-        }, 5000);
-    }
-
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'position-fixed bottom-0 end-0 p-3';
-        toast.innerHTML = `
-            <div class="toast show" role="alert">
-                <div class="toast-body bg-success text-white rounded">
-                    ${message}
-                </div>
-            </div>
-        `;
+        toast.innerHTML = `<div class="toast show bg-success text-white p-3 rounded">${message}</div>`;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
     }
@@ -327,14 +417,7 @@
 
     function formatDateTime(dateStr) {
         if (!dateStr) return '--';
-        const date = new Date(dateStr);
-        return date.toLocaleString('zh-TW', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return new Date(dateStr).toLocaleString('zh-TW');
     }
 </script>
 {% endblock %}

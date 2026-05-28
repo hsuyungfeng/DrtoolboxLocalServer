@@ -34,6 +34,7 @@
                         <button class="tab-btn" id="selectHighConfBtn" style="font-size: 0.8rem; padding: 5px 12px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa;">🎯 勾選高信心 (>=85%)</button>
                         <button class="tab-btn" id="selectAllBtn" style="font-size: 0.8rem; padding: 5px 12px; background: rgba(255,255,255,0.05);">全選</button>
                         <button class="save-btn" id="batchSaveBtn" style="font-size: 0.8rem; padding: 5px 15px; width: auto; height: 32px; box-shadow: none;">批量儲存已選</button>
+                        <button class="tab-btn" id="batchDiscardBtn" style="font-size: 0.8rem; padding: 5px 15px; width: auto; height: 32px; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171;">🗑️ 批量刪除已選</button>
                     </div>
                 </div>
                 <div class="log-list" id="logList">
@@ -52,7 +53,10 @@
                     <textarea id="editorPrompt" style="min-height: 80px; margin-bottom: 10px;"></textarea>
                 </div>
                 <div class="field-group">
-                    <label>AI 回覆 (編輯以進行校正)</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="margin-bottom: 0;">AI 回覆 (編輯以進行校正)</label>
+                        <button class="tab-btn" id="aiRefineBtn" style="font-size: 0.75rem; padding: 4px 10px; background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa;">✨ AI 重新潤飾</button>
+                    </div>
                     <textarea id="editorResponse"></textarea>
                 </div>
                 <div style="display: flex; gap: 12px; margin-top: 20px;">

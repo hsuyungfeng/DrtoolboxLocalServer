@@ -71,35 +71,102 @@ class QAGenerator:
             logger.info(f"Generating {category} QA for: {topic}")
             
             # 1. Generate 3 diverse patient questions
-            q_prompt = f"針對主題『{topic}』，請以病患的口吻模擬出 3 個最常問的專業問題。請直接輸出問題，每行一個，不要包含思考過程或標題。"
-            questions_raw = llm_instance.generate(q_prompt, max_tokens=300)
+            # Instructions updated to follow the new [Subject Header]\n[Question] format
+            q_prompt = f"""你是一個病患提問模擬器。請針對主題『{topic}』，模擬出 3 個最常問的專業問題。
+
+要求格式：
+1. 第一行必須是『🚀 {topic}』。
+2. 第二行才是具體的提問句。
+3. 每個問題之間請用『---』分隔。
+4. **絕對禁止**輸出任何關於「Thinking process」、「思考過程」或開場白。
+5. 請直接從『🚀』開始輸出。
+
+範例：
+🚀 過敏性皮炎
+我想知道這次發作的原因到底是什麼？以後還會有復發的風險嗎？
+---
+🚀 過敏性皮炎
+這種病症在飲食上有什麼禁忌嗎？
+"""
+            questions_raw = llm_instance.generate(q_prompt, max_tokens=600)
             
+            # Heavy cleaning
             if "<think>" in questions_raw:
                 questions_raw = questions_raw.split("</think>")[-1].strip()
             
-            questions = [line.strip().lstrip('123456789. -*') for line in questions_raw.split('\n') if line.strip() and len(line.strip()) > 5]
+            # Remove common conversational prefixes
+            noise_patterns = [
+                "Here's a thinking process", 
+                "Here are 3 common questions", 
+                "以下是模擬提問", 
+                "好的，為您模擬提問"
+            ]
+            for pattern in noise_patterns:
+                if pattern in questions_raw:
+                    # Try to find the first 🚀 after the pattern
+                    start_idx = questions_raw.find("🚀")
+                    if start_idx != -1:
+                        questions_raw = questions_raw[start_idx:]
+                    break
+
+            # Split by separator
+            raw_blocks = [b.strip() for b in questions_raw.split('---') if b.strip()]
             
-            for question in questions[:3]:
-                if len(question) < 5: continue
+            for block in raw_blocks[:3]:
+                if len(block) < 10: continue
                 
-                logger.info(f"Processing generated question: {question}")
+                # --- STRICT PARSING ---
+                # 1. Split into lines
+                lines = [l.strip() for l in block.split('\n') if l.strip()]
                 
-                # 2. Use the existing Deep RAG to answer
-                # Pass the category as the route (special or general)
-                answer, confidence = self.rag.query_integrated(question, route=category)
+                # 2. Extract header and actual question
+                header = f"🚀 {topic}"
+                # Filter out lines that are instructions or noise
+                noise_markers = ["format requirements", "line 2 must", "separate each", "thinking process", "🚀", "---"]
+                question_lines = []
+                for line in lines:
+                    low_line = line.lower()
+                    if any(marker in low_line for marker in noise_markers):
+                        continue
+                    question_lines.append(line)
                 
-                # 3. Save to log
+                if not question_lines: continue
+                
+                # The first valid line is our actual question
+                actual_question = question_lines[0]
+                
+                # --- NOISE & LENGTH FILTER ---
+                # Remove backticks, dots, or other markdown junk
+                actual_question = actual_question.replace('`', '').replace('*', '').strip()
+                
+                # Real medical questions should have substance. Discard junk.
+                if len(actual_question) < 10 or actual_question in ["無", "不知道", "n/a"]:
+                    logger.warning(f"Discarding noisy question: {actual_question}")
+                    continue
+
+                # Combine into the display format
+                display_block = f"{header}\n{actual_question}"
+                
+                logger.info(f"Processing structured question:\nQ: {actual_question}")
+                
+                # 3. Use the existing Deep RAG to answer
+                # IMPORTANT: Add topic context to the query to prevent generic greetings
+                rag_query = f"關於『{topic}』的問題：{actual_question}"
+                answer, confidence = self.rag.query_integrated(rag_query, route=category)
+                
+                # 4. Save to log
                 entry = {
                     "type": f"proactive_{category}",
                     "service": topic,
-                    "question": question,
+                    "question": display_block, # Stored with header for UI
                     "answer": answer,
                     "confidence": confidence,
                     "timestamp": datetime.now().isoformat(),
                     "metadata": {
                         "source": "hermes_proactive_generator",
                         "category": category,
-                        "route": category
+                        "route": category,
+                        "raw_actual_question": actual_question # Hidden field for reference
                     }
                 }
                 

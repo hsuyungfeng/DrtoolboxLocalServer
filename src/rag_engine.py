@@ -127,16 +127,59 @@ class RAGEngine:
             return
         
         try:
-            summary_prompt = f"Analyze this medical/clinic document and create an exhaustive professional summary. Focus on procedures, recovery, risks, and clinical advice:\n\n{content[:5000]}"
-            summary = llm_instance.generate(summary_prompt, max_tokens=512)
+            tree_system = "你是一個醫療文件分析專家。請將輸入的文件內容轉化為結構化的 JSON 推理樹。請勿輸出 JSON 以外的任何文字（除思考過程外）。"
+            tree_prompt = f"""請分析以下醫療/診所文件，並生成一個「結構化推理樹」。
+要求：
+1. 必須嚴格遵守以下 JSON 格式。
+2. 內容必須為專業繁體中文。
+3. 如果某個部分在文件中沒提到，請填入「無相關資料」。
+
+格式如下：
+{{
+    "pre_op": "術前須知與禁忌（包含對象、過敏、禁食等）",
+    "procedure": "療程步驟與原理（包含麻醉方式、時間、運作原理）",
+    "post_op_short": "術後立即照護 (1-7天)（包含冰敷、洗臉、用藥）",
+    "maintenance": "長期維持與保養（包含防曬、回診頻率、併發症監控）"
+}}
+
+文件內容：
+{content[:6000]}
+"""
+            messages = [
+                {"role": "system", "content": tree_system},
+                {"role": "user", "content": tree_prompt}
+            ]
             
-            data = {"id": doc_id, "summary": summary, "indexed_at": str(datetime.datetime.now())}
+            tree_raw = self.reasoner.reason_chat(messages).strip()
+            if "<think>" in tree_raw: tree_raw = tree_raw.split("</think>")[-1].strip()
+            
+            # Extract JSON block
+            import re
+            json_match = re.search(r'\{.*\}', tree_raw, re.DOTALL)
+            if json_match:
+                tree_data = json.loads(json_match.group())
+            else:
+                # Fallback to a single summary if JSON fails
+                tree_data = {
+                    "pre_op": "解析失敗",
+                    "procedure": tree_raw[:500],
+                    "post_op_short": "解析失敗",
+                    "maintenance": "解析失敗"
+                }
+            
+            data = {
+                "id": doc_id, 
+                "tree": tree_data, 
+                "indexed_at": str(datetime.datetime.now()),
+                "version": "2.0" # Clinical Reasoning Tree version
+            }
+            
             with open(tree_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False)
+                json.dump(data, f, ensure_ascii=False, indent=4)
             
             with self._pi_cache_lock:
                 self._pi_cache.append(data)
-            logger.info(f"✅ [PageIndex] Reasoning tree ready: {os.path.basename(doc_id)}")
+            logger.info(f"✅ [PageIndex] Clinical Reasoning Tree ready: {os.path.basename(doc_id)}")
         except Exception as e:
             logger.error(f"PageIndex build failed for {doc_id}: {e}")
                 
@@ -164,11 +207,32 @@ class RAGEngine:
         keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question) 
         with self._pi_cache_lock:
             cache_snapshot = list(self._pi_cache)
+        
         for item in cache_snapshot:
-            summary = item.get('summary', '')
-            score = sum(10 for k in keywords if k in summary)
+            # Handle version 2.0 (Reasoning Tree)
+            if item.get('version') == "2.0":
+                tree = item.get('tree', {})
+                # Selective branch extraction
+                relevant_parts = []
+                if any(k in question for k in ["術前", "禁忌", "過敏", "注意"]):
+                    relevant_parts.append(f"[術前須知]: {tree.get('pre_op')}")
+                if any(k in question for k in ["步驟", "原理", "怎麼做", "多長"]):
+                    relevant_parts.append(f"[療程原理]: {tree.get('procedure')}")
+                if any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "運動"]):
+                    relevant_parts.append(f"[立即照護]: {tree.get('post_op_short')}")
+                if any(k in question for k in ["維持", "多久打一次", "效果", "防曬"]):
+                    relevant_parts.append(f"[長期保養]: {tree.get('maintenance')}")
+                
+                # If no specific branch matches, use the whole tree
+                summary_text = "\n".join(relevant_parts) if relevant_parts else json.dumps(tree, ensure_ascii=False)
+            else:
+                # Legacy version 1.0 (Flat Summary)
+                summary_text = item.get('summary', '')
+
+            score = sum(10 for k in keywords if k in summary_text)
             if score > 0:
-                pi_context_list.append((score, summary))
+                pi_context_list.append((score, summary_text))
+        
         pi_context_list.sort(reverse=True, key=lambda x: x[0])
         pi_context = "\n\n".join([x[1] for x in pi_context_list[:5]])
         if not pi_context: pi_context = "無相關深度推理摘要。"

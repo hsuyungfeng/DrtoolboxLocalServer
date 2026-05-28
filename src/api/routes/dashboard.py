@@ -226,6 +226,25 @@ def save_correction():
     _remove_from_source(data.get('item_type'), data.get('item_id'))
     return jsonify({"status": "success"})
 
+@dashboard_bp.route('/logs/batch_discard', methods=['POST'])
+def batch_discard_items():
+    data = request.json
+    if not data or 'items' not in data:
+        return jsonify({"error": "Missing items list"}), 400
+    
+    items = data['items']
+    success_count = 0
+    for item in items:
+        try:
+            _remove_from_source(item.get('item_type'), item.get('item_id'))
+            success_count += 1
+        except Exception: continue
+            
+    return jsonify({
+        "status": "success",
+        "count": success_count
+    })
+
 @dashboard_bp.route('/logs/discard', methods=['POST'])
 def discard_item():
     data = request.json
