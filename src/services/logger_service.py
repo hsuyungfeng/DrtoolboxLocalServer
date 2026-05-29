@@ -80,22 +80,37 @@ class JSONLLogger:
         return triage
 
     def save_correction(self, original_log, corrected_response):
-        """Saves a verified training pair to a special corrections file."""
+        """Saves a verified training pair and triggers PageIndex backflow."""
         correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")
-        
-        # Build the HuggingFace conversational format suitable for training
+
+        # Build the HuggingFace conversational format
         training_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "messages": [
-                original_log["messages"][0], # The user prompt
+                {"role": "user", "content": original_log['messages'][0]['content']},
                 {"role": "assistant", "content": corrected_response}
             ],
-            "metadata": original_log.get("metadata", {})
+            "metadata": original_log.get('metadata', {})
         }
-        
+
         try:
             with self.lock:
                 with open(correction_file, 'a', encoding='utf-8') as f:
                     f.write(json.dumps(training_entry, ensure_ascii=False) + '\n')
+
+            # --- NEW: Knowledge Backflow to PageIndex ---
+            try:
+                from src.agent.hermes_core import get_hermes_agent
+                agent = get_hermes_agent()
+                # Inject the correction directly into the active PageIndex memory and storage
+                agent.rag.inject_verified_knowledge(
+                    question=original_log['messages'][0]['content'],
+                    answer=corrected_response,
+                    metadata=original_log.get('metadata', {})
+                )
+            except Exception as backflow_e:
+                logger.error(f"Knowledge backflow failed: {backflow_e}")
+
             return True
         except Exception as e:
             logger.error(f"Failed to save correction: {e}")

@@ -87,9 +87,11 @@ class RAGEngine:
         self.general_index = SimpleIndex(reasoner=self.reasoner)
         self.pi_storage = os.path.join(DATA_DIR, 'pageindex')
         os.makedirs(self.pi_storage, exist_ok=True)
-        self._pi_cache = [] 
+        self._pi_cache = []
         self._pi_cache_lock = threading.Lock()
-        
+
+        # Load existing trees
+        self._load_existing_pi_trees()
         # Worker Pool for background PageIndexing (Balanced default)
         self.pi_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="PI_Worker")
         
@@ -183,11 +185,93 @@ class RAGEngine:
         except Exception as e:
             logger.error(f"PageIndex build failed for {doc_id}: {e}")
                 
+    def _load_existing_pi_trees(self):
+        """Loads all existing .pi.json files from storage into memory cache."""
+        count = 0
+        for category in ["special", "general"]:
+            path = os.path.join(self.pi_storage, category)
+            if not os.path.exists(path): continue
+            
+            for file in os.listdir(path):
+                if file.endswith(".pi.json"):
+                    try:
+                        with open(os.path.join(path, file), 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            with self._pi_cache_lock:
+                                self._pi_cache.append(data)
+                            count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to load tree {file}: {e}")
+        logger.info(f"💾 Loaded {count} PageIndex trees into memory.")
+
     def query(self, question, route="special", image_data=None):
         return self.query_integrated(question, route=route, image_data=image_data)
 
+    def inject_verified_knowledge(self, question, answer, metadata):
+        """Dynamic Knowledge Backflow: Injects physician corrections into PageIndex trees."""
+        logger.info(f"🔄 Injecting knowledge backflow for: {question[:30]}...")
+        
+        # 1. Identify which tree node this belongs to
+        target_node = "procedure" # default
+        if any(k in question for k in ["術前", "禁忌", "過敏", "準備"]): target_node = "pre_op"
+        elif any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "休養"]): target_node = "post_op_short"
+        elif any(k in question for k in ["維持", "多久", "保養", "防曬", "效果"]): target_node = "maintenance"
+
+        # 2. Find the most relevant existing tree in cache
+        # Enhanced matching: Check keywords AND file titles
+        keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question)
+        best_tree = None
+        best_score = 0
+        
+        with self._pi_cache_lock:
+            for item in self._pi_cache:
+                if item.get('version') != "2.0": continue
+                
+                score = 0
+                tree_text = json.dumps(item.get('tree', {}), ensure_ascii=False)
+                filename = os.path.basename(item['id'])
+                
+                # Title weight (Highest priority)
+                title_hits = sum(50 for k in keywords if k in filename)
+                # Content weight
+                content_hits = sum(10 for k in keywords if k in tree_text)
+                
+                score = title_hits + content_hits
+                
+                if score > best_score:
+                    best_score = score
+                    best_tree = item
+
+        if best_tree and best_score >= 10:
+            logger.info(f"📍 Matching tree found: {os.path.basename(best_tree['id'])} (Score: {best_score})")
+            
+            # Update the tree in memory
+            tree = best_tree['tree']
+            note_key = f"{target_node}_physician_notes"
+            
+            # Initialize or append to physician notes
+            existing_notes = tree.get(note_key, "")
+            new_note = f"【醫師校正】: {answer}"
+            
+            if new_note not in existing_notes:
+                tree[note_key] = f"{existing_notes}\n{new_note}".strip()
+                best_tree['indexed_at'] = str(datetime.datetime.now())
+                
+                # Persistent storage update
+                try:
+                    category = "special" if "/special/" in best_tree['id'] else "general"
+                    target_dir = os.path.join(self.pi_storage, category)
+                    tree_file = os.path.join(target_dir, f"{os.path.basename(best_tree['id'])}.pi.json")
+                    with open(tree_file, 'w', encoding='utf-8') as f:
+                        json.dump(best_tree, f, ensure_ascii=False, indent=4)
+                    logger.info(f"💾 PageIndex tree '{tree_file}' updated with physician notes.")
+                except Exception as e:
+                    logger.error(f"Failed to update PageIndex storage: {e}")
+        else:
+            logger.warning(f"⚠️ No matching PageIndex tree found for backflow (Best Score: {best_score}). Skipping direct injection.")
+
     def _get_context(self, question):
-        """Internal helper to gather SQL, PI, and RAG context."""
+        """Internal helper to gather SQL, PI, and RAG context with Physician Note priority."""
         # 1. SQL
         db_path = os.path.join(DATA_DIR, 'db', 'clinic.db')
         sql_context = "無相關資料庫紀錄。"
@@ -212,18 +296,29 @@ class RAGEngine:
             # Handle version 2.0 (Reasoning Tree)
             if item.get('version') == "2.0":
                 tree = item.get('tree', {})
-                # Selective branch extraction
                 relevant_parts = []
+                
+                # Check for physician notes first in each relevant branch
                 if any(k in question for k in ["術前", "禁忌", "過敏", "注意"]):
+                    note = tree.get('pre_op_physician_notes')
+                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
                     relevant_parts.append(f"[術前須知]: {tree.get('pre_op')}")
+                
                 if any(k in question for k in ["步驟", "原理", "怎麼做", "多長"]):
+                    note = tree.get('procedure_physician_notes')
+                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
                     relevant_parts.append(f"[療程原理]: {tree.get('procedure')}")
+                
                 if any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "運動"]):
+                    note = tree.get('post_op_short_physician_notes')
+                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
                     relevant_parts.append(f"[立即照護]: {tree.get('post_op_short')}")
+                
                 if any(k in question for k in ["維持", "多久打一次", "效果", "防曬"]):
+                    note = tree.get('maintenance_physician_notes')
+                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
                     relevant_parts.append(f"[長期保養]: {tree.get('maintenance')}")
                 
-                # If no specific branch matches, use the whole tree
                 summary_text = "\n".join(relevant_parts) if relevant_parts else json.dumps(tree, ensure_ascii=False)
             else:
                 # Legacy version 1.0 (Flat Summary)
