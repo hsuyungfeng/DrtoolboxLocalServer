@@ -6,7 +6,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from flask import Flask, render_template, request
 from flask_cors import CORS
+from dotenv import load_dotenv
 import logging
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,13 +39,23 @@ def create_app():
     app.register_blueprint(staff_actions_bp)
     app.register_blueprint(webhook_bp)
     
-    @app.route('/', methods=['GET'])
+    @app.route('/', methods=['GET', 'POST'])
     def index():
+        if request.method == 'POST':
+            return {
+                "error": "Method Not Allowed on Root",
+                "message": "Please use /webhook/line or /webhook/messenger for your messaging platforms.",
+                "status": "error"
+            }, 405
         return render_template('dashboard.html')
     
     @app.route('/health', methods=['GET'])
     def health():
         return {"status": "ok", "service": "drtoolbox-local-server"}
+        
+    @app.route('/privacy', methods=['GET'])
+    def privacy_policy():
+        return render_template('privacy.html')
         
     @app.route('/。')
     def typo_handler():

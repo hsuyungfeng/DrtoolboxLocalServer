@@ -135,7 +135,7 @@ main {
     animation: fadeIn 0.4s ease-out forwards;
 }
 
-#tab-upload.active-tab, #tab-chat.active-tab {
+#tab-upload.active-tab, #tab-chat.active-tab, #tab-knowledge-map.active-tab {
     display: flex;
     justify-content: center;
 }

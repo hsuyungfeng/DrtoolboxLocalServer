@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Dashboard JS V12 (Optimized) Loading...");
+    console.log("Dashboard JS V13 (Advanced Reasoning) Loading...");
 
     // --- Navigation Tabs ---
     const tabBtns = document.querySelectorAll('nav.nav-tabs .tab-btn');
@@ -7,17 +7,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
+            const tabName = btn.dataset.tab;
+            console.log("Switching to tab:", tabName);
             tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active-tab'));
+            tabContents.forEach(c => {
+                c.style.display = 'none';
+                c.classList.remove('active-tab');
+            });
+
             btn.classList.add('active');
-            const targetId = `tab-${btn.dataset.tab}`;
+            const targetId = `tab-${tabName}`;
             const targetEl = document.getElementById(targetId);
-            if (targetEl) targetEl.classList.add('active-tab');
+            if (targetEl) {
+                targetEl.style.display = (tabName === 'analytics') ? 'grid' : 'block';
+                targetEl.classList.add('active-tab');
+            }
             
-            if (btn.dataset.tab === 'curation') loadLogs();
-            if (btn.dataset.tab === 'articles') loadArticles();
-            if (btn.dataset.tab === 'analytics') loadAnalytics();
-            if (btn.dataset.tab === 'knowledge-map') loadKnowledgeGraph();
+            if (tabName === 'curation') loadLogs();
+            if (tabName === 'articles') loadArticles();
+            if (tabName === 'analytics') loadAnalytics();
+            if (tabName === 'knowledge-map') {
+                // Delay to ensure the panel is visible and has dimensions
+                setTimeout(loadKnowledgeGraph, 100);
+            }
         });
     });
 
@@ -100,69 +112,74 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderLogs() {
         if (!logList) return;
         logList.innerHTML = '';
-        if (currentLogs.length === 0 && currentDrafts.length === 0 && proactiveQA.length === 0) {
-            logList.innerHTML = '<div style="padding:20px; color:#666;">尚無待校正資料。</div>';
-            return;
-        }
-
-        const createItem = (item, type, index, isProactive = false) => {
+        const createItem = (data, type, idx, isProactive) => {
             const div = document.createElement('div');
-            const userPrompt = isProactive ? item.question : (item.messages?.[0]?.content || '無提問');
-            const itemId = isProactive ? item.question : item.timestamp;
-            const key = _getItemKey(isProactive ? 'proactive' : type, itemId);
-            const isSelected = !!pendingEdits[key];
-            const hasDraft = !isProactive && currentDrafts.some(d => d.original_interaction?.messages[0]?.content === userPrompt);
-
-            div.className = `log-item ${isProactive ? 'proactive-item' : ''} ${!isProactive && !isActiveProactive && index === activeLogIndex ? 'active' : ''} ${isActiveProactive && isProactive && index === activeLogIndex ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`;
+            const key = _getItemKey(type, isProactive ? data.question : (type === 'draft' ? data.original_interaction.messages[0].content : data.timestamp));
+            const hasPending = !!pendingEdits[key];
+            const isActive = isActiveProactive === isProactive && activeLogIndex === idx;
             
-            let metaHtml = '';
+            div.className = `log-item ${isActive ? 'active' : ''} ${hasPending ? 'has-draft' : ''} ${isProactive ? 'proactive-item' : ''}`;
+            
+            let content = '';
+            let meta = '';
+            let footer = '';
+
             if (isProactive) {
-                metaHtml = `<span>模擬提問</span><span class="proactive-badge">🚀 ${item.service}</span>`;
+                content = data.question;
+                meta = `模擬提問`;
+                footer = `<span class="badge" style="background:#a855f7;">✨ ${data.service}</span>`;
+            } else if (type === 'draft') {
+                content = data.original_interaction.messages[0].content;
+                meta = `Hermes 建議修正`;
+                footer = `<span class="badge" style="background:var(--accent-color);">🔍 待核查</span>`;
             } else {
-                const score = item.metadata?.confidence_score || 0;
-                let sClass = score >= 85 ? 'score-high' : (score >= 60 ? 'score-mid' : 'score-low');
-                metaHtml = `<span>${new Date(item.timestamp).toLocaleString()}</span><span class="score-badge ${sClass}">${score}%</span>${hasDraft ? '<span class="draft-badge">Hermes 建議</span>' : ''}`;
+                content = data.messages[0].content;
+                meta = data.timestamp.split('T')[1].split('.')[0];
+                footer = `<span class="badge" style="background:#444;">💬 對話紀錄</span>`;
             }
 
             div.innerHTML = `
-                <div style="display:flex; gap:10px; align-items:flex-start;">
-                    <input type="checkbox" class="bulk-check" data-key="${key}" ${isSelected ? 'checked' : ''} style="margin-top:5px; transform: scale(1.2);">
+                <div style="display:flex; gap:12px; align-items:flex-start;">
+                    <input type="checkbox" ${hasPending ? 'checked' : ''} onclick="event.stopPropagation(); toggleItemSelection('${type}', ${idx}, this.checked)">
                     <div style="flex:1;">
-                        <div class="log-meta">${metaHtml}</div>
-                        <div class="log-prompt">${userPrompt}</div>
+                        <div class="log-meta"><span>${meta}</span>${footer}</div>
+                        <div class="log-text">${escapeHtml(content)}</div>
                     </div>
-                </div>`;
-
-            div.querySelector('.bulk-check').addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (e.target.checked) _saveCurrentToPending(isProactive, index);
-                else delete pendingEdits[key];
-            });
-
-            div.addEventListener('click', () => {
-                isActiveProactive = isProactive;
-                if (isProactive) selectProactive(index); else selectLog(index, hasDraft);
-            });
+                </div>
+            `;
+            div.onclick = () => isProactive ? selectProactive(idx) : selectLog(idx, type === 'draft');
             return div;
         };
 
+        const draftsToShow = currentDrafts.filter(d => !_getItemKey('draft', d.original_interaction.messages[0].content) in pendingEdits);
+        
         proactiveQA.slice().reverse().forEach((p, i) => logList.appendChild(createItem(p, 'proactive', proactiveQA.length - 1 - i, true)));
         currentLogs.slice().reverse().forEach((l, i) => logList.appendChild(createItem(l, 'log', currentLogs.length - 1 - i, false)));
     }
 
-    function _saveCurrentToPending(isProactive, index) {
-        let type = 'log', id, prompt, response;
-        if (isProactive) {
-            const p = proactiveQA[index]; type = 'proactive'; id = p.question; prompt = p.question; response = p.answer;
-        } else {
-            const l = currentLogs[index]; id = l.timestamp; 
-            const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === l.messages[0].content);
-            if (draft) { type = 'draft'; id = draft.timestamp; response = draft.hermes_suggestion; }
-            else { response = l.messages.find(m => m.role === 'assistant')?.content || ''; }
-            prompt = l.messages[0].content;
-        }
-        pendingEdits[_getItemKey(type, id)] = { prompt, response, index, isProactive, type, id };
+    function _getActiveKey() {
+        if (activeLogIndex === -1) return null;
+        if (isActiveProactive) return _getItemKey('proactive', proactiveQA[activeLogIndex].question);
+        return _getItemKey('log', currentLogs[activeLogIndex].timestamp);
     }
+
+    window.toggleItemSelection = (type, idx, checked) => {
+        const item = type === 'proactive' ? proactiveQA[idx] : currentLogs[idx];
+        const key = _getItemKey(type, type === 'proactive' ? item.question : item.timestamp);
+        if (checked) {
+            pendingEdits[key] = {
+                prompt: type === 'proactive' ? item.question : item.messages[0].content,
+                response: type === 'proactive' ? item.answer : item.messages[1].content,
+                index: idx,
+                type: type,
+                id: type === 'proactive' ? item.question : item.timestamp,
+                isProactive: type === 'proactive'
+            };
+        } else {
+            delete pendingEdits[key];
+        }
+        renderLogs();
+    };
 
     function selectLog(index, hasDraft = false) {
         _updatePendingFromEditor();
@@ -211,60 +228,44 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.innerHTML = '✅ 批准並存入訓練集';
         if (evidencePanel) evidencePanel.style.display = 'none';
         if (editorPanel) editorPanel.style.display = 'block';
-
-        // NOTE: We no longer auto-click refineBtn because the LLM has already 
-        // pre-answered the question in the background. The clinician can now
-        // manually click "✨ AI Refine" ONLY IF they want a web-integrated search version.
     }
 
     function _updatePendingFromEditor() {
         if (activeLogIndex === -1) return;
         const key = _getActiveKey();
-        if (pendingEdits[key]) {
-            pendingEdits[key].prompt = editorPrompt.value;
-            pendingEdits[key].response = editorResponse.value;
-        }
+        const item = pendingEdits[key] || { prompt: editorPrompt.value, response: editorResponse.value, isProactive: isActiveProactive };
+        item.prompt = editorPrompt.value;
+        item.response = editorResponse.value;
+        pendingEdits[key] = item;
     }
 
-    function _getActiveKey() {
-        if (activeLogIndex === -1) return null;
-        if (isActiveProactive) return _getItemKey('proactive', proactiveQA[activeLogIndex].question);
-        const log = currentLogs[activeLogIndex];
-        const draft = currentDrafts.find(d => d.original_interaction?.messages[0]?.content === log.messages[0].content);
-        return _getItemKey(draft ? 'draft' : 'log', draft ? draft.timestamp : log.timestamp);
-    }
+    if (saveBtn) saveBtn.addEventListener('click', async () => {
+        const key = _getActiveKey();
+        if (!key) return;
+        _updatePendingFromEditor();
+        const item = pendingEdits[key];
 
-    if (selectAllBtn) selectAllBtn.addEventListener('click', () => {
-        const anyUnchecked = Array.from(document.querySelectorAll('.bulk-check')).some(c => !c.checked);
-        if (anyUnchecked) {
-            proactiveQA.forEach((p, i) => _saveCurrentToPending(true, i));
-            currentLogs.forEach((l, i) => _saveCurrentToPending(false, i));
-        } else pendingEdits = {};
-        renderLogs();
-    });
+        const payload = {
+            original_log: item.isProactive ? { messages: [{role:'user', content:item.prompt}] } : currentLogs[item.index],
+            corrected_prompt: item.prompt,
+            corrected_response: item.response,
+            item_type: item.type,
+            item_id: item.id
+        };
 
-    if (selectHighConfBtn) selectHighConfBtn.addEventListener('click', () => {
-        // Clear selection first
-        pendingEdits = {};
-        
-        // Select only items with confidence >= 85
-        currentLogs.forEach((l, i) => {
-            const score = l.metadata?.confidence_score || 0;
-            if (score >= 85) {
-                _saveCurrentToPending(false, i);
+        try {
+            const res = await fetch('/api/dashboard/logs/correct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                delete pendingEdits[key];
+                activeLogIndex = -1;
+                editorPanel.style.display = 'none';
+                loadLogs();
             }
-        });
-        
-        // Proactive items are usually considered high quality
-        proactiveQA.forEach((p, i) => _saveCurrentToPending(true, i));
-        
-        renderLogs();
-        const selectedCount = Object.keys(pendingEdits).length;
-        if (selectedCount > 0) {
-            console.log(`Auto-selected ${selectedCount} high confidence items.`);
-        } else {
-            alert("目前沒有信心分數 >= 85% 的項目。");
-        }
+        } catch (e) { console.error("Save failed", e); }
     });
 
     if (batchSaveBtn) batchSaveBtn.addEventListener('click', async () => {
@@ -350,38 +351,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (saveBtn) saveBtn.addEventListener('click', async () => {
-        if (activeLogIndex === -1) return;
-        _updatePendingFromEditor();
-        const key = _getActiveKey();
-        const item = pendingEdits[key] || { prompt: editorPrompt.value, response: editorResponse.value, isProactive: isActiveProactive };
-        saveBtn.textContent = '儲存中...';
-        try {
-            const res = await fetch('/api/dashboard/logs/correct', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    original_log: isActiveProactive ? { messages: [{role:'user',content:proactiveQA[activeLogIndex].question}] } : currentLogs[activeLogIndex],
-                    corrected_prompt: item.prompt, corrected_response: item.response,
-                    item_type: isActiveProactive ? 'proactive' : (currentDrafts.some(d=>d.original_interaction?.messages[0]?.content === currentLogs[activeLogIndex].messages[0].content) ? 'draft' : 'log'),
-                    item_id: isActiveProactive ? proactiveQA[activeLogIndex].question : currentLogs[activeLogIndex].timestamp
-                })
-            });
-            if (res.ok) { delete pendingEdits[key]; activeLogIndex = -1; editorPanel.style.display = 'none'; loadLogs(); }
-        } catch (e) {} finally { saveBtn.textContent = '驗證並儲存'; }
+    if (selectHighConfBtn) selectHighConfBtn.addEventListener('click', () => {
+        proactiveQA.forEach((p, i) => { if (p.confidence >= 85) toggleItemSelection('proactive', i, true); });
+        currentLogs.forEach((l, i) => { if (l.metadata?.confidence_score >= 85) toggleItemSelection('log', i, true); });
     });
 
-    if (discardBtn) discardBtn.addEventListener('click', async () => {
-        if (activeLogIndex === -1) return;
-        if (!confirm('捨棄此項目？')) return;
-        const key = _getActiveKey();
-        const type = isActiveProactive ? 'proactive' : (currentDrafts.some(d=>d.original_interaction?.messages[0]?.content === currentLogs[activeLogIndex].messages[0].content) ? 'draft' : 'log');
-        const id = isActiveProactive ? proactiveQA[activeLogIndex].question : currentLogs[activeLogIndex].timestamp;
-        try {
-            const res = await fetch('/api/dashboard/logs/discard', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_type: type, item_id: id }) });
-            if (res.ok) { delete pendingEdits[key]; activeLogIndex = -1; editorPanel.style.display = 'none'; loadLogs(); }
-        } catch (e) {}
+    if (selectAllBtn) selectAllBtn.addEventListener('click', () => {
+        proactiveQA.forEach((p, i) => toggleItemSelection('proactive', i, true));
+        currentLogs.forEach((l, i) => toggleItemSelection('log', i, true));
     });
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"};
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function truncate(text, length) {
+        if (!text || text.length <= length) return text;
+        return text.substring(0, length) + '...';
+    }
 
     // --- Tab 4: Article Sync ---
     const articleList = document.getElementById('articleList');
@@ -390,83 +379,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const articleCategory = document.getElementById('articleCategory');
     const articleContent = document.getElementById('articleContent');
     const markSyncedBtn = document.getElementById('markSyncedBtn');
-    let currentArticles = []; let activeArticleIndex = -1;
+    let currentArticles = [];
+    let activeArticleIndex = -1;
+
     async function loadArticles() {
-        if (articleList) articleList.innerHTML = '<div>載入中...</div>';
-        try { const res = await fetch('/api/dashboard/articles'); currentArticles = await res.json(); renderArticles(); } catch (e) {}
-    }
-    function renderArticles() {
-        if (!articleList) return; articleList.innerHTML = '';
-        if (currentArticles.length === 0) { articleList.innerHTML = '<div style="padding:20px; color:#666;">無資料。</div>'; return; }
-        currentArticles.forEach((art, index) => {
-            const div = document.createElement('div'); div.className = `log-item ${index === activeArticleIndex ? 'active' : ''}`;
-            div.innerHTML = `<div class="log-meta"><span>類別: ${art.category}</span></div><div class="log-prompt">${art.title}</div>`;
-            div.addEventListener('click', () => { activeArticleIndex = index; renderArticles(); articleTitle.value = art.title; articleCategory.value = art.category; articleContent.value = art.content; articleEditorPanel.style.display = 'block'; });
-            articleList.appendChild(div);
-        });
-    }
-    if (markSyncedBtn) markSyncedBtn.addEventListener('click', async () => {
-        const art = currentArticles[activeArticleIndex];
+        if (articleList) articleList.innerHTML = '<div style="padding:20px; color:#666;">載入中...</div>';
         try {
-            const res = await fetch('/api/dashboard/articles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: art.title }) });
-            if (res.ok) { currentArticles.splice(activeArticleIndex, 1); activeArticleIndex = -1; articleEditorPanel.style.display = 'none'; renderArticles(); }
-        } catch (e) {}
+            const res = await fetch('/api/dashboard/articles');
+            currentArticles = await res.json();
+            renderArticles();
+        } catch (e) { console.error("Load articles failed", e); }
+    }
+
+    function renderArticles() {
+        if (!articleList) return;
+        articleList.innerHTML = currentArticles.map((a, i) => `
+            <div class="log-item ${activeArticleIndex === i ? 'active' : ''}" onclick="selectArticle(${i})">
+                <div class="log-meta"><span>${a.category}</span><span>ID: ${a.id}</span></div>
+                <div class="log-text">${escapeHtml(a.title)}</div>
+            </div>
+        `).join('');
+    }
+
+    window.selectArticle = (index) => {
+        activeArticleIndex = index; renderArticles();
+        const a = currentArticles[index];
+        articleTitle.value = a.title; articleCategory.value = a.category; articleContent.value = a.content;
+        articleEditorPanel.style.display = 'block';
+    };
+
+    if (markSyncedBtn) markSyncedBtn.addEventListener('click', async () => {
+        const a = currentArticles[activeArticleIndex];
+        try {
+            const res = await fetch('/api/dashboard/articles/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id }) });
+            if (res.ok) { articleEditorPanel.style.display = 'none'; loadArticles(); }
+        } catch (e) { console.error("Sync failed", e); }
     });
 
-    // --- Tab 5: Analytics (BI Dashboard) ---
-    let proceduresChart = null;
-    let painPointsChart = null;
+    if (document.getElementById('copyTitleBtn')) document.getElementById('copyTitleBtn').addEventListener('click', () => copyToClipboard('articleTitle'));
+    if (document.getElementById('copyContentBtn')) document.getElementById('copyContentBtn').addEventListener('click', () => copyToClipboard('articleContent'));
 
-    async function loadAnalytics() {
-        try {
-            const res = await fetch('/api/dashboard/analytics');
-            const data = await res.json();
-            
-            const ctx1 = document.getElementById('proceduresChart').getContext('2d');
-            if (proceduresChart) proceduresChart.destroy();
-            proceduresChart = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: data.top_procedures.map(p => p.name),
-                    datasets: [{
-                        label: '詢問次數',
-                        data: data.top_procedures.map(p => p.count),
-                        backgroundColor: 'rgba(56, 189, 248, 0.4)',
-                        borderColor: '#38bdf8',
-                        borderWidth: 2,
-                        borderRadius: 8
-                    }]
-                },
-                options: { 
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } },
-                    plugins: { legend: { display: false } }
-                }
-            });
-
-            const ctx2 = document.getElementById('painPointsChart').getContext('2d');
-            if (painPointsChart) painPointsChart.destroy();
-            painPointsChart = new Chart(ctx2, {
-                type: 'doughnut',
-                data: {
-                    labels: data.pain_points.map(p => p.name),
-                    datasets: [{
-                        data: data.pain_points.map(p => p.count),
-                        backgroundColor: ['#38bdf8', '#818cf8', '#a855f7', '#f472b6', '#fb7185'],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 20 } } } }
-            });
-        } catch (e) { console.error("Load analytics failed:", e); }
+    // --- Tab 5: Analytics ---
+    function loadAnalytics() {
+        fetch('/api/dashboard/analytics').then(r => r.json()).then(data => {
+            new Chart(document.getElementById('proceduresChart'), { type: 'bar', data: { labels: data.procedures.labels, datasets: [{ label: '詢問次數', data: data.procedures.values, backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
+            new Chart(document.getElementById('painPointsChart'), { type: 'pie', data: { labels: data.pain_points.labels, datasets: [{ data: data.pain_points.values, backgroundColor: ['#ef4444','#f59e0b','#10b981','#3b82f6','#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        });
     }
 
-    // --- Tab 2: Upload Data ---
+    // --- Tab 2: Upload ---
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const folderInput = document.getElementById('folderInput');
     const uploadStatus = document.getElementById('uploadStatus');
+    const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+    const uploadProgressBar = document.getElementById('uploadProgressBar');
     if (document.getElementById('btnSelectFiles')) document.getElementById('btnSelectFiles').addEventListener('click', () => fileInput.click());
     if (document.getElementById('btnSelectFolder')) document.getElementById('btnSelectFolder').addEventListener('click', () => folderInput.click());
     if (dropzone) {
@@ -474,29 +441,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
         dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
     }
-    if (fileInput) fileInput.addEventListener('change', () => handleFiles(fileInput.files));
-    if (folderInput) folderInput.addEventListener('change', () => handleFiles(folderInput.files));
+    if (fileInput) fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    if (folderInput) folderInput.addEventListener('change', (e) => handleFiles(e.target.files));
     async function handleFiles(files) {
         if (!files.length) return;
-        const fileArray = Array.from(files).filter(f => !f.name.startsWith('.') && !f.name.startsWith('~$'));
-        const totalToUpload = fileArray.length;
-        let successCount = 0, failCount = 0;
-        const dataType = document.getElementById('dataTypeSelect').value;
-        const progressContainer = document.getElementById('uploadProgressContainer');
-        if (progressContainer) progressContainer.style.display = 'block';
-        for (let i = 0; i < totalToUpload; i++) {
-            const file = fileArray[i];
-            if (uploadStatus) uploadStatus.innerHTML = `正在上傳 (${i+1}/${totalToUpload}): ${file.name}`;
+        const type = document.getElementById('dataTypeSelect').value;
+        uploadStatus.textContent = `準備上傳 ${files.length} 個檔案...`;
+        uploadProgressContainer.style.display = 'block';
+        let successCount = 0; let failCount = 0;
+        for (let i = 0; i < files.length; i++) {
+            const formData = new FormData(); formData.append('file', files[i]); formData.append('type', type);
             try {
-                const base64Data = await new Promise((resolve, reject) => {
-                    const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.onerror = reject; reader.readAsDataURL(file);
-                });
-                const res = await fetch('/api/dashboard/upload_base64', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, file_data: base64Data, data_type: dataType }) });
-                if (res.ok) { successCount++; document.getElementById('statSuccess').textContent = successCount; } else { throw new Error('Fail'); }
-            } catch (e) { failCount++; document.getElementById('statFail').textContent = failCount; }
-            document.getElementById('uploadProgressBar').style.width = `${Math.round(((i + 1) / totalToUpload) * 100)}%`;
-            document.getElementById('statPending').textContent = totalToUpload - (i + 1);
-            await new Promise(r => setTimeout(r, 100));
+                const res = await fetch('/api/dashboard/upload', { method: 'POST', body: formData });
+                if (res.ok) successCount++; else failCount++;
+                const p = Math.round(((i + 1) / files.length) * 100); uploadProgressBar.style.width = p + '%';
+            } catch (e) { failCount++; }
         }
         if (uploadStatus) uploadStatus.innerHTML = failCount === 0 ? '🎉 全部完成！' : `⚠️ 完畢。失敗: ${failCount}`;
         if (fileInput) fileInput.value = ''; if (folderInput) folderInput.value = '';
@@ -535,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessageToChat('user', text); if (currentBase64Image) { const imgDiv = document.createElement('div'); imgDiv.className = 'message user-msg'; imgDiv.innerHTML = `<img src="data:image/jpeg;base64,${currentBase64Image}" style="max-width:200px; border-radius:8px;">`; chatHistory.appendChild(imgDiv); }
         const imageToSend = currentBase64Image; chatInput.value = ''; currentBase64Image = null; chatImagePreview.style.display = 'none';
         chatInput.disabled = true; chatSendBtn.disabled = true;
-        const div = document.createElement('div'); div.className = 'message bot-msg';
+        const div = document.createElement('div'); div.className = `message bot-msg`;
         const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = '<span class="typing-indicator">...</span>';
         div.appendChild(contentDiv); const footer = document.createElement('div'); footer.style.cssText = 'display:flex; justify-content:flex-end; gap:10px; margin-top:10px; opacity:0.6; font-size:0.7rem; font-family:Outfit;'; div.appendChild(footer);
         chatHistory.appendChild(div); chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -638,17 +597,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadKnowledgeGraph() {
         if (!knowledgeGraphContainer) return;
+        console.log("Loading Knowledge Graph data...");
         try {
-            const res = await fetch('/api/dashboard/knowledge_graph');
+            // Add cache buster
+            const res = await fetch('/api/dashboard/knowledge_graph?cb=' + new Date().getTime());
+            if (!res.ok) throw new Error("HTTP " + res.status);
             const data = await res.json();
+            console.log("Graph data received:", data.nodes.length, "nodes");
             renderD3Graph(data);
         } catch (e) {
             console.error("Failed to load knowledge graph:", e);
+            knowledgeGraphContainer.innerHTML = `<div style="color:#f87171; padding:20px;">⚠️ 載入失敗: ${e.message}</div>`;
         }
     }
 
     function renderD3Graph(data) {
+        if (!knowledgeGraphContainer) return;
         knowledgeGraphContainer.innerHTML = '';
+        
+        if (!data || !data.nodes || data.nodes.length === 0) {
+            knowledgeGraphContainer.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#64748b;">⏳ 推理樹建置中，請稍候重整... (PageIndex 2.0 仍在轉換舊文件)</div>';
+            return;
+        }
+
         const width = knowledgeGraphContainer.clientWidth || 800;
         const height = knowledgeGraphContainer.clientHeight || 600;
 

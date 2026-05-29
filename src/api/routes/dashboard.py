@@ -233,7 +233,7 @@ from src.agent.hermes_core import get_hermes_agent
 agent = get_hermes_agent()
 graph_service = GraphService(agent.rag)
 
-@dashboard_bp.route('/api/dashboard/knowledge_graph', methods=['GET'])
+@dashboard_bp.route('/knowledge_graph', methods=['GET'])
 def get_knowledge_graph():
     """Returns the visual knowledge graph nodes and links."""
     try:
