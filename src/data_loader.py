@@ -47,6 +47,43 @@ def _do_pdf_ocr(pdf_path):
         logger.error(f"PDF OCR failed for {pdf_path}: {e}")
         return ""
 
+def analyze_medical_image(filepath):
+    """Uses LLM Vision to generate a structured clinical progress note from an image."""
+    import base64
+    from src.llm_server import llm_instance
+    
+    try:
+        with open(filepath, "rb") as f:
+            image_data = base64.b64encode(f.read()).decode("utf-8")
+        
+        system_instruction = "你是一個資深的醫學影像分析專家。請觀察這張醫療/手術/術後照片，產出一個專業的『臨床進度摘要』。"
+        user_prompt = """請根據這張圖片提供：
+1. **視覺特徵**：觀察到的主要徵兆（如紅腫、結痂、修復情況）。
+2. **初步判斷**：目前的修復階段（如：術後早期、穩定期）。
+3. **照護建議**：針對目前狀況的具體下一步建議。
+
+請使用繁體中文，格式清晰。"""
+
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}
+                ]
+            }
+        ]
+        
+        analysis = llm_instance.chat_generate(messages, max_tokens=1024)
+        if "<think>" in analysis:
+            analysis = analysis.split("</think>")[-1].strip()
+        
+        return f"--- 🤖 AI 影像臨床分析 ---\n\n{analysis}\n"
+    except Exception as e:
+        logger.error(f"Image analysis failed for {filepath}: {e}")
+        return ""
+
 def extract_text_from_file(filepath):
     from PIL import Image
     import pytesseract
@@ -184,6 +221,13 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
                             continue
                         logger.info(f"[Background OCR] Processing: {file}")
                         extracted_text = extract_text_from_file(filepath)
+                        
+                        # Add Deep Clinical Analysis for medical images
+                        if ext in ['.jpg', '.jpeg', '.png']:
+                            clinical_note = analyze_medical_image(filepath)
+                            if clinical_note:
+                                extracted_text = clinical_note + "\n" + extracted_text
+
                         if extracted_text and extracted_text.strip():
                             try:
                                 with open(txt_path, 'w', encoding='utf-8') as f:

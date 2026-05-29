@@ -1,0 +1,51 @@
+import os
+import json
+import logging
+from src.rag_engine import RAGEngine
+
+logger = logging.getLogger(__name__)
+
+class GraphService:
+    def __init__(self, rag_engine: RAGEngine):
+        self.rag = rag_engine
+
+    def get_knowledge_graph(self):
+        """Extracts nodes and links from PageIndex 2.0 trees."""
+        nodes = []
+        links = []
+        seen_nodes = set()
+
+        with self.rag._pi_cache_lock:
+            cache = list(self.rag._pi_cache)
+
+        for item in cache:
+            if item.get('version') != "2.0": continue
+            
+            # 1. Create a node for the document/topic
+            doc_id = os.path.basename(item['id'])
+            topic = doc_id.replace('.txt', '').replace('.pi.json', '')
+            
+            if topic not in seen_nodes:
+                nodes.append({
+                    "id": topic,
+                    "type": "topic",
+                    "category": "special" if "/special/" in item['id'] else "general"
+                })
+                seen_nodes.add(topic)
+
+            # 2. Extract internal connections (Pre-op -> Procedure -> Post-op)
+            # For now, we represent the logical flow within the document
+            # Future enhancement: NLP extraction of cross-topic entities
+            tree = item.get('tree', {})
+            
+            # Check for Physician Notes as a high-value node type
+            if any("_physician_notes" in k for k in tree.keys()):
+                note_id = f"Note: {topic}"
+                if note_id not in seen_nodes:
+                    nodes.append({"id": note_id, "type": "physician_note"})
+                    links.append({"source": topic, "target": note_id, "type": "has_correction"})
+                    seen_nodes.add(note_id)
+
+        return {"nodes": nodes, "links": links}
+
+graph_service = None # Initialized after RAGEngine

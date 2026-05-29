@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btn.dataset.tab === 'curation') loadLogs();
             if (btn.dataset.tab === 'articles') loadArticles();
             if (btn.dataset.tab === 'analytics') loadAnalytics();
+            if (btn.dataset.tab === 'knowledge-map') loadKnowledgeGraph();
         });
     });
 
@@ -629,6 +630,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 aiRefineBtn.innerHTML = originalText;
             }
         });
+    }
+
+    // --- Knowledge Map (D3.js) ---
+    const knowledgeGraphContainer = document.getElementById('knowledgeGraph');
+    const graphTooltip = document.getElementById('graphTooltip');
+
+    async function loadKnowledgeGraph() {
+        if (!knowledgeGraphContainer) return;
+        try {
+            const res = await fetch('/api/dashboard/knowledge_graph');
+            const data = await res.json();
+            renderD3Graph(data);
+        } catch (e) {
+            console.error("Failed to load knowledge graph:", e);
+        }
+    }
+
+    function renderD3Graph(data) {
+        knowledgeGraphContainer.innerHTML = '';
+        const width = knowledgeGraphContainer.clientWidth || 800;
+        const height = knowledgeGraphContainer.clientHeight || 600;
+
+        const svg = d3.select("#knowledgeGraph")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", [0, 0, width, height]);
+
+        const g = svg.append("g");
+
+        svg.call(d3.zoom().scaleExtent([0.1, 8]).on("zoom", (event) => g.attr("transform", event.transform)));
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(150))
+            .force("charge", d3.forceManyBody().strength(-400))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(60));
+
+        const link = g.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("stroke", "rgba(56, 189, 248, 0.2)")
+            .attr("stroke-width", 1.5)
+            .attr("stroke-dasharray", d => d.type === 'has_correction' ? "4,4" : "0");
+
+        const node = g.append("g")
+            .selectAll("g")
+            .data(data.nodes)
+            .join("g")
+            .style("cursor", "pointer")
+            .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+        node.append("circle")
+            .attr("r", d => d.type === 'physician_note' ? 8 : 12)
+            .attr("fill", d => d.type === 'physician_note' ? "#fbbf24" : (d.category === 'special' ? "#3b82f6" : "#10b981"))
+            .attr("stroke", "rgba(255,255,255,0.2)")
+            .attr("stroke-width", 2);
+
+        node.append("text").text(d => d.id).attr("x", 18).attr("y", 5).attr("fill", "#e2e8f0").style("font-size", "0.8rem");
+
+        node.on("mouseover", (event, d) => {
+            graphTooltip.style.display = 'block';
+            graphTooltip.innerHTML = `<div style="font-weight:600;">${d.id}</div><div style="font-size:0.7rem; color:#94a3b8;">${d.type === 'physician_note' ? '醫師校正筆記' : '醫療主題'}</div>`;
+        }).on("mousemove", (event) => {
+            graphTooltip.style.left = (event.pageX + 20) + 'px';
+            graphTooltip.style.top = (event.pageY - 20) + 'px';
+        }).on("mouseout", () => {
+            graphTooltip.style.display = 'none';
+        });
+
+        simulation.on("tick", () => {
+            link.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        function dragstarted(event) { if (!event.active) simulation.alphaTarget(0.3).restart(); event.subject.fx = event.subject.x; event.subject.fy = event.subject.y; }
+        function dragged(event) { event.subject.fx = event.x; event.subject.fy = event.y; }
+        function dragended(event) { if (!event.active) simulation.alphaTarget(0); event.subject.fx = null; event.subject.fy = null; }
     }
 
     loadLogs();

@@ -226,7 +226,22 @@ def save_correction():
     _remove_from_source(data.get('item_type'), data.get('item_id'))
     return jsonify({"status": "success"})
 
-@dashboard_bp.route('/logs/batch_discard', methods=['POST'])
+from src.services.graph_service import GraphService
+
+# Initialize GraphService with the existing RAG engine
+from src.agent.hermes_core import get_hermes_agent
+agent = get_hermes_agent()
+graph_service = GraphService(agent.rag)
+
+@dashboard_bp.route('/api/dashboard/knowledge_graph', methods=['GET'])
+def get_knowledge_graph():
+    """Returns the visual knowledge graph nodes and links."""
+    try:
+        data = graph_service.get_knowledge_graph()
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Failed to generate knowledge graph: {e}")
+        return jsonify({"error": str(e)}), 500
 def batch_discard_items():
     data = request.json
     if not data or 'items' not in data:

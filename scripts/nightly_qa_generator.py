@@ -59,6 +59,56 @@ class QAGenerator:
         
         return list(set(topics))
 
+    def perform_global_reasoning(self, category="special"):
+        """Cross-document reasoning to find synergies or contradictions."""
+        directory = SPECIAL_DATA_DIR if category == "special" else GENERAL_DATA_DIR
+        topics = self.scan_for_topics(directory)
+        logger.info(f"Starting Global Reasoning for {category} topics: {topics}")
+
+        for topic in topics:
+            # 1. Gather all document content for this topic
+            relevant_docs = []
+            files = [f for f in os.listdir(directory) if f.endswith('.txt')]
+            for f in files:
+                if topic.lower() in f.lower():
+                    try:
+                        with open(os.path.join(directory, f), 'r', encoding='utf-8') as file:
+                            relevant_docs.append({"name": f, "content": file.read(3000)})
+                    except: continue
+            
+            if len(relevant_docs) < 2: continue # Need at least 2 to compare
+
+            # 2. Ask LLM to find Synergy or Contradiction
+            docs_summary = "\n\n".join([f"--- 文件: {d['name']} ---\n{d['content']}" for d in relevant_docs[:5]])
+            
+            reasoning_prompt = f"""你是一個資深的醫療數據分析官。請分析以下關於『{topic}』的多份文件，找出它們之間的「邏輯連結」。
+
+目標：
+1. **協同 (Synergy)**：不同文件是否互補？（例如：A 文件說原理，B 文件說具體操作）。
+2. **矛盾 (Contradiction)**：不同文件是否有衝突？（例如：禁忌症描述不一致）。
+3. **臨床洞察**：彙整出一個最權威的綜合建議。
+
+要求：
+- 使用繁體中文。
+- 格式清晰，條列重點。
+- 標註來源文件。
+
+文件內容：
+{docs_summary}
+"""
+            global_insight = llm_instance.generate(reasoning_prompt, max_tokens=1500)
+            if "<think>" in global_insight:
+                global_insight = global_insight.split("</think>")[-1].strip()
+
+            logger.info(f"Global Insight for {topic} generated. Injecting backflow...")
+
+            # 3. Inject back into PageIndex trees as Physician Notes
+            self.rag.inject_verified_knowledge(
+                question=f"🚀 {topic} (全域邏輯分析)",
+                answer=f"【系統自動彙整 - 全域分析】：\n{global_insight}",
+                metadata={"category": category, "is_global_reasoning": True}
+            )
+
     def generate_qa(self, category="special"):
         """Generates questions and answers for identified services/topics."""
         directory = SPECIAL_DATA_DIR if category == "special" else GENERAL_DATA_DIR
@@ -178,6 +228,10 @@ class QAGenerator:
 
 if __name__ == "__main__":
     gen = QAGenerator()
-    # Run for both clinic-specific and general medical data
+    # 1. First, perform cross-document logical reasoning (The "Understanding" layer)
+    gen.perform_global_reasoning("special")
+    gen.perform_global_reasoning("general")
+    
+    # 2. Then, generate simulated QA pairs
     gen.generate_qa("special")
     gen.generate_qa("general")
