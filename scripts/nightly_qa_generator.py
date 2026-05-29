@@ -151,8 +151,9 @@ class QAGenerator:
                 
                 # 3. Use the existing Deep RAG to answer
                 # IMPORTANT: Add topic context to the query to prevent generic greetings
+                # Force LLM knowledge for proactive generation so there's always a draft
                 rag_query = f"關於『{topic}』的問題：{actual_question}"
-                answer, confidence = self.rag.query_integrated(rag_query, route=category)
+                answer, confidence = self.rag.query_integrated(rag_query, route=category, force_llm_knowledge=True)
                 
                 # 4. Save to log
                 entry = {

@@ -350,8 +350,8 @@ class RAGEngine:
         
         return sql_context, pi_context, rag_context
 
-    def query_integrated(self, question, route="special", image_data=None):
-        logger.info(f"Deep Hybrid Reasoning ({route}) for: {question} (image: {image_data is not None})")
+    def query_integrated(self, question, route="special", image_data=None, force_llm_knowledge=False):
+        logger.info(f"Deep Hybrid Reasoning ({route}) for: {question} (image: {image_data is not None}, force_llm: {force_llm_knowledge})")
         sql_context, pi_context, rag_context = self._get_context(question)
         
         # 1. First, get the answer
@@ -365,6 +365,12 @@ class RAGEngine:
             user_content = question
 
         if route == "special":
+            # Simulation/Drafting mode fallback logic
+            if force_llm_knowledge:
+                not_found_instruction = "4. **找不到資料時**：若內部資料庫中沒有相關資訊，請根據你的「專業醫療與醫美知識」提供一個初步草案回答，並在回答開頭標註『[AI 預擬草案]』，供醫師後續校正。"
+            else:
+                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"
+
             system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
 {'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
@@ -382,7 +388,7 @@ class RAGEngine:
 1. **嚴禁簡體中文**：全程必須使用繁體中文。
 2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
 3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。遇到價格一律引導致電診所。
-4. **找不到資料時**：若真的完全沒有關於該主題的資料，請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+{not_found_instruction}"""
         else:
             # General Knowledge Mode
             system_instruction = f"""你是一個專業的醫學與健康知識 AI 助理。今天是 {current_date}。
@@ -434,8 +440,8 @@ class RAGEngine:
             
         return answer, confidence_score
 
-    def query_integrated_stream(self, question, route="special", image_data=None):
-        logger.info(f"Deep Hybrid Reasoning (Stream, {route}) for: {question} (image: {image_data is not None})")
+    def query_integrated_stream(self, question, route="special", image_data=None, force_llm_knowledge=False):
+        logger.info(f"Deep Hybrid Reasoning (Stream, {route}) for: {question} (image: {image_data is not None}, force_llm: {force_llm_knowledge})")
         sql_context, pi_context, rag_context = self._get_context(question)
         
         current_date = datetime.date.today()
@@ -450,24 +456,30 @@ class RAGEngine:
             user_content = question
 
         if route == "special":
+            if force_llm_knowledge:
+                not_found_instruction = "4. **找不到資料時**：若內部資料庫中沒有相關資訊，請根據你的「專業醫療與醫美知識」提供一個初步草案回答，並在回答開頭標註『[AI 預擬草案]』，供醫師後續校正。"
+            else:
+                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"
+
             system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
-你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
-{'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
+        你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
+        {'如果你看到圖片，請結合圖片中的臨床徵兆進行分析。' if image_data else ''}
 
-【核心資料來源：PageIndex 專業摘要 (具備高層次邏輯)】
-{pi_context}
+        【核心資料來源：PageIndex 專業摘要 (具備高層次邏輯)】
+        {pi_context}
 
-【輔助資料來源：原始文本片段 (具備細節)】
-{rag_context}
+        【輔助資料來源：原始文本片段 (具備細節)】
+        {rag_context}
 
-【基礎資料來源：診所資料庫 (營運相關)】
-{sql_context}
+        【基礎資料來源：診所資料庫 (營運相關)】
+        {sql_context}
 
-【專業回答指南】
-1. **嚴禁簡體中文**：全程必須使用繁體中文。
-2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
-3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。
-4. **找不到資料時**：若真的完全沒有關於該主題的資料，請告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"""
+        【專業回答指南】
+        1. **嚴禁簡體中文**：全程必須使用繁體中文。
+        2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
+        3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。遇到價格一律引導致電診所。
+        {not_found_instruction}"""
+
         else:
             system_instruction = f"""你是一個專業的醫學與健康知識 AI 助理。今天是 {current_date}。
 你可以結合「提供的參考資料」與你的「專業醫學知識庫」來回答使用者的健康問題。
