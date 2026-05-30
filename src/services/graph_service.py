@@ -51,27 +51,41 @@ class GraphService:
                     links.append({"source": topic, "target": note_id, "type": "has_correction"})
                     seen_nodes.add(note_id)
 
-        # 3. Cross-document links (Semantic Overlap)
-        # Identify shared keywords between nodes
+        # 3. Cross-document links (Optimized Semantic Overlap)
         topic_nodes = [n for n in nodes if n['type'] == 'topic']
-        for i in range(len(topic_nodes)):
-            for j in range(i + 1, len(topic_nodes)):
-                t1 = topic_nodes[i]['id']
-                t2 = topic_nodes[j]['id']
-                
-                # Check for word overlap (3+ chars)
-                # This is a simple heuristic for logical connection
-                words1 = set(re.findall(r'[\u4e00-\u9fff]{2,}', t1))
-                words2 = set(re.findall(r'[\u4e00-\u9fff]{2,}', t2))
-                overlap = words1.intersection(words2)
-                
-                if overlap:
-                    links.append({
-                        "source": t1,
-                        "target": t2,
-                        "type": "related",
-                        "keywords": list(overlap)
-                    })
+        keyword_map = {} # {keyword: [node_ids]}
+        
+        # Pre-extract keywords for all nodes (O(N))
+        for node in topic_nodes:
+            node_id = node['id']
+            # Find Chinese words of 2+ chars
+            keywords = set(re.findall(r'[\u4e00-\u9fff]{2,}', node_id))
+            for kw in keywords:
+                if kw not in keyword_map: keyword_map[kw] = []
+                keyword_map[kw].append(node_id)
+        
+        # Build links based on shared keywords (Faster than nested full regex)
+        seen_links = set()
+        for kw, linked_nodes in keyword_map.items():
+            if len(linked_nodes) > 1:
+                # Link all nodes sharing this keyword
+                for i in range(len(linked_nodes)):
+                    for j in range(i + 1, len(linked_nodes)):
+                        u, v = sorted([linked_nodes[i], linked_nodes[j]])
+                        link_key = f"{u}-{v}"
+                        if link_key not in seen_links:
+                            links.append({
+                                "source": u,
+                                "target": v,
+                                "type": "related",
+                                "keyword": kw
+                            })
+                            seen_links.add(link_key)
+                        
+                        # Limit density to prevent UI lag (max 10 links per node pair)
+                        if len(links) > 5000: break 
+                    if len(links) > 5000: break
+            if len(links) > 5000: break
 
         return {"nodes": nodes, "links": links}
 

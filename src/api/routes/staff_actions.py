@@ -862,10 +862,20 @@ def get_patient_profile(patient_id):
 @staff_actions_bp.route('/dashboard/staff/patient/<int:patient_id>')
 def patient_detail_page(patient_id):
     """Render patient detail/history page"""
+    staff_id, error, status = require_staff_auth()
+    if error:
+        from flask import redirect, url_for
+        return f"<h1>401 Unauthorized</h1><p>請從訓練控制面板點擊進入，或在 Header 中提供有效 Staff ID。</p>", 401
+    
     from flask import render_template
     return render_template('staff_patient_detail.html', patient_id=patient_id)
+
+@staff_actions_bp.route('/dashboard/staff/approvals/')
 def approvals_page():
     """Render approvals page"""
+    staff_id, error, status = require_staff_auth()
+    if error: return f"<h1>401 Unauthorized</h1>", 401
+    
     from flask import render_template
     return render_template('staff_approvals.html')
 

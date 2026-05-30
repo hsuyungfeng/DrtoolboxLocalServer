@@ -259,9 +259,12 @@ class HermesAgent:
 
 # Singleton
 _agent_instance = None
+_agent_lock = threading.Lock()
 
 def get_hermes_agent() -> HermesAgent:
     global _agent_instance
     if _agent_instance is None:
-        _agent_instance = HermesAgent()
+        with _agent_lock:
+            if _agent_instance is None:
+                _agent_instance = HermesAgent()
     return _agent_instance

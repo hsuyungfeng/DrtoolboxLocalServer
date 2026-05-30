@@ -86,7 +86,8 @@ class ConnectionPool:
         if self.config.db_type == "sqlite":
             if not self.config.db_path:
                 raise HISConnectionError("HIS_DB_PATH required for SQLite")
-            conn = sqlite3.connect(self.config.db_path, timeout=self.config.query_timeout)
+            # Added check_same_thread=False for pool usage in async webhooks
+            conn = sqlite3.connect(self.config.db_path, timeout=self.config.query_timeout, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA query_only = ON")
             logger.info(f"Created SQLite connection to {self.config.db_path}")

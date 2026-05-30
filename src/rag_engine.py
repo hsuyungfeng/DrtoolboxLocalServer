@@ -245,28 +245,35 @@ class RAGEngine:
         if best_tree and best_score >= 10:
             logger.info(f"📍 Matching tree found: {os.path.basename(best_tree['id'])} (Score: {best_score})")
             
-            # Update the tree in memory
-            tree = best_tree['tree']
-            note_key = f"{target_node}_physician_notes"
-            
-            # Initialize or append to physician notes
-            existing_notes = tree.get(note_key, "")
-            new_note = f"【醫師校正】: {answer}"
-            
-            if new_note not in existing_notes:
-                tree[note_key] = f"{existing_notes}\n{new_note}".strip()
-                best_tree['indexed_at'] = str(datetime.datetime.now())
+            with self._pi_cache_lock:
+                # Update the tree in memory (Inside Lock)
+                tree = best_tree['tree']
+                note_key = f"{target_node}_physician_notes"
                 
-                # Persistent storage update
-                try:
-                    category = "special" if "/special/" in best_tree['id'] else "general"
-                    target_dir = os.path.join(self.pi_storage, category)
-                    tree_file = os.path.join(target_dir, f"{os.path.basename(best_tree['id'])}.pi.json")
-                    with open(tree_file, 'w', encoding='utf-8') as f:
-                        json.dump(best_tree, f, ensure_ascii=False, indent=4)
-                    logger.info(f"💾 PageIndex tree '{tree_file}' updated with physician notes.")
-                except Exception as e:
-                    logger.error(f"Failed to update PageIndex storage: {e}")
+                # Initialize or append to physician notes
+                existing_notes = tree.get(note_key, "")
+                new_note = f"【醫師校正】: {answer}"
+                
+                if new_note not in existing_notes:
+                    tree[note_key] = f"{existing_notes}\n{new_note}".strip()
+                    best_tree['indexed_at'] = str(datetime.datetime.now())
+                    
+                    # Persistent storage update (Atomic Write)
+                    try:
+                        category = "special" if "/special/" in best_tree['id'] else "general"
+                        target_dir = os.path.join(self.pi_storage, category)
+                        os.makedirs(target_dir, exist_ok=True)
+                        tree_file = os.path.join(target_dir, f"{os.path.basename(best_tree['id'])}.pi.json")
+                        
+                        # Atomic write pattern: write to temp then replace
+                        temp_file = tree_file + ".tmp"
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(best_tree, f, ensure_ascii=False, indent=4)
+                        os.replace(temp_file, tree_file)
+                        
+                        logger.info(f"💾 PageIndex tree '{tree_file}' updated atomically.")
+                    except Exception as e:
+                        logger.error(f"Failed to update PageIndex storage: {e}")
         else:
             logger.warning(f"⚠️ No matching PageIndex tree found for backflow (Best Score: {best_score}). Skipping direct injection.")
 

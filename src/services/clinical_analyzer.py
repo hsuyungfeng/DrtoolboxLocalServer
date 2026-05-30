@@ -45,15 +45,35 @@ class ClinicalAnalyzer:
             df['age_group'] = pd.cut(df['age'], bins=age_bins, labels=age_labels)
             age_dist = df['age_group'].value_counts().to_dict()
 
-            # 3. Knowledge Gap Analysis (RAG Confidence)
-            knowledge_gaps = self._analyze_knowledge_gaps()
-
+            # 3. ehrapy specific analysis (Preprocessing & Clustering)
+            if len(df) >= 3: # Lowered threshold for pilot testing
+                try:
+                    import anndata as ad
+                    # Ensure numeric data for ehrapy
+                    analysis_df = df[['age']].copy()
+                    adata = ad.AnnData(X=analysis_df.values.astype('float32'), obs=df[['patient_id']].astype(str))
+                    adata.var_names = ['age']
+                    
+                    # ehrapy pipeline
+                    ep.pp.scale(adata)
+                    ep.tl.pca(adata)
+                    ep.pp.neighbors(adata, n_neighbors=min(len(df)-1, 15))
+                    ep.tl.leiden(adata, resolution=0.5)
+                    
+                    logger.info(f"Deep clustering complete. Found {len(adata.obs['leiden'].unique())} phenotypes.")
+                except Exception as inner_e:
+                    logger.warning(f"Deep clustering skipped: {inner_e}")
+            
             # 4. Save Insights
             insight_file = os.path.join(self.output_dir, f"clinical_insights_{datetime.now().strftime('%Y%m%d')}.json")
             
+            # Handle NaN for avg_age
+            avg_age = float(df['age'].mean()) if not df['age'].empty else 0
+            if pd.isna(avg_age): avg_age = 0
+
             summary = {
                 "total_patients": len(df),
-                "avg_age": float(df['age'].mean()),
+                "avg_age": avg_age,
                 "age_distribution": {
                     "labels": list(age_dist.keys()),
                     "values": [int(v) for v in age_dist.values()]
