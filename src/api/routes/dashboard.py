@@ -309,6 +309,20 @@ def export_training_data():
     if not os.path.exists(correction_file): return jsonify({"error": "No training data"}), 404
     return send_file(correction_file, as_attachment=True, download_name="verified_training_data.jsonl")
 
+from src.services.clinical_analyzer import clinical_analyzer
+
+@dashboard_bp.route('/clinical_insights', methods=['GET'])
+def get_clinical_insights():
+    """Fetches deep clinical insights using ehrapy."""
+    try:
+        data = clinical_analyzer.extract_and_analyze()
+        if data:
+            return jsonify(data)
+        return jsonify({"error": "No clinical data"}), 404
+    except Exception as e:
+        logger.error(f"Clinical analysis failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @dashboard_bp.route('/analytics', methods=['GET'])
 def get_analytics():
     """Fetches structured analytics data for the BI Dashboard."""

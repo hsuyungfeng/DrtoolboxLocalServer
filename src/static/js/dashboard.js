@@ -482,6 +482,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // 3. Load Deep Clinical Insights (ehrapy)
+        fetch('/api/dashboard/clinical_insights').then(r => r.ok ? r.json() : null).then(data => {
+            if (!data) return;
+            
+            // Clinical Clusters (Using Age Distribution for this view)
+            new Chart(document.getElementById('clinicalClustersChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.age_distribution.labels,
+                    datasets: [{
+                        label: '病患年齡分佈',
+                        data: data.age_distribution.values,
+                        backgroundColor: '#10b981',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
+                }
+            });
+
+            // Knowledge Gaps List
+            const gapList = document.getElementById('knowledgeGapsList');
+            if (gapList && data.knowledge_gaps) {
+                if (data.knowledge_gaps.length === 0) {
+                    gapList.innerHTML = '<div class="alert alert-success" style="font-size:0.85rem;">✅ 目前 RAG 信心度表現良好，無明顯知識缺口。</div>';
+                } else {
+                    gapList.innerHTML = `
+                        <div style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">偵測到以下主題 AI 信心度較低，建議補充 PageIndex：</div>
+                        ${data.knowledge_gaps.map(g => `
+                            <div style="display:flex; justify-content:between; align-items:center; margin-bottom:8px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                                <div style="flex:1;">
+                                    <span style="color:#f87171; font-weight:600;"># ${g.topic}</span>
+                                    <div style="font-size:0.7rem; color:#64748b;">出現頻率: ${g.count} 次</div>
+                                </div>
+                                <button class="btn btn-sm" style="background:var(--accent-color); color:white; font-size:0.7rem;" onclick="alert('請前往上傳資料頁籤，補充此主題的詳細文件。')">補強知識</button>
+                            </div>
+                        `).join('')}
+                    `;
+                }
+            }
+        });
     }
 
     // --- Tab 2: Upload ---

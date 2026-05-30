@@ -26,7 +26,6 @@ class ClinicalAnalyzer:
         try:
             # 1. Load Data
             conn = sqlite3.connect(self.db_path)
-            # We focus on patient demographics and basic history for this pilot
             query = "SELECT patient_id, dob, medical_history, allergies FROM patients"
             df = pd.read_sql_query(query, conn)
             conn.close()
@@ -36,39 +35,30 @@ class ClinicalAnalyzer:
                 return None
 
             # 2. Preprocessing
-            # Calculate age from DOB
             df['dob'] = pd.to_datetime(df['dob'], errors='coerce')
             df['age'] = datetime.now().year - df['dob'].dt.year
-            df = df.drop(columns=['dob'])
+            df = df[df['age'].notnull()]
+            
+            # Age Buckets for Chart.js
+            age_bins = [0, 20, 30, 40, 50, 60, 100]
+            age_labels = ['<20', '20-30', '30-40', '40-50', '50-60', '60+']
+            df['age_group'] = pd.cut(df['age'], bins=age_bins, labels=age_labels)
+            age_dist = df['age_group'].value_counts().to_dict()
 
-            # Direct AnnData creation (ehrapy uses anndata under the hood)
-            import anndata as ad
-            adata = ad.AnnData(df)
-            adata.obs_names = df['patient_id'].astype(str)
-            
-            # 3. ehrapy specific analysis (Preprocessing & Clustering)
-            # Note: ehrapy and its dependencies (faiss, etc.) can be sensitive to small datasets
-            if len(adata) > 10:
-                try:
-                    # Deep Analysis with ehrapy
-                    # ep.pp.knn_impute(adata) # Skiped due to potential crash on small data
-                    ep.pp.scale(adata)
-                    ep.tl.pca(adata)
-                    ep.pp.neighbors(adata)
-                    ep.tl.leiden(adata, resolution=0.5)
-                    logger.info(f"Deep clustering complete. Found {len(adata.obs['leiden'].unique())} phenotypes.")
-                except Exception as inner_e:
-                    logger.warning(f"Deep clustering skipped: {inner_e}")
-            else:
-                logger.info("Dataset too small for deep ehrapy clustering. Using heuristic fallback.")
-            
+            # 3. Knowledge Gap Analysis (RAG Confidence)
+            knowledge_gaps = self._analyze_knowledge_gaps()
+
             # 4. Save Insights
             insight_file = os.path.join(self.output_dir, f"clinical_insights_{datetime.now().strftime('%Y%m%d')}.json")
             
-            # Summary of clusters for the dashboard
             summary = {
                 "total_patients": len(df),
                 "avg_age": float(df['age'].mean()),
+                "age_distribution": {
+                    "labels": list(age_dist.keys()),
+                    "values": [int(v) for v in age_dist.values()]
+                },
+                "knowledge_gaps": knowledge_gaps,
                 "timestamp": datetime.now().isoformat(),
                 "insights": self._generate_text_insights(df)
             }
@@ -80,7 +70,32 @@ class ClinicalAnalyzer:
 
         except Exception as e:
             logger.error(f"Ehrapy analysis failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return None
+
+    def _analyze_knowledge_gaps(self):
+        """Analyzes recent logs to find topics with low AI confidence."""
+        import glob
+        gaps = {}
+        log_files = glob.glob(os.path.join(DATA_DIR, "interactions_*.jsonl"))
+        
+        for log_file in log_files[-3:]: # Check last 3 days
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        entry = json.loads(line)
+                        meta = entry.get('metadata', {})
+                        conf = meta.get('confidence_score', 100)
+                        if conf < 65:
+                            # Heuristic: Extract first 3 words as topic
+                            topic = " ".join(entry['messages'][0]['content'].split()[:3])
+                            gaps[topic] = gaps.get(topic, 0) + 1
+            except: continue
+            
+        # Return top 5 gaps
+        sorted_gaps = sorted(gaps.items(), key=lambda x: x[1], reverse=True)
+        return [{"topic": k, "count": v} for k, v in sorted_gaps[:5]]
 
     def _generate_text_insights(self, df):
         """Heuristic text insights for PageIndex backflow."""

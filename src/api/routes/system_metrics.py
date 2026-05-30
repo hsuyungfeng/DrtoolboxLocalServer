@@ -13,10 +13,13 @@ def system_dashboard():
     """Render the system dashboard page."""
     return render_template('system_dashboard.html')
 
+from src.services.health_monitor_service import health_monitor
+
 @system_metrics_bp.route('/api/v1/system/metrics', methods=['GET'])
 def get_metrics():
     """Get system metrics for dashboard."""
     metrics = {
+        'health_check': health_monitor.get_current_health(),
         'database': {
             'pool_size': 0,
             'available_connections': 0,
