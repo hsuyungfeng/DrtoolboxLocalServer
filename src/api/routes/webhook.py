@@ -85,13 +85,17 @@ def process_line_message_bg(reply_token, user_id, user_text):
     """Background worker for LLM reasoning and LINE response."""
     try:
         from src.agent.hermes_core import get_hermes_agent
+        from src.services.logger_service import logger_service
         agent = get_hermes_agent()
         
         # 1. Safety Guardrail
         is_high_risk = agent._check_high_risk(user_text)
         if is_high_risk:
             reply = "⚠️ **系統提示**：偵測到您提到的症狀可能需要立即處理。\n\n請撥打診所緊急電話：04-2395-0960，或前往急診。"
-            line_bot_api.push_message(user_id, TextSendMessage(text=reply))
+            if line_bot_api:
+                line_bot_api.push_message(user_id, TextSendMessage(text=reply))
+            # Log the risk interaction
+            logger_service.log_interaction(user_id, user_text, reply, "emergency", is_high_risk=True)
             return
 
         # 2. Reasoning (Heavy Task)
@@ -101,23 +105,54 @@ def process_line_message_bg(reply_token, user_id, user_text):
         formatted_text = LineBeautifier.format_text(response)
         
         # 4. Generate Messaging Object
-        if route == "special" and any(k in user_text for k in ["地址", "電話", "去", "位置", "在哪"]):
-            flex_content = LineBeautifier.build_clinic_info_card()
-            message_obj = FlexSendMessage(alt_text="診所聯絡資訊", contents=flex_content)
-        elif len(formatted_text) > 300:
-            title = "💡 專家建議" if route == "general" else "🏥 療程說明"
-            flex_content = LineBeautifier.build_flex_bubble(title, formatted_text, footer_text="緻妍 AI 醫療助手服務中")
-            message_obj = FlexSendMessage(alt_text="AI 回覆", contents=flex_content)
-        else:
-            message_obj = TextSendMessage(text=formatted_text)
+        # --- NEW: Marketing Conversion Trigger ---
+        treatment_card = None
+        lower_query = user_text.lower()
+        
+        if "外泌體" in lower_query or "exosome" in lower_query:
+            treatment_card = LineBeautifier.build_treatment_card("exosomes")
+        elif "皮秒" in lower_query or "pico" in lower_query:
+            treatment_card = LineBeautifier.build_treatment_card("pico")
+        elif "水飛梭" in lower_query or "hydrafacial" in lower_query:
+            treatment_card = LineBeautifier.build_treatment_card("hydrafacial")
 
-        # 5. Push Message (Push is safer than Reply for long-running tasks)
-        line_bot_api.push_message(user_id, message_obj)
+        if not line_bot_api:
+            logger.warning("LINE API not initialized, skipping response push.")
+        else:
+            if treatment_card:
+                # Send the clinical answer first, then the marketing card
+                line_bot_api.push_message(user_id, TextSendMessage(text=formatted_text))
+                line_bot_api.push_message(user_id, FlexSendMessage(alt_text="專屬療程建議", contents=treatment_card))
+            elif route == "special" and any(k in user_text for k in ["地址", "電話", "去", "位置", "在哪"]):
+                flex_content = LineBeautifier.build_clinic_info_card()
+                line_bot_api.push_message(user_id, FlexSendMessage(alt_text="診所聯絡資訊", contents=flex_content))
+            elif len(formatted_text) > 300:
+                # Traditional Sequential Messaging (Split into multiple messages)
+                title = "💡 專家建議" if route == "general" else "🏥 療程說明"
+                bubbles = LineBeautifier.build_flex_bubbles(title, formatted_text, footer_text="緻妍 AI 醫療助手服務中")
+                
+                for i, bubble in enumerate(bubbles[:5]):
+                    line_bot_api.push_message(user_id, FlexSendMessage(alt_text=f"AI 回覆 (第 {i+1} 部分)", contents=bubble))
+            else:
+                line_bot_api.push_message(user_id, TextSendMessage(text=formatted_text))
+
+        # 6. LOG TO DASHBOARD
+        logger_service.log_interaction(
+            user_id=user_id,
+            prompt=user_text,
+            response=response,
+            route_used=route,
+            is_high_risk=risk,
+            confidence_score=conf
+        )
         
     except Exception as e:
         logger.error(f"Error in LINE background worker: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         try:
-            line_bot_api.push_message(user_id, TextSendMessage(text="抱歉，系統目前忙碌中，請稍後再試。"))
+            if line_bot_api:
+                line_bot_api.push_message(user_id, TextSendMessage(text="抱歉，系統目前忙碌中，請稍後再試。"))
         except: pass
 
 # Load Messenger credentials
@@ -163,6 +198,7 @@ def handle_messenger_message(psid, received_message):
     try:
         import requests
         from src.agent.hermes_core import get_hermes_agent
+        from src.services.logger_service import logger_service
         agent = get_hermes_agent()
         
         # 1. Safety Guardrail (High Risk)
@@ -170,6 +206,7 @@ def handle_messenger_message(psid, received_message):
         if is_high_risk:
             reply = "⚠️ **系統提示**：偵測到您提到的症狀可能需要立即處理。\n\n請撥打診所緊急電話：04-2395-0960，或前往急診。"
             send_messenger_reply(psid, reply)
+            logger_service.log_interaction(psid, user_text, reply, "emergency", is_high_risk=True)
             return
 
         # 2. Dynamic RAG Reasoning
@@ -180,6 +217,16 @@ def handle_messenger_message(psid, received_message):
             response += "\n\n💡 建議直接致電診所或於粉專私訊專人預約。"
 
         send_messenger_reply(psid, response)
+
+        # 4. LOG TO DASHBOARD
+        logger_service.log_interaction(
+            user_id=psid,
+            prompt=user_text,
+            response=response,
+            route_used=route,
+            is_high_risk=risk,
+            confidence_score=conf
+        )
         
     except Exception as e:
         logger.error(f"Error handling Messenger message: {e}")

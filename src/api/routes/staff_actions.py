@@ -805,7 +805,65 @@ def suggest_curation_correction():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@staff_actions_bp.route('/dashboard/staff/approvals/')
+# ============================================================================
+# Patient CRM & History APIs
+# ============================================================================
+
+@staff_actions_bp.route('/api/v1/patient/<int:patient_id>/profile', methods=['GET'])
+def get_patient_profile(patient_id):
+    """取得病患詳細檔案與歷史對話"""
+    staff_id, error, status = require_staff_auth()
+    if error: return error, status
+    
+    from src.services.patient_service import PatientService
+    from config.settings import DATA_DIR
+    import glob
+    
+    service = PatientService()
+    try:
+        patient = service.get_patient_by_id(patient_id)
+        if not patient:
+            return jsonify({'success': False, 'error': 'Patient not found'}), 404
+            
+        # Get Platform Mappings (LINE/Messenger IDs)
+        # Search in clinic.db mappings table
+        his = get_his_connection()
+        mappings = his.execute("SELECT line_user_id FROM line_user_mapping WHERE patient_id = ?", (patient_id,))
+        platform_ids = [m['line_user_id'] for m in mappings]
+        
+        # Aggregate History from JSONL Logs
+        history = []
+        log_files = glob.glob(os.path.join(DATA_DIR, "interactions_*.jsonl"))
+        
+        for log_file in log_files:
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if not line.strip(): continue
+                        log_entry = json.loads(line)
+                        # Match if the user_id in log is one of the patient's platform IDs
+                        if log_entry.get('user_id') in platform_ids:
+                            history.append(log_entry)
+            except: continue
+            
+        # Sort history by timestamp
+        history.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'patient': patient,
+            'history': history,
+            'platform_ids': platform_ids
+        })
+    except Exception as e:
+        logger.error(f"Failed to fetch patient profile: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@staff_actions_bp.route('/dashboard/staff/patient/<int:patient_id>')
+def patient_detail_page(patient_id):
+    """Render patient detail/history page"""
+    from flask import render_template
+    return render_template('staff_patient_detail.html', patient_id=patient_id)
 def approvals_page():
     """Render approvals page"""
     from flask import render_template

@@ -421,9 +421,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Tab 5: Analytics ---
     function loadAnalytics() {
+        // 1. Load Business Analytics (Procedures & Pain Points)
         fetch('/api/dashboard/analytics').then(r => r.json()).then(data => {
-            new Chart(document.getElementById('proceduresChart'), { type: 'bar', data: { labels: data.procedures.labels, datasets: [{ label: '詢問次數', data: data.procedures.values, backgroundColor: '#3b82f6' }] }, options: { responsive: true, maintainAspectRatio: false } });
-            new Chart(document.getElementById('painPointsChart'), { type: 'pie', data: { labels: data.pain_points.labels, datasets: [{ data: data.pain_points.values, backgroundColor: ['#ef4444','#f59e0b','#10b981','#3b82f6','#a855f7'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+            new Chart(document.getElementById('proceduresChart'), { 
+                type: 'bar', 
+                data: { 
+                    labels: data.procedures.labels, 
+                    datasets: [{ label: '詢問次數', data: data.procedures.values, backgroundColor: '#3b82f6' }] 
+                }, 
+                options: { responsive: true, maintainAspectRatio: false } 
+            });
+            new Chart(document.getElementById('painPointsChart'), { 
+                type: 'pie', 
+                data: { 
+                    labels: data.pain_points.labels, 
+                    datasets: [{ data: data.pain_points.values, backgroundColor: ['#ef4444','#f59e0b','#10b981','#3b82f6','#a855f7'] }] 
+                }, 
+                options: { responsive: true, maintainAspectRatio: false } 
+            });
+        });
+
+        // 2. Load System Health Metrics
+        fetch('/api/v1/system/metrics').then(r => r.json()).then(data => {
+            const health = data.health_check.resources;
+            
+            // System Resources Chart
+            new Chart(document.getElementById('systemHealthChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['CPU 使用率', '記憶體佔用', '硬碟使用率'],
+                    datasets: [{
+                        data: [health.cpu_percent, health.memory_percent, health.disk_usage],
+                        backgroundColor: ['#60a5fa', '#a855f7', '#4ade80'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+                }
+            });
+
+            // Database Connections Chart
+            const db = data.database;
+            new Chart(document.getElementById('dbConnChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['目前連線', '剩餘容量', '總連線池'],
+                    datasets: [{
+                        label: '連線數',
+                        data: [db.pool_size - db.available_connections, db.available_connections, db.max_connections],
+                        backgroundColor: '#fbbf24'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
+                }
+            });
         });
     }
 

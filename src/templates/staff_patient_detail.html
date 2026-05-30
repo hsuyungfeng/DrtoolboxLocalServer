@@ -1,229 +1,148 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>患者詳情 - 編輯</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .container {
-            max-width: 800px;
-            margin-top: 2rem;
-        }
-        .card {
-            border: none;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        .card-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            padding: 1.5rem;
-            font-weight: 600;
-            color: #333;
-        }
-        .card-body {
-            padding: 1.5rem;
-        }
-        .form-label {
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        .alert-warning {
-            background-color: #fff3cd;
-            border-color: #ffc107;
-            color: #856404;
-        }
-        .btn-action {
-            padding: 0.5rem 1rem;
-            font-size: 14px;
-        }
-        .appointment-table {
-            font-size: 14px;
-        }
-        .appointment-table thead {
-            background-color: #f8f9fa;
-        }
-        .error-message {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 8px;
-        }
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-        .back-link {
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body class="bg-light">
-    <div class="container">
-        {% if error %}
-            <div class="error-message" role="alert">
-                <strong>錯誤：</strong> {{ error }}
-            </div>
-        {% else %}
-            <div class="page-header">
-                <h1>患者詳情</h1>
-                <a href="/dashboard/staff/patients" class="back-link">← 返回列表</a>
-            </div>
+{% extends 'base.html' %}
 
-            {% if has_escalation %}
-                <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                    <strong>⚠️ 注意：</strong> 此患者有升級訊息，需要特別關注。
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endif %}
+{% block title %}病患臨床詳情 - 緻妍外科診所{% endblock %}
 
-            <!-- Patient Edit Form -->
-            <div class="card">
-                <div class="card-header">基本資訊</div>
-                <div class="card-body">
-                    <form method="post" id="patientForm">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="name" class="form-label">姓名 *</label>
-                                <input type="text" class="form-control" id="name" name="name"
-                                       value="{{ patient.name }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="dob" class="form-label">生日 *</label>
-                                <input type="date" class="form-control" id="dob" name="dob"
-                                       value="{{ patient.dob }}" required>
-                            </div>
-                        </div>
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">🏥 病患臨床詳情</h1>
+    <div id="patient-id-badge" class="badge bg-secondary">ID: {{ patient_id }}</div>
+</div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="phone" class="form-label">電話 *</label>
-                                <input type="tel" class="form-control" id="phone" name="phone"
-                                       value="{{ patient.phone }}" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="email" class="form-label">電郵 *</label>
-                                <input type="email" class="form-control" id="email" name="email"
-                                       value="{{ patient.email }}" required>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="allergies" class="form-label">過敏症</label>
-                            <textarea class="form-control" id="allergies" name="allergies"
-                                      rows="2" placeholder="輸入患者過敏症相關資訊">{{ patient.allergies if patient.allergies else '' }}</textarea>
-                            <small class="text-muted">記錄患者已知的過敏症，例如藥物過敏、食物過敏等</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="medical_history" class="form-label">醫療歷史</label>
-                            <textarea class="form-control" id="medical_history" name="medical_history"
-                                      rows="4" placeholder="輸入患者醫療歷史">{{ patient.medical_history if patient.medical_history else '' }}</textarea>
-                            <small class="text-muted">記錄患者的過往醫療經歷、慢性病等相關資訊</small>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary btn-action">
-                                💾 保存變更
-                            </button>
-                            <a href="/dashboard/staff/patients" class="btn btn-secondary btn-action">
-                                ← 返回
-                            </a>
-                        </div>
-                    </form>
+<div class="row">
+    <!-- Sidebar: Patient Info -->
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">👤 基本資料</div>
+            <div class="card-body" id="patient-info">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Upcoming Appointments -->
-            {% if appointments %}
-                <div class="card">
-                    <div class="card-header">未來預約</div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-sm appointment-table">
-                                <thead>
-                                    <tr>
-                                        <th>日期</th>
-                                        <th>類型</th>
-                                        <th>狀態</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for appt in appointments %}
-                                        <tr>
-                                            <td>{{ appt.appointment_date }}</td>
-                                            <td>{{ appt.appointment_type }}</td>
-                                            <td>
-                                                <span class="badge bg-info">{{ appt.status }}</span>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            {% else %}
-                <div class="alert alert-info" role="alert">
-                    沒有未來預約紀錄。
-                </div>
-            {% endif %}
-
-            <!-- Patient ID Info -->
-            <div class="card">
-                <div class="card-header">系統資訊</div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>患者ID：</strong> {{ patient.patient_id }}</p>
-                            <p><strong>建檔日期：</strong> {{ patient.created_at }}</p>
-                        </div>
-                    </div>
-                </div>
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">🚨 風險與警示</div>
+            <div class="card-body" id="risk-alerts">
+                <p class="text-muted text-center">正在分析歷史對話...</p>
             </div>
-
-        {% endif %}
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Form submission handler
-        document.getElementById('patientForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+    <!-- Main: Timeline & History -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#history" type="button">📜 對話歷史</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#images" type="button">📸 影像進度線</button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="history">
+                        <div id="chat-history-container" style="max-height: 600px; overflow-y: auto; padding: 10px;">
+                            <p class="text-center py-5 text-muted">正在載入歷史對話...</p>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="images">
+                        <div id="image-timeline" class="row">
+                            <p class="text-center py-5 text-muted">此病患尚未上傳任何臨床照片。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-            const formData = new FormData(this);
-            const patientId = '{{ patient.patient_id }}';
+{% block scripts %}
+<script>
+    const PATIENT_ID = {{ patient_id }};
+    const STAFF_ID = 'staff-001';
 
-            fetch(`/dashboard/staff/patient/${patientId}`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Staff-ID': localStorage.getItem('staffId') || 'unknown'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('患者資訊已成功更新');
-                    window.location.href = '/dashboard/staff/patients';
-                } else {
-                    alert('更新失敗：' + (data.error || '未知錯誤'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('發生錯誤，請重試');
+    document.addEventListener('DOMContentLoaded', function() {
+        loadPatientProfile();
+    });
+
+    async function loadPatientProfile() {
+        try {
+            const response = await fetch(`/api/v1/patient/${PATIENT_ID}/profile`, {
+                headers: { 'X-Staff-ID': STAFF_ID }
             });
-        });
-    </script>
-</body>
-</html>
+            const result = await response.json();
+            
+            if (result.success) {
+                renderPatientInfo(result.patient);
+                renderHistory(result.history);
+                renderRiskAlerts(result.history);
+            } else {
+                alert("無法載入資料: " + result.error);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    function renderPatientInfo(p) {
+        const container = document.getElementById('patient-info');
+        container.innerHTML = `
+            <div class="mb-3"><strong>姓名：</strong> ${p.name}</div>
+            <div class="mb-3"><strong>電話：</strong> ${p.phone}</div>
+            <div class="mb-3"><strong>出生日期：</strong> ${p.dob}</div>
+            <div class="mb-3"><strong>病史紀錄：</strong> <br><span class="text-muted">${p.medical_history || '無'}</span></div>
+            <div class="mb-0"><strong>藥物過敏：</strong> <br><span class="text-danger">${p.allergies || '無'}</span></div>
+        `;
+    }
+
+    function renderHistory(history) {
+        const container = document.getElementById('chat-history-container');
+        if (history.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">查無對話紀錄。</p>';
+            return;
+        }
+
+        container.innerHTML = history.map(item => `
+            <div class="mb-4 p-3 border rounded ${item.metadata.is_high_risk ? 'border-danger bg-light-danger' : 'bg-light'}">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="badge bg-dark">${formatDate(item.timestamp)}</span>
+                    <span class="badge bg-info">經由 ${item.metadata.route_used}</span>
+                </div>
+                <div class="mb-2"><strong>問：</strong> ${item.messages[0].content}</div>
+                <div class="text-primary"><strong>答：</strong> ${item.messages[1].content}</div>
+                <div class="mt-2 text-end">
+                    <small class="text-muted">信心度: ${item.metadata.confidence_score}%</small>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderRiskAlerts(history) {
+        const container = document.getElementById('risk-alerts');
+        const risks = history.filter(h => h.metadata.is_high_risk);
+        
+        if (risks.length === 0) {
+            container.innerHTML = '<div class="alert alert-success">✅ 目前無高風險紀錄</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="alert alert-danger">🚨 偵測到 ${risks.length} 筆高風險對話</div>
+            <ul class="list-group list-group-flush">
+                ${risks.map(r => `<li class="list-group-item small">${r.messages[0].content.substring(0, 30)}...</li>`).join('')}
+            </ul>
+        `;
+    }
+
+    function formatDate(dateStr) {
+        return new Date(dateStr).toLocaleString('zh-TW');
+    }
+</script>
+<style>
+    .bg-light-danger { background-color: #fff5f5; }
+    .nav-tabs .nav-link { color: #64748b; }
+    .nav-tabs .nav-link.active { font-weight: bold; color: var(--bs-primary); }
+</style>
+{% endblock %}

@@ -27,58 +27,124 @@ class LineBeautifier:
         return "\n".join(formatted_lines)
 
     @staticmethod
-    def build_flex_bubble(title, content, footer_text=None):
-        """Wraps text in a professional Flex Message bubble."""
-        # Truncate content if too long for a single bubble (LINE limit ~2000 chars)
-        if len(content) > 1500:
-            content = content[:1500] + "...\n(內容較長，請點擊下方詳情)"
+    def build_flex_bubbles(title, content, footer_text=None):
+        """Splits long content into multiple professional Flex Message bubbles."""
+        # LINE Flex text limit is around 2000 chars, but for UX we split at 1500
+        max_chars = 1500
+        chunks = [content[i:i+max_chars] for i in range(0, len(content), max_chars)]
+        
+        bubbles = []
+        for i, chunk in enumerate(chunks):
+            current_title = title if i == 0 else f"{title} (續)"
+            bubble = {
+                "type": "bubble",
+                "header": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": current_title,
+                            "weight": "bold",
+                            "size": "xl",
+                            "color": "#1DB446"
+                        }
+                    ]
+                },
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": chunk,
+                            "wrap": True,
+                            "size": "md",
+                            "color": "#333333"
+                        }
+                    ]
+                }
+            }
+            if i == len(chunks) - 1 and footer_text:
+                bubble["footer"] = {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": footer_text,
+                            "size": "xs",
+                            "color": "#AAAAAA",
+                            "wrap": True
+                        }
+                    ]
+                }
+            bubbles.append(bubble)
+            
+        return bubbles
 
-        bubble = {
-            "type": "bubble",
-            "header": {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                    {
-                        "type": "text",
-                        "text": title,
-                        "weight": "bold",
-                        "size": "xl",
-                        "color": "#1DB446"
-                    }
-                ]
+    @staticmethod
+    def build_treatment_card(treatment_key):
+        """Builds a high-conversion marketing card for specific treatments."""
+        treatments = {
+            "exosomes": {
+                "title": "✨ 外泌體再生療法",
+                "desc": "利用高純度外泌體啟動細胞修復，改善膚質、對抗衰老，讓肌膚煥發新生光澤。",
+                "url": "https://www.facebook.com/wenxin22636645"
             },
+            "pico": {
+                "title": "⚡ 皮秒雷射精準除斑",
+                "desc": "極速脈衝科技，精準粉碎黑色素，改善暗沉、斑點與毛孔問題，恢復期短效果顯著。",
+                "url": "https://www.facebook.com/wenxin22636645"
+            },
+            "hydrafacial": {
+                "title": "💧 水飛梭深度淨化",
+                "desc": "非侵入性專利技術，三步驟清潔、吸取、注入營養，讓毛孔深呼吸，打造水嫩透亮肌。",
+                "url": "https://www.facebook.com/wenxin22636645"
+            }
+        }
+        
+        info = treatments.get(treatment_key.lower())
+        if not info: return None
+
+        return {
+            "type": "bubble",
             "body": {
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
+                    {"type": "text", "text": "精選療程建議", "weight": "bold", "color": "#1DB446", "size": "sm"},
+                    {"type": "text", "text": info['title'], "weight": "bold", "size": "xl", "margin": "md"},
+                    {"type": "text", "text": info['desc'], "size": "sm", "color": "#666666", "wrap": True, "margin": "md"}
+                ]
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [
                     {
-                        "type": "text",
-                        "text": content,
-                        "wrap": True,
-                        "size": "md",
-                        "color": "#333333"
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#1DB446",
+                        "action": {
+                            "type": "uri",
+                            "label": "📅 預約門診",
+                            "uri": "https://line.me/ti/p/@181fvgic"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "link",
+                        "action": {
+                            "type": "uri",
+                            "label": "🔎 瞭解更多細節",
+                            "uri": info['url']
+                        }
                     }
                 ]
             }
         }
-        
-        if footer_text:
-            bubble["footer"] = {
-                "type": "box",
-                "layout": "vertical",
-                "contents": [
-                    {
-                        "type": "text",
-                        "text": footer_text,
-                        "size": "xs",
-                        "color": "#AAAAAA",
-                        "wrap": True
-                    }
-                ]
-            }
-            
-        return bubble
 
     @staticmethod
     def build_clinic_info_card():
@@ -87,7 +153,7 @@ class LineBeautifier:
             "type": "bubble",
             "hero": {
                 "type": "image",
-                "url": "https://lh3.googleusercontent.com/p/AF1QipN_v_X_X_X", # Placeholder or clinic logo
+                "url": "https://lh3.googleusercontent.com/p/AF1QipN_v_X_X_X", 
                 "size": "full",
                 "aspectRatio": "20:13",
                 "aspectMode": "cover"
@@ -147,7 +213,7 @@ class LineBeautifier:
                         "color": "#1DB446",
                         "action": {
                             "type": "uri",
-                            "label": "📞 撥打電話",
+                            "label": "📞 預約門診",
                             "uri": "tel:0423950960"
                         }
                     }

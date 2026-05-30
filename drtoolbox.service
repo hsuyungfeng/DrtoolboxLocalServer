@@ -1,0 +1,14 @@
+[Unit]
+Description=Drtoolbox Local Server Backend
+After=network.target docker.service
+
+[Service]
+User=hsuyungfeng
+WorkingDirectory=/home/hsuyungfeng/DrtoolboxLocalServer
+EnvironmentFile=/home/hsuyungfeng/DrtoolboxLocalServer/.env
+ExecStart=/home/hsuyungfeng/DrtoolboxLocalServer/.venv/bin/python src/api/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

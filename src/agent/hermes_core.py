@@ -15,11 +15,13 @@ import datetime
 import threading
 import re
 from typing import Dict, Any, List, Optional, Tuple
-from src.db.his_connection import HISConnection
+from src.db.his_connection import get_his_connection
 from src.rag_engine import RAGEngine
 from src.llm_server import llm_instance
 
 logger = logging.getLogger(__name__)
+
+from src.services.health_monitor_service import health_monitor
 
 class HermesAgent:
     """Consolidated Agent for DrtoolboxLocalServer"""
@@ -28,7 +30,12 @@ class HermesAgent:
         self.llama_url = llama_url
         self.llm = llm_instance
         self.rag = RAGEngine()
-        self.his_conn = HISConnection()
+        
+        # Proactive Monitoring
+        health_monitor.start()
+        
+        # Use singleton/pooled HIS connection to ensure thread safety
+        self.his_conn = get_his_connection()
         
         # Context management
         self.his_context = {}
