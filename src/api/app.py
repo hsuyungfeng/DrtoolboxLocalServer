@@ -34,12 +34,36 @@ def create_app():
     from src.api.routes.staff_actions import staff_actions_bp
     from src.api.routes.webhook import webhook_bp
     from src.api.routes.system_metrics import system_metrics_bp
+    from src.api.routes.setup import setup_bp
+    from src.api.routes.analytics import analytics_bp
+    from src.api.routes.patient_dashboard import patient_dashboard_bp
+    from src.api.routes.filebrowser_bridge import filebrowser_bridge_bp
+    from src.api.routes.astrbot_bridge import astrbot_bridge_bp
+    from src.api.routes.crm_reports import crm_reports_bp
+    from src.api.routes.staff_inbox import staff_inbox_bp
+    from src.api.routes.staff_dashboard import staff_dashboard_bp
+    from src.api.routes.cloud_sync import cloud_sync_bp
+    from src.api.routes.chat_monitor import chat_monitor_bp
+    from src.api.routes.patient_intake import patient_intake_bp
+    from src.api.routes.rag_dashboard import rag_dashboard_bp
     
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(staff_actions_bp)
     app.register_blueprint(webhook_bp)
     app.register_blueprint(system_metrics_bp)
+    app.register_blueprint(setup_bp)
+    app.register_blueprint(analytics_bp)
+    app.register_blueprint(patient_dashboard_bp, url_prefix='/api/v1/patient')
+    app.register_blueprint(filebrowser_bridge_bp)
+    app.register_blueprint(astrbot_bridge_bp)
+    app.register_blueprint(crm_reports_bp)
+    app.register_blueprint(staff_inbox_bp)
+    app.register_blueprint(staff_dashboard_bp)
+    app.register_blueprint(cloud_sync_bp)
+    app.register_blueprint(chat_monitor_bp)
+    app.register_blueprint(patient_intake_bp)
+    app.register_blueprint(rag_dashboard_bp)
     
     @app.route('/', methods=['GET', 'POST'])
     def index():

@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 system_metrics_bp = Blueprint('system_metrics', __name__)
 
-@system_metrics_bp.route('/dashboard/system/', methods=['GET'])
+@system_metrics_bp.route('/dashboard/system/')
+@system_metrics_bp.route('/dashboard/system')
 def system_dashboard():
     """Render the system dashboard page."""
     return render_template('system_dashboard.html')

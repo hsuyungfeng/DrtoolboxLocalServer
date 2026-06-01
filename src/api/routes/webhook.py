@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, request, abort, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage, PostbackEvent
 from src.services.line_beautifier import LineBeautifier
 
 # ... (rest of imports)
@@ -67,6 +67,11 @@ def line_webhook():
     return 'OK'
 
 import threading
+from datetime import datetime
+
+# Conversion log file
+CONVERSIONS_LOG_FILE = os.path.join(os.getenv("DATA_DIR", "data"), "analytics", "conversions.jsonl")
+os.makedirs(os.path.dirname(CONVERSIONS_LOG_FILE), exist_ok=True)
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
@@ -80,6 +85,57 @@ def handle_message(event):
     
     # Return 200 OK to LINE/ngrok immediately
     return 'OK'
+
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    """Handle postback events (e.g., button clicks in Flex Messages)."""
+    user_id = event.source.user_id
+    data = event.postback.data
+    
+    # Parse query-string style data: action=booking&treatment=pico
+    try:
+        params = dict(x.split('=') for x in data.split('&') if '=' in x)
+        
+        if params.get('action') == 'booking':
+            treatment = params.get('treatment', 'unknown')
+            logger.info(f"CONVERSION DETECTED | user={user_id} treatment={treatment}")
+            
+            # 1. Log conversion
+            log_conversion(user_id, treatment)
+            
+            # 2. Notify staff
+            try:
+                from src.services.notification_service import notification_service
+                notification_service.notify_high_risk(
+                    patient_id=user_id,
+                    message=f"使用者點擊了『{treatment}』的預約按鈕。",
+                    risk_type="Marketing Conversion"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify staff of conversion: {e}")
+            
+            # 3. Reply with actual booking link or instruction
+            if line_bot_api:
+                reply_text = "感謝您的預約意願！請點擊下方連結加入我們的專人預約帳號，或直接撥打診所電話 04-2395-0960 由專人為您服務。\n\n🔗 預約連結：https://line.me/ti/p/@181fvgic"
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
+    except Exception as e:
+        logger.error(f"Error handling postback: {e}")
+
+    return 'OK'
+
+def log_conversion(user_id, treatment):
+    """Log conversion event to a structured file."""
+    try:
+        with open(CONVERSIONS_LOG_FILE, "a", encoding='utf-8') as f:
+            entry = {
+                "timestamp": datetime.now().isoformat(),
+                "user_id": user_id,
+                "treatment": treatment,
+                "event": "booking_click"
+            }
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logger.error(f"Failed to log conversion: {e}")
 
 def process_line_message_bg(reply_token, user_id, user_text):
     """Background worker for LLM reasoning and LINE response."""

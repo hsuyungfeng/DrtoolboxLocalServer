@@ -128,9 +128,10 @@ class LineBeautifier:
                         "style": "primary",
                         "color": "#1DB446",
                         "action": {
-                            "type": "uri",
+                            "type": "postback",
                             "label": "📅 預約門診",
-                            "uri": "https://line.me/ti/p/@181fvgic"
+                            "data": f"action=booking&treatment={treatment_key}",
+                            "displayText": "我想預約門診"
                         }
                     },
                     {

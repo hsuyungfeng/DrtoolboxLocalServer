@@ -1,0 +1,114 @@
+"""
+Notification Service — Task 11.2
+
+Handles real-time alerts to clinic staff when high-risk patient interactions 
+are detected (e.g., severe symptoms, medication reactions, or multiple escalations).
+
+Supports:
+- LINE Push notifications to on-duty staff.
+- Internal alert logging for dashboard monitoring.
+- Email alerting (stubbed).
+"""
+
+import logging
+import os
+import json
+from datetime import datetime
+from typing import Optional, List
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+# ── Configuration ──────────────────────────────────────────────────
+STAFF_NOTIFY_LINE_ID = os.getenv("STAFF_NOTIFY_LINE_ID", "") # Target staff ID
+LINE_API_BASE = "https://api.line.me/v2/bot"
+LINE_PUSH_URL = f"{LINE_API_BASE}/message/push"
+
+ALERTS_LOG_DIR = os.getenv("ALERTS_LOG_DIR", "logs")
+os.makedirs(ALERTS_LOG_DIR, exist_ok=True)
+ALERTS_LOG_FILE = os.path.join(ALERTS_LOG_DIR, "staff_alerts.log")
+
+class NotificationService:
+    """Manages real-time staff notifications."""
+
+    def __init__(self):
+        self.token = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
+
+    def notify_high_risk(self, patient_id: str, message: str, risk_type: str, conversation_id: str = None) -> bool:
+        """
+        Send a high-risk alert to staff via LINE and log it.
+        
+        Args:
+            patient_id: The ID of the patient.
+            message: The content of the high-risk message.
+            risk_type: Category of risk (e.g., 'Symptom', 'Medication', 'Abuse').
+            conversation_id: Reference to the conversation record.
+        """
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        alert_text = (
+            f"🚨 【緊急通知】偵測到高風險對話\n"
+            f"⏰ 時間：{timestamp}\n"
+            f"👤 病患 ID：{patient_id}\n"
+            f"⚠️ 風險類型：{risk_type}\n"
+            f"💬 內容：\"{message[:50]}{'...' if len(message) > 50 else ''}\"\n"
+            f"🔗 請至後台處理：/dashboard/staff/patient/{patient_id}"
+        )
+
+        # 1. Log locally
+        self._log_alert(patient_id, message, risk_type, conversation_id)
+
+        # 2. Send LINE Push to Staff
+        success = True
+        if STAFF_NOTIFY_LINE_ID:
+            success = self._send_line_push(STAFF_NOTIFY_LINE_ID, alert_text)
+            if success:
+                logger.info(f"Staff notification sent to {STAFF_NOTIFY_LINE_ID} for patient {patient_id}")
+        else:
+            logger.warning("STAFF_NOTIFY_LINE_ID not set. Alert only logged locally.")
+
+        return success
+
+    def _send_line_push(self, target_id: str, text: str) -> bool:
+        """Helper to send LINE push message."""
+        if not self.token:
+            logger.error("LINE_CHANNEL_ACCESS_TOKEN not set; cannot send staff alert.")
+            return False
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+        payload = {
+            "to": target_id,
+            "messages": [{"type": "text", "text": text}],
+        }
+
+        try:
+            resp = requests.post(LINE_PUSH_URL, json=payload, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                return True
+            logger.error(f"LINE staff notify failed | status={resp.status_code} body={resp.text}")
+            return False
+        except Exception as e:
+            logger.error(f"LINE staff notify exception | error={e}")
+            return False
+
+    def _log_alert(self, patient_id: str, message: str, risk_type: str, conversation_id: str):
+        """Log the alert to a structured file for dashboard consumption."""
+        try:
+            with open(ALERTS_LOG_FILE, "a", encoding='utf-8') as f:
+                entry = {
+                    "timestamp": datetime.now().isoformat(),
+                    "patient_id": patient_id,
+                    "risk_type": risk_type,
+                    "message": message,
+                    "conversation_id": conversation_id,
+                    "status": "unread"
+                }
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logger.error(f"Failed to log staff alert: {e}")
+
+# Singleton
+notification_service = NotificationService()

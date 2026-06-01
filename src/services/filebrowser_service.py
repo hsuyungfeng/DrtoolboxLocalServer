@@ -59,11 +59,11 @@ class FileBrowserService:
 
     def health_check(self) -> dict:
         """檢查 FileBrowser 服務狀態"""
-        result = self._request('GET', '/api/health')
+        # Try root if /api/health is not available
+        result = self._request('GET', '/')
         return {
             'online': result.get('success', False),
             'status': result.get('status', 0),
-            'data': result.get('data'),
             'error': result.get('error'),
         }
 

@@ -2,8 +2,8 @@ agent
 api
 data_loader
 db
-llm
 llm_server
+pageindex_engine
 rag
 rag_engine
 services

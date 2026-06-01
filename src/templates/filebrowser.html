@@ -69,11 +69,14 @@
 
 {% block scripts %}
 <script>
-    // 開發模式：直接連 FileBrowser 本機 port；生產模式：透過 Nginx /files/ proxy
-    var fbUrl = '{{ "FILEBROWSER_DEV_PROXY" | default("") }}';
-    fbUrl = fbUrl || (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? 'http://localhost:8081/'
-        : '/files/');
+    // 從後端獲取 FileBrowser URL，如果沒有則根據當前主機名自動判定
+    var fbUrl = '{{ filebrowser_url }}';
+    
+    // 如果是 localhost 且後端回傳的是相對路徑，則嘗試補全埠號
+    if (fbUrl === '/files/' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+        fbUrl = 'http://' + location.hostname + ':8081/';
+    }
+    
     document.getElementById('fb-iframe').src = fbUrl;
 
     function onFileBrowserLoaded() {

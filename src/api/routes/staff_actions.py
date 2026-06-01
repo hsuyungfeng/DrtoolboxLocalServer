@@ -56,8 +56,13 @@ class DBContext:
 
 
 def require_staff_auth():
-    """驗證員工身份"""
+    """驗證員工身份 (放寬網頁存取限制)"""
     staff_id = request.headers.get('X-Staff-ID')
+    
+    # 如果是網頁路徑且沒有提供 Header，自動帶入預設 ID
+    if not staff_id and request.path.startswith('/dashboard/'):
+        return 'staff-001', None, None
+        
     if not staff_id:
         return None, jsonify({
             'success': False,

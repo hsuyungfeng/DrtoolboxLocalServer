@@ -2,10 +2,10 @@ README.md
 pyproject.toml
 src/data_loader.py
 src/llm_server.py
+src/pageindex_engine.py
 src/rag_engine.py
 src/agent/__init__.py
 src/agent/hermes_core.py
-src/agent/hermes_router.py
 src/agent/pattern_learner.py
 src/api/app.py
 src/api/models/__init__.py
@@ -44,8 +44,6 @@ src/drtoolbox_local_server.egg-info/SOURCES.txt
 src/drtoolbox_local_server.egg-info/dependency_links.txt
 src/drtoolbox_local_server.egg-info/requires.txt
 src/drtoolbox_local_server.egg-info/top_level.txt
-src/llm/cloud_backend.py
-src/llm/server.py
 src/rag/ingest.py
 src/rag/query.py
 src/rag/search.py
@@ -61,6 +59,7 @@ src/services/line_responder.py
 src/services/logger_service.py
 src/services/message_router.py
 src/services/patient_service.py
+src/services/search_service.py
 src/skills/skill_generator.py
 src/skills/skill_manager.py
 src/skills/auto_skills/__init__.py

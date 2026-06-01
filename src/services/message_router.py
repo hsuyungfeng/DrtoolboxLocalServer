@@ -24,9 +24,11 @@ import requests
 try:
     from src.services.conversation_manager import ConversationManager
     from src.services.escalation_handler import EscalationHandler
+    from src.services.notification_service import notification_service
 except ImportError:
     from services.conversation_manager import ConversationManager
     from services.escalation_handler import EscalationHandler
+    from services.notification_service import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,12 @@ logger = logging.getLogger(__name__)
 RAG_API_URL = os.getenv("RAG_API_URL", "http://127.0.0.1:8080/api/v1/rag/query")
 ESCALATION_THRESHOLD = float(os.getenv("ESCALATION_THRESHOLD", "0.60"))
 RAG_REQUEST_TIMEOUT = float(os.getenv("RAG_REQUEST_TIMEOUT", "4.0"))  # keep total < 5s
+
+# High-risk patterns (Symptoms, medication issues, emergency)
+_HIGH_RISK_PATTERNS = re.compile(
+    r"(流血|出血|疼痛|劇痛|發燒|高燒|紅腫|過敏|癢|呼吸困難|救命|副作用|不舒服|腫脹|發炎)",
+    re.IGNORECASE,
+)
 
 # Simple abuse / malformed detection patterns
 _ABUSE_PATTERNS = re.compile(
@@ -65,7 +73,7 @@ def _classify_intent(text: str) -> str:
     if any(kw in t for kw in [
         "symptom", "pain", "fever", "cough", "disease", "treatment",
         "症狀", "疼痛", "發燒", "咳嗽", "疾病", "治療",
-    ]):
+    ]) or _HIGH_RISK_PATTERNS.search(text):
         return "medical_query"
 
     return "general"
@@ -121,12 +129,30 @@ def route_message(envelope: dict) -> dict:
     # ── Step 1: classify intent ──
     intent = _classify_intent(text)
 
-    # ── Step 2: auto-escalate abusive / malformed messages ──
+    # ── Step 2: Detection of High-Risk / Emergency ──
+    risk_match = _HIGH_RISK_PATTERNS.search(text)
+    if risk_match:
+        risk_keyword = risk_match.group(0)
+        logger.warning(f"HIGH RISK DETECTED | user={user_id} keyword={risk_keyword}")
+        notification_service.notify_high_risk(
+            patient_id=user_id,
+            message=text,
+            risk_type="Symptom/Medical"
+        )
+
+    # ── Step 3: auto-escalate abusive / malformed messages ──
     if intent == "abusive" or not text.strip():
         logger.info(
             "Routing | user=%s intent=%s confidence=N/A decision=escalation (auto)",
             user_id, intent,
         )
+        if intent == "abusive":
+            notification_service.notify_high_risk(
+                patient_id=user_id,
+                message=text,
+                risk_type="Abusive Content"
+            )
+        
         # Save incoming message to history (Wave 3 Task 10)
         msg_mgr = ConversationManager()
         message_id = msg_mgr.save_message(

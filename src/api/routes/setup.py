@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 
 setup_bp = Blueprint('setup', __name__)
 
-DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../clinic.db'))
+DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../data/db/clinic.db')))
 
 # Config file paths (relative to project root)
-PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '../../..')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
 ENV_PATH = os.path.join(PROJECT_ROOT, '.env')
 CONFIG_DIR = os.path.join(PROJECT_ROOT, 'config')
 
@@ -288,7 +288,23 @@ def restart_service():
 
         compose_file = os.path.join(PROJECT_ROOT, 'docker-compose.yml')
         if not os.path.exists(compose_file):
-            return jsonify({'success': False, 'error': 'docker-compose.yml not found'}), 500
+            # Fallback to systemd if docker-compose not found
+            logger.info(f"docker-compose.yml not found, trying systemctl for {service_name}")
+            try:
+                # Map internal names to systemd names if needed
+                unit_name = service_name
+                if service_name == 'drtoolbox': unit_name = 'drtoolbox.service'
+                
+                result = subprocess.run(['sudo', 'systemctl', 'restart', unit_name], capture_output=True, text=True, timeout=15)
+                
+                _log_setup_change('restart', 'services', service_name, None, 'success' if result.returncode == 0 else result.stderr[:200])
+                return jsonify({
+                    'success': result.returncode == 0,
+                    'message': f'Service {unit_name} restart via systemctl {"succeeded" if result.returncode == 0 else "failed"}',
+                    'data': {'stderr': result.stderr}
+                })
+            except Exception as se:
+                return jsonify({'success': False, 'error': f'Systemctl restart failed: {str(se)}'}), 500
 
         result = subprocess.run(
             ['docker', 'compose', '-f', compose_file, 'restart', service_name],
@@ -311,6 +327,166 @@ def restart_service():
 
 
 # ============================================================
+# HIS Sync Endpoints
+# ============================================================
+
+@setup_bp.route('/api/v1/setup/his/config', methods=['GET'])
+def get_his_config():
+    """取得 HIS 同步設定"""
+    try:
+        conn = _get_db_connection()
+        row = conn.execute("SELECT * FROM his_sync_config ORDER BY id DESC LIMIT 1").fetchone()
+        conn.close()
+        if row:
+            return jsonify({'success': True, 'data': dict(row)})
+        return jsonify({'success': True, 'data': {'folder_path': 'data', 'last_sync': None, 'status': 'not_configured'}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@setup_bp.route('/api/v1/setup/his/config', methods=['POST'])
+def set_his_config():
+    """儲存 HIS 同步路徑授權"""
+    try:
+        body = request.get_json()
+        folder_path = body.get('folder_path')
+        smb_username = body.get('smb_username')
+        smb_password = body.get('smb_password')
+        smb_domain = body.get('smb_domain')
+        
+        if not folder_path:
+            return jsonify({'success': False, 'error': 'Missing folder_path'}), 400
+        
+        # Verify local path if not UNC
+        is_unc = folder_path.startswith('//') or folder_path.startswith('\\\\')
+        if not is_unc and not os.path.exists(folder_path):
+            return jsonify({'success': False, 'error': f'Local path does not exist: {folder_path}'}), 400
+
+        conn = _get_db_connection()
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO his_sync_config 
+            (id, folder_path, smb_username, smb_password, smb_domain, status) 
+            VALUES (1, ?, ?, ?, ?, 'authorized')
+            """,
+            (folder_path, smb_username, smb_password, smb_domain)
+        )
+        conn.commit()
+        conn.close()
+        
+        _log_setup_change('update', 'his_sync', 'folder_path', None, folder_path)
+        return jsonify({'success': True, 'message': 'HIS configuration saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@setup_bp.route('/api/v1/setup/his/sync', methods=['POST'])
+def trigger_his_sync():
+    """手動觸發 HIS 同步"""
+    try:
+        script_path = os.path.join(PROJECT_ROOT, 'scripts/nightly_his_sync.py')
+        # Use the same python executable as the current one
+        python_exe = sys.executable
+        
+        logger.info(f"Triggering manual HIS sync using {script_path}")
+        result = subprocess.run([python_exe, script_path], capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            return jsonify({'success': True, 'message': 'Sync completed', 'output': result.stdout})
+        else:
+            return jsonify({'success': False, 'error': 'Sync script failed', 'details': result.stderr}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@setup_bp.route('/api/v1/setup/his/discover', methods=['POST'])
+def discover_his_paths():
+    """自動掃描區域網路中的 HIS 資料夾"""
+    try:
+        script_path = os.path.join(PROJECT_ROOT, 'scripts/scan_his_network.py')
+        python_exe = sys.executable
+        
+        logger.info("Triggering HIS auto-discovery scan...")
+        result = subprocess.run([python_exe, script_path], capture_output=True, text=True, timeout=120)
+        
+        if result.returncode == 0:
+            # Parse the JSON output from the script
+            try:
+                # Script might print other log info to stdout, find the JSON part
+                lines = result.stdout.strip().split('\n')
+                json_data = json.loads(lines[-1])
+                return jsonify(json_data)
+            except:
+                return jsonify({'success': True, 'discovered_paths': [], 'raw': result.stdout})
+        else:
+            return jsonify({'success': False, 'error': 'Scan script failed', 'details': result.stderr}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@setup_bp.route('/api/v1/setup/his/list_folders', methods=['POST'])
+def list_folders():
+    """列出指定路徑下的子資料夾 (支援本地與 SMB)"""
+    try:
+        body = request.get_json()
+        base_path = body.get('path', '')
+        smb_user = body.get('smb_username', '')
+        smb_pass = body.get('smb_password', '')
+        smb_domain = body.get('smb_domain', '')
+
+        if not base_path:
+            return jsonify({'success': False, 'error': 'Missing path'}), 400
+
+        is_unc = base_path.startswith('//') or base_path.startswith('\\\\')
+        folders = []
+
+        if is_unc:
+            from smbclient import listdir, register_session
+            # Clean up path
+            unc_path = base_path.replace('/', '\\')
+            if not unc_path.startswith('\\\\'): unc_path = '\\\\' + unc_path.lstrip('\\')
+            
+            # Register session if credentials provided
+            server = unc_path.split('\\')[2]
+            if smb_user:
+                register_session(server, username=smb_user, password=smb_pass, domain=smb_domain or None)
+            
+            try:
+                # In SMB, we might need to handle share listing vs folder listing
+                path_parts = unc_path.strip('\\').split('\\')
+                if len(path_parts) == 1: # Just the IP/Server, list shares
+                    from src.api.routes.setup import subprocess # reuse
+                    # We can use the logic from scan_his_network
+                    cmd = ["smbclient", "-L", path_parts[0], "-N" if not smb_user else "-U", f"{smb_user}%{smb_pass}" if smb_user else "", "-g"]
+                    if not smb_user: cmd.remove("-U"); cmd.remove("")
+                    
+                    output = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+                    for line in output.split("\n"):
+                        parts = line.split("|")
+                        if len(parts) >= 2 and parts[0] == "Disk":
+                            folders.append({'name': parts[1], 'type': 'share'})
+                else:
+                    items = listdir(unc_path)
+                    for item in items:
+                        # Logic to check if it's a directory could be complex with smbclient
+                        # For now, just return all as potential folders or filter by hidden
+                        if not item.startswith('$'):
+                            folders.append({'name': item, 'type': 'folder'})
+            except Exception as smb_e:
+                return jsonify({'success': False, 'error': f'SMB access failed: {str(smb_e)}'}), 403
+        else:
+            # Local path
+            if not os.path.exists(base_path):
+                # If root, allow listing / or common drives
+                if base_path in ["/", "C:", "D:"]: pass
+                else: return jsonify({'success': False, 'error': 'Path not found'}), 404
+            
+            for item in os.listdir(base_path):
+                full_item_path = os.path.join(base_path, item)
+                if os.path.isdir(full_item_path):
+                    folders.append({'name': item, 'type': 'folder'})
+
+        return jsonify({'success': True, 'folders': sorted(folders, key=lambda x: x['name'].lower())})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ================= ===========================================
 # Export / Import Endpoints
 # ============================================================
 

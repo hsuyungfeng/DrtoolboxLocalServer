@@ -55,8 +55,8 @@ class ClinicalAnalyzer:
                     adata.var_names = ['age']
                     
                     # ehrapy pipeline
-                    ep.pp.scale(adata)
-                    ep.tl.pca(adata)
+                    ep.pp.scale_norm(adata)
+                    ep.pp.pca(adata)
                     ep.pp.neighbors(adata, n_neighbors=min(len(df)-1, 15))
                     ep.tl.leiden(adata, resolution=0.5)
                     
@@ -65,6 +65,7 @@ class ClinicalAnalyzer:
                     logger.warning(f"Deep clustering skipped: {inner_e}")
             
             # 4. Save Insights
+            knowledge_gaps = self._analyze_knowledge_gaps()
             insight_file = os.path.join(self.output_dir, f"clinical_insights_{datetime.now().strftime('%Y%m%d')}.json")
             
             # Handle NaN for avg_age
@@ -96,11 +97,38 @@ class ClinicalAnalyzer:
 
     def _analyze_knowledge_gaps(self):
         """Analyzes recent logs to find topics with low AI confidence."""
-        import glob
         gaps = {}
+        
+        # 1. Check database for low confidence conversations
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            # Find patient messages with low confidence RAG responses
+            query = """
+                SELECT text FROM patient_conversations 
+                WHERE sender = 'patient' AND rag_confidence < 0.65 
+                ORDER BY timestamp DESC LIMIT 100
+            """
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            logger.info(f"Found {len(rows)} low-confidence messages in DB.")
+            for (text,) in rows:
+                # Heuristic: Extract first 3 words or 5 Chinese characters as topic
+                words = text.split()
+                if words and any(ord(c) > 127 for c in words[0]): # Likely Chinese
+                    topic = text[:5]
+                else:
+                    topic = " ".join(words[:3])
+                gaps[topic] = gaps.get(topic, 0) + 1
+            conn.close()
+        except Exception as e:
+            logger.warning(f"Failed to query knowledge gaps from DB: {e}")
+
+        # 2. Legacy: Check last 3 days of JSONL logs
+        import glob
         log_files = glob.glob(os.path.join(DATA_DIR, "interactions_*.jsonl"))
         
-        for log_file in log_files[-3:]: # Check last 3 days
+        for log_file in log_files[-3:]:
             try:
                 with open(log_file, 'r', encoding='utf-8') as f:
                     for line in f:
@@ -108,7 +136,6 @@ class ClinicalAnalyzer:
                         meta = entry.get('metadata', {})
                         conf = meta.get('confidence_score', 100)
                         if conf < 65:
-                            # Heuristic: Extract first 3 words as topic
                             topic = " ".join(entry['messages'][0]['content'].split()[:3])
                             gaps[topic] = gaps.get(topic, 0) + 1
             except: continue

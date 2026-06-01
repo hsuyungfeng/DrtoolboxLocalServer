@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}雲端同步中心 - 診所管理系統{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="page-title">雲端同步中心</h2>
+        <button class="btn btn-primary" onclick="fetchSyncStatus()">重新整理狀態</button>
+    </div>
+
+    <div class="row g-4">
+        <!-- 同步狀態 -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-transparent">同步狀態</div>
+                <div class="card-body text-center">
+                    <h1 id="sync-status-icon" class="display-1 mb-3">🔄</h1>
+                    <h4 id="sync-status-text">讀取中...</h4>
+                    <p class="text-muted small" id="last-sync-time">上次同步: -</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 同步操作 -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-transparent">手動觸發同步</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <button class="btn btn-outline-primary w-100 py-3" onclick="triggerSync('analytics')">
+                                📊 同步營運分析數據
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button class="btn btn-outline-success w-100 py-3" onclick="triggerSync('patients')">
+                                👥 同步患者病歷資料
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 同步日誌 -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent">最近同步記錄</div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>時間</th>
+                                <th>類型</th>
+                                <th>結果</th>
+                                <th>詳情</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sync-logs-body">
+                            <tr><td colspan="4" class="text-center py-4">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function fetchSyncStatus() {
+        try {
+            const resp = await fetch('/api/v1/sync/status');
+            const result = await resp.json();
+            if (result.success) {
+                document.getElementById('sync-status-text').textContent = result.data.is_syncing ? '同步進行中' : '連線正常';
+                document.getElementById('last-sync-time').textContent = '上次同步: ' + (result.data.last_sync || '從未');
+            }
+        } catch (e) { console.error(e); }
+        fetchLogs();
+    }
+
+    async function fetchLogs() {
+        try {
+            const resp = await fetch('/api/v1/sync/logs');
+            const result = await resp.json();
+            const tbody = document.getElementById('sync-logs-body');
+            if (result.success && result.data.length > 0) {
+                tbody.innerHTML = result.data.map(l => `
+                    <tr>
+                        <td>${new Date(l.timestamp).toLocaleString()}</td>
+                        <td><span class="badge bg-info">${l.type}</span></td>
+                        <td><span class="badge bg-${l.success ? 'success' : 'danger'}">${l.success ? '成功' : '失敗'}</span></td>
+                        <td class="small text-muted">${l.message || '-'}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">尚無同步記錄</td></tr>';
+            }
+        } catch (e) {}
+    }
+
+    async function triggerSync(type) {
+        if (!confirm(`確定要手動同步 ${type} 嗎？`)) return;
+        try {
+            const url = type === 'analytics' ? '/api/v1/sync/analytics' : '/api/v1/sync/patients/bulk';
+            const resp = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) });
+            const result = await resp.json();
+            alert(result.message || (result.success ? '同步指令已發出' : '同步失敗'));
+            fetchSyncStatus();
+        } catch (e) { alert('連線失敗'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchSyncStatus);
+</script>
+{% endblock %}

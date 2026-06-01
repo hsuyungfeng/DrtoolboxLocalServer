@@ -18,7 +18,7 @@ import sys
 import sqlite3
 import logging
 import uuid
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 
 # Fix import paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
@@ -324,3 +324,10 @@ def update_sync_config():
             'error': '無法更新同步配置',
             'message': str(e)
         }), 500
+
+
+@cloud_sync_bp.route('/dashboard/staff/sync/')
+@cloud_sync_bp.route('/dashboard/staff/sync')
+def cloud_sync_dashboard():
+    """雲端同步儀表板頁面"""
+    return render_template('cloud_sync.html')

@@ -139,7 +139,8 @@ def get_stats():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@chat_monitor_bp.route('/dashboard/chat-monitor/', methods=['GET'])
+@chat_monitor_bp.route('/dashboard/chat-monitor/')
+@chat_monitor_bp.route('/dashboard/chat-monitor')
 def chat_monitor_dashboard():
     """對話監控儀表板頁面"""
     return render_template('chat_monitor.html')

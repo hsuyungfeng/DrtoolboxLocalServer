@@ -68,7 +68,9 @@ def filebrowser_status():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@filebrowser_bridge_bp.route('/dashboard/files/', methods=['GET'])
+@filebrowser_bridge_bp.route('/dashboard/files/')
+@filebrowser_bridge_bp.route('/dashboard/files')
 def filebrowser_dashboard():
     """FileBrowser 內嵌頁面"""
-    return render_template('filebrowser.html')
+    return render_template('filebrowser.html', 
+                          filebrowser_url=FILEBROWSER_URL)

@@ -266,6 +266,7 @@ def get_appointment_stats():
 
 
 @analytics_bp.route('/dashboard/analytics/')
+@analytics_bp.route('/dashboard/analytics')
 def analytics_dashboard():
     """Render analytics dashboard page"""
     from flask import render_template
