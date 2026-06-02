@@ -15,10 +15,48 @@ from config.settings import DATA_DIR, SPECIAL_DATA_DIR, GENERAL_DATA_DIR, LOG_DI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import hashlib
+import sqlite3
+
 class QAGenerator:
     def __init__(self):
         self.rag = RAGEngine()
+        self.db_path = "data/db/clinic.db"
+
+    def _is_duplicate(self, topic, question):
+        """Check if this specific question has been generated before for this topic."""
+        # Normalize: remove spaces, punctuation and convert to lowercase
+        normalized = "".join(filter(str.isalnum, question)).lower()
+        q_hash = hashlib.md5(normalized.encode()).hexdigest()
         
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM proactive_qa_history WHERE topic = ? AND question_hash = ?", (topic, q_hash))
+            exists = cursor.fetchone()
+            
+            if not exists:
+                cursor.execute("INSERT INTO proactive_qa_history (topic, question_hash, question_text) VALUES (?, ?, ?)", 
+                             (topic, q_hash, question))
+                conn.commit()
+            conn.close()
+            return exists is not None
+        except Exception as e:
+            logger.error(f"DB Error in duplicate check: {e}")
+            return False
+
+    def get_existing_questions(self, topic):
+        """Fetch last 10 generated questions for this topic to use as negative constraints."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT question_text FROM proactive_qa_history WHERE topic = ? ORDER BY created_at DESC LIMIT 10", (topic,))
+            rows = cursor.fetchall()
+            conn.close()
+            return [r[0] for r in rows]
+        except:
+            return []
+
     def scan_for_topics(self, directory):
         """Scans a directory to identify potential topics/services."""
         topics = []
@@ -120,23 +158,24 @@ class QAGenerator:
         for topic in topics:
             logger.info(f"Generating {category} QA for: {topic}")
             
-            # 1. Generate 3 diverse patient questions
-            # Instructions updated to follow the new [Subject Header]\n[Question] format
+            # 1. Fetch history to avoid repeats
+            history = self.get_existing_questions(topic)
+            history_str = "\n".join([f"- {q}" for q in history]) if history else "無"
+            
+            # 2. Generate 3 diverse patient questions
             q_prompt = f"""你是一個病患提問模擬器。請針對主題『{topic}』，模擬出 3 個最常問的專業問題。
 
 要求格式：
 1. 第一行必須是『🚀 {topic}』。
-2. 第二行才是具體的提問句。
+2. **絕對禁止**重複以下已生成的舊問題：
+{history_str}
+
 3. 每個問題之間請用『---』分隔。
-4. **絕對禁止**輸出任何關於「Thinking process」、「思考過程」或開場白。
-5. 請直接從『🚀』開始輸出。
+4. 直接從『🚀』開始輸出。
 
 範例：
-🚀 過敏性皮炎
-我想知道這次發作的原因到底是什麼？以後還會有復發的風險嗎？
----
-🚀 過敏性皮炎
-這種病症在飲食上有什麼禁忌嗎？
+🚀 {topic}
+我想知道這次發作的原因到底是什麼？
 """
             questions_raw = llm_instance.generate(q_prompt, max_tokens=600)
             
@@ -184,6 +223,11 @@ class QAGenerator:
                 
                 # The first valid line is our actual question
                 actual_question = question_lines[0]
+
+                # --- DUPLICATE FILTER ---
+                if self._is_duplicate(topic, actual_question):
+                    logger.info(f"Skipping duplicate question: {actual_question}")
+                    continue
                 
                 # --- NOISE & LENGTH FILTER ---
                 # Remove backticks, dots, or other markdown junk

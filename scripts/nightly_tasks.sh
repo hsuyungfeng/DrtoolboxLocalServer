@@ -30,4 +30,8 @@ $PYTHON_BIN "$PROJECT_DIR/scripts/nightly_fact_check.py" >> "$LOG_FILE" 2>&1
 log "Generating simulated QA and performing global reasoning..."
 $PYTHON_BIN "$PROJECT_DIR/scripts/nightly_qa_generator.py" >> "$LOG_FILE" 2>&1
 
+# 5. External Channel Polling (Google Maps Reviews)
+log "Polling for new Google Maps reviews..."
+$PYTHON_BIN -c "from src.services.google_maps_service import google_maps_service; google_maps_service.fetch_and_process_reviews()" >> "$LOG_FILE" 2>&1
+
 log "=== Nightly Self-Learning Complete ==="

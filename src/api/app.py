@@ -45,8 +45,9 @@ def create_app():
     from src.api.routes.cloud_sync import cloud_sync_bp
     from src.api.routes.chat_monitor import chat_monitor_bp
     from src.api.routes.patient_intake import patient_intake_bp
+    from src.api.routes.external_channels import external_channels_bp
     from src.api.routes.rag_dashboard import rag_dashboard_bp
-    
+
     app.register_blueprint(chat_bp, url_prefix='/api/chat')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(staff_actions_bp)
@@ -58,6 +59,7 @@ def create_app():
     app.register_blueprint(filebrowser_bridge_bp)
     app.register_blueprint(astrbot_bridge_bp)
     app.register_blueprint(crm_reports_bp)
+    app.register_blueprint(external_channels_bp)
     app.register_blueprint(staff_inbox_bp)
     app.register_blueprint(staff_dashboard_bp)
     app.register_blueprint(cloud_sync_bp)

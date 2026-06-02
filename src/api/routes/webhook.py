@@ -234,25 +234,26 @@ def messenger_webhook():
     body = request.get_json()
     if body.get('object') == 'page':
         for entry in body.get('entry', []):
-            webhook_event = entry.get('messaging', [])[0]
-            sender_psid = webhook_event.get('sender', {}).get('id')
-            
-            if webhook_event.get('message') and not webhook_event.get('message').get('is_echo'):
-                handle_messenger_message(sender_psid, webhook_event['message'])
+            messaging_events = entry.get('messaging', [])
+            for event in messaging_events:
+                sender_psid = event.get('sender', {}).get('id')
+                if event.get('message') and not event.get('message').get('is_echo'):
+                    # Start background thread to prevent Meta timeout
+                    thread = threading.Thread(target=process_messenger_message_bg, args=(sender_psid, event['message']))
+                    thread.start()
                 
         return 'EVENT_RECEIVED', 200
     
     return "Not Found", 404
 
-def handle_messenger_message(psid, received_message):
-    """Messenger specific message processing."""
+def process_messenger_message_bg(psid, received_message):
+    """Background worker for Messenger reasoning and reply."""
     user_text = received_message.get('text')
-    if not user_text: return # Skip media for now
+    if not user_text: return
     
-    logger.info(f"Messenger Message from {psid}: {user_text}")
+    logger.info(f"Messenger (BG) from {psid}: {user_text}")
     
     try:
-        import requests
         from src.agent.hermes_core import get_hermes_agent
         from src.services.logger_service import logger_service
         agent = get_hermes_agent()
@@ -268,9 +269,9 @@ def handle_messenger_message(psid, received_message):
         # 2. Dynamic RAG Reasoning
         response, route, risk, conf = agent.chat(user_text)
         
-        # 3. Price Safeguard
+        # 3. Price Safeguard & Call to Action
         if any(k in user_text for k in ["價格", "多少錢", "費用", "預約"]):
-            response += "\n\n💡 建議直接致電診所或於粉專私訊專人預約。"
+            response += "\n\n💡 建議直接致電診所 04-2395-0960 或在此私訊專人預約。"
 
         send_messenger_reply(psid, response)
 
@@ -285,8 +286,10 @@ def handle_messenger_message(psid, received_message):
         )
         
     except Exception as e:
-        logger.error(f"Error handling Messenger message: {e}")
-        send_messenger_reply(psid, "抱歉，系統目前忙碌中，請稍後再試。")
+        logger.error(f"Error handling Messenger message in background: {e}")
+        try:
+            send_messenger_reply(psid, "抱歉，系統目前忙碌中，請稍後再試。")
+        except: pass
 
 def send_messenger_reply(psid, text):
     """Calls Meta Send API to reply to user."""
