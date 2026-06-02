@@ -6,4 +6,7 @@
 #
 
 # Daily restart at 2:00 AM
-0 2 * * * /home/hsu/DrtoolboxLocalServer/scripts/daily_restart.sh >> /home/hsu/DrtoolboxLocalServer/logs/restart.log 2>&1
+0 2 * * * /home/hsuyungfeng/DrtoolboxLocalServer/scripts/daily_restart.sh >> /home/hsuyungfeng/DrtoolboxLocalServer/logs/restart.log 2>&1
+
+# Nightly Self-Learning at 3:00 AM
+0 3 * * * bash /home/hsuyungfeng/DrtoolboxLocalServer/scripts/nightly_tasks.sh >> /home/hsuyungfeng/DrtoolboxLocalServer/logs/cron_error.log 2>&1
