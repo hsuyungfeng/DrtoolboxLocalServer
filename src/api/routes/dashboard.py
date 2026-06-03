@@ -85,9 +85,16 @@ def get_proactive_qa():
         filename = f"proactive_qa_{cat}_{date_str}.jsonl" if cat else f"proactive_qa_{date_str}.jsonl"
         filepath = os.path.join(LOG_DIR, filename)
         if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip(): proactive_data.append(json.loads(line))
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        if line.strip():
+                            try:
+                                proactive_data.append(json.loads(line))
+                            except Exception as parse_e:
+                                logger.error(f"Failed to parse proactive line: {parse_e}")
+            except Exception as read_e:
+                logger.error(f"Failed to read proactive file {filepath}: {read_e}")
     return jsonify(proactive_data)
 
 @dashboard_bp.route('/articles', methods=['GET'])
@@ -284,21 +291,30 @@ def _remove_from_source(item_type, item_id):
             filepath = os.path.join(LOG_DIR, filename)
             if os.path.exists(filepath):
                 remaining_lines = []
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        if not line.strip(): continue
-                        try:
-                            d = json.loads(line)
-                            is_match = False
-                            if item_type.startswith('proactive') and d.get('question') == item_id: is_match = True
-                            elif item_type == 'draft' and d.get('timestamp') == item_id: is_match = True
-                            elif item_type == 'log' and d.get('timestamp') == item_id: is_match = True
-                            
-                            if not is_match: remaining_lines.append(line)
-                        except: remaining_lines.append(line)
+                try:
+                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()
+                except Exception as read_e:
+                    logger.error(f"Failed to read file for removal: {read_e}")
+                    continue
+                    
+                for line in lines:
+                    if not line.strip(): continue
+                    try:
+                        d = json.loads(line)
+                        is_match = False
+                        if item_type.startswith('proactive') and d.get('question') == item_id: is_match = True
+                        elif item_type == 'draft' and d.get('timestamp') == item_id: is_match = True
+                        elif item_type == 'log' and d.get('timestamp') == item_id: is_match = True
                         
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    f.writelines(remaining_lines)
+                        if not is_match: remaining_lines.append(line)
+                    except: remaining_lines.append(line)
+                        
+                try:
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        f.writelines(remaining_lines)
+                except Exception as write_e:
+                    logger.error(f"Failed to write file after removal: {write_e}")
     except Exception as e:
         import logging
         logging.error(f"Cleanup of item failed: {e}")
