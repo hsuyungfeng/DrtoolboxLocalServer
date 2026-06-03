@@ -20,11 +20,14 @@ import os
 import sys
 import sqlite3
 import logging
+import json
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 # Fix import paths
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
+from src.db.his_connection import get_his_connection
 
 logger = logging.getLogger(__name__)
 

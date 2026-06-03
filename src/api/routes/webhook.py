@@ -150,6 +150,17 @@ def process_line_message_bg(reply_token, user_id, user_text):
             reply = "⚠️ **系統提示**：偵測到您提到的症狀可能需要立即處理。\n\n請撥打診所緊急電話：04-2395-0960，或前往急診。"
             if line_bot_api:
                 line_bot_api.push_message(user_id, TextSendMessage(text=reply))
+            # Notify staff in real-time
+            try:
+                from src.services.notification_service import notification_service
+                notification_service.notify_high_risk(
+                    patient_id=user_id,
+                    message=user_text,
+                    risk_type="Symptom/Medical"
+                )
+            except Exception as notify_e:
+                logger.error(f"Failed to send high risk staff alert: {notify_e}")
+            
             # Log the risk interaction
             logger_service.log_interaction(user_id, user_text, reply, "emergency", is_high_risk=True)
             return

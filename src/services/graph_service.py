@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import re
+import sqlite3
 from src.rag_engine import RAGEngine
 
 logger = logging.getLogger(__name__)
@@ -11,21 +12,34 @@ class GraphService:
         self.rag = rag_engine
 
     def get_knowledge_graph(self):
-        """Extracts nodes and links from PageIndex 2.0 trees."""
+        """Extracts nodes and links from PageIndex 2.0 trees stored in the database."""
         nodes = []
         links = []
         seen_nodes = set()
 
-        with self.rag._pi_cache_lock:
-            cache = list(self.rag._pi_cache)
+        try:
+            conn = sqlite3.connect(self.rag.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT doc_id, category, version, pre_op_physician_notes, 
+                       procedure_physician_notes, post_op_short_physician_notes, 
+                       maintenance_physician_notes 
+                FROM page_index_trees
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+        except Exception as db_e:
+            logger.error(f"Failed to query page_index_trees for graph: {db_e}")
+            rows = []
 
-        for item in cache:
-            if item.get('version') != "2.0": continue
+        for row in rows:
+            doc_id = row['doc_id']
+            if row['version'] != "2.0": continue
             
             # 1. Create a node for the document/topic
-            doc_id = os.path.basename(item['id'])
-            # Aggressive cleaning for medical filenames
-            topic = doc_id
+            filename = os.path.basename(doc_id)
+            topic = filename
             for ext in ['.txt', '.pi.json', '.doc', '.docx', '.pdf', '.ppt', '.pptx']:
                 topic = topic.replace(ext, '')
             topic = topic.strip()
@@ -34,17 +48,18 @@ class GraphService:
                 nodes.append({
                     "id": topic,
                     "type": "topic",
-                    "category": "special" if "/special/" in item['id'] else "general"
+                    "category": row['category']
                 })
                 seen_nodes.add(topic)
 
-            # 2. Extract internal connections (Pre-op -> Procedure -> Post-op)
-            # For now, we represent the logical flow within the document
-            # Future enhancement: NLP extraction of cross-topic entities
-            tree = item.get('tree', {})
-            
-            # Check for Physician Notes as a high-value node type
-            if any("_physician_notes" in k for k in tree.keys()):
+            # 2. Check for Physician Notes as a high-value node type
+            has_notes = (
+                row['pre_op_physician_notes'] or 
+                row['procedure_physician_notes'] or 
+                row['post_op_short_physician_notes'] or 
+                row['maintenance_physician_notes']
+            )
+            if has_notes:
                 note_id = f"Note: {topic}"
                 if note_id not in seen_nodes:
                     nodes.append({"id": note_id, "type": "physician_note"})
@@ -82,7 +97,7 @@ class GraphService:
                             })
                             seen_links.add(link_key)
                         
-                        # Limit density to prevent UI lag (max 10 links per node pair)
+                        # Limit density to prevent UI lag (max 5000 links)
                         if len(links) > 5000: break 
                     if len(links) > 5000: break
             if len(links) > 5000: break
@@ -90,3 +105,4 @@ class GraphService:
         return {"nodes": nodes, "links": links}
 
 graph_service = None # Initialized after RAGEngine
+
