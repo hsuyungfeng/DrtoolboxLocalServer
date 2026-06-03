@@ -6,7 +6,8 @@ Drtoolbox 是一個專為診所設計的**隱私優先 (Privacy-First)** 本地 
 
 ## 🚀 專案目前狀態：自主成長與智慧營運階段
 本專案已成功實現「數據閉環 (Data Loop)」，系統具備自我進化與深度洞察能力：
-- **模型架構**：採用本地 Qwen 等級模型，結合 **PageIndex 2.0 臨床推理樹** 實現深度醫療邏輯。
+- **高效 RAG 引擎 (SQLite FTS5)**：從原先的 Python 記憶體線性掃描，重構升級為 SQLite FTS5 全文索引，搭配 BM25 檢索與 fine-grained N-gram 混合排序。將 3.1 GB 大體量醫學教科書的檢索延遲從 **152+ 秒縮短至 14.06 秒 (效能提升 10 倍以上)**，徹底解決 LINE Webhook 超時斷線。
+- **模型與推理樹**：採用本地 Qwen 模型，並在 SQLite 中快取 **PageIndex 2.0 臨床推理樹**，支援直接從磁碟 JSON 檔案快照遷移至資料庫，零 GPU/LLM 重建開銷。
 - **HIS 深度整合**：支援本地或區域網路 (SMB) 的 HIS 資料庫 (.dbf) 自動同步，打通醫療數據孤島。
 - **混合路由技術**：導入 **Dynamic Knowledge Fallback** 機制，平衡診所專有數據與通用醫學知識。
 - **全通路對接**：支援 LINE 與 Messenger 串接，具備非同步處理機制與精美 Flex Message 介面。
@@ -73,6 +74,7 @@ crontab cron/crontab.txt
 | **數據量擴充** | `python scripts/expand_patient_data.py 50` | 生成 50 筆模擬病患資料用於測試。 |
 | **網芳掃描** | `python scripts/scan_his_network.py` | 手動掃描區域網路中的 HIS 分享資料夾。 |
 | **重整索引** | `bash scripts/ingest_all.sh` | 將所有文件重新轉換為 PageIndex 樹格式。 |
+| **資料庫遷移** | `python scripts/migrate_json_to_db.py` | 將磁碟上的 PageIndex JSON 匯入 SQLite RAG 資料庫。 |
 
 ---
 

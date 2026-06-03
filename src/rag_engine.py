@@ -11,6 +11,9 @@ from config.settings import DATA_DIR, PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
+# Global database lock to prevent concurrent write issues in SQLite
+db_write_lock = threading.Lock()
+
 class ReasonerWrapper:
     """Wrapper to make LocalLLM compatible with reasoning interface."""
     def __init__(self, llm):
@@ -26,75 +29,213 @@ class ReasonerWrapper:
         return self.llm.chat_generate_stream(messages)
 
 class SimpleIndex:
-    def __init__(self, reasoner):
+    def __init__(self, reasoner, category, db_path):
         self.reasoner = reasoner
-        self.documents = []
-        self.chunks = [] # Cache for faster search
-        self.lock = threading.Lock() # Thread safety
+        self.category = category
+        self.db_path = db_path
+        self.lock = threading.Lock()
         
     def add_document(self, doc):
-        with self.lock:
-            # 如果上傳同名檔案，直接覆蓋舊的記憶
-            for i, existing_doc in enumerate(self.documents):
-                if existing_doc.get('id') == doc.get('id'):
-                    self.documents[i] = doc
-                    self._rebuild_chunks_unlocked() 
-                    return
-            self.documents.append(doc)
-            text = doc.get('content', '')
-            for i in range(0, len(text), 400):
-                self.chunks.append(text[i:i+600])
-
-    def _rebuild_chunks_unlocked(self):
-        """Rebuilds cache without acquiring lock (internal use)."""
-        self.chunks = []
-        for d in self.documents:
-            text = d.get('content', '')
-            for i in range(0, len(text), 400):
-                self.chunks.append(text[i:i+600])
+        doc_id = doc.get('id', '')
+        content = doc.get('content', '')
+        if not content:
+            return
+            
+        # Write chunks directly to SQLite database
+        with db_write_lock:
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Delete existing chunks for this document and category to prevent duplicates
+                cursor.execute("DELETE FROM rag_chunks WHERE doc_id = ? AND category = ?", (doc_id, self.category))
+                
+                # Chunk document and insert
+                chunk_index = 0
+                for i in range(0, len(content), 400):
+                    chunk_text = content[i:i+600]
+                    cursor.execute("""
+                        INSERT INTO rag_chunks (doc_id, category, chunk_index, content)
+                        VALUES (?, ?, ?, ?)
+                    """, (doc_id, self.category, chunk_index, chunk_text))
+                    chunk_index += 1
+                    
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.error(f"Failed to add document chunks to SQLite: {e}")
         
     def get_scored_chunks(self, q):
-        with self.lock:
-            chunks_snapshot = list(self.chunks) # Fast copy for read safety
+        # Format query for FTS5 Match
+        keywords = re.findall(r'[\u4e00-\u9fff]{2,}', q)
+        stop_words = {
+            "請問", "在哪", "哪裡", "多少", "類似", "療程", "治療", "多久", "可以", 
+            "注意", "什麼", "如果", "出現", "情況", "需要", "立即", "如何", "是不是", 
+            "有沒有", "現在", "一個", "一些", "以及", "關於", "建議", "提供", "就醫",
+            "回診", "或者", "還是"
+        }
+        filtered_kvs = [k for k in keywords if k not in stop_words and not any(sw in k for sw in ["請問", "什麼", "可以", "需要", "有沒有"])]
+        if not filtered_kvs:
+            filtered_kvs = keywords if keywords else list(q.replace("?", "").replace("？", "").replace(" ", "").replace("請問", ""))
             
-        clean_q = q.replace("?", "").replace("？", "").replace(" ", "").replace("請問", "")
-        q_chars = set(clean_q)
-        
-        ngrams = []
-        for n in range(2, 6):
-            if n <= len(clean_q):
-                for i in range(len(clean_q) - n + 1):
-                    ngrams.append(clean_q[i:i+n])
-                    
+        if not filtered_kvs:
+            return []
+            
+        fts_query = " OR ".join([f'"{k}"' for k in filtered_kvs])
         scored_chunks = []
-        for chunk in chunks_snapshot:
-            score = 0
-            score += sum(1.5 for char in q_chars if char in chunk)
+        
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
             
-            for ngram in ngrams:
-                count = chunk.count(ngram)
-                if count > 0:
-                    score += count * (len(ngram) ** 2.5) * 15
+            # Query candidate chunks using FTS5 (sub-millisecond retrieval)
+            cursor.execute("""
+                SELECT c.content, bm25(rag_chunks_fts) as score FROM rag_chunks c
+                JOIN rag_chunks_fts f ON c.id = f.rowid
+                WHERE c.category = ? AND rag_chunks_fts MATCH ?
+                ORDER BY score ASC
+                LIMIT 30
+            """, (self.category, fts_query))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            # Compute fine-grained N-gram overlap scores on the top 30 candidates
+            clean_q = q.replace("?", "").replace("？", "").replace(" ", "").replace("請問", "")
+            q_chars = set(clean_q)
+            ngrams = []
+            for n in range(2, 6):
+                if n <= len(clean_q):
+                    for i in range(len(clean_q) - n + 1):
+                        ngrams.append(clean_q[i:i+n])
+            
+            for content, bm25_score in rows:
+                score = 0
+                score += sum(1.5 for char in q_chars if char in content)
+                for ngram in ngrams:
+                    count = content.count(ngram)
+                    if count > 0:
+                        score += count * (len(ngram) ** 2.5) * 15
+                if score > 5:
+                    scored_chunks.append((score, content))
                     
-            if score > 5:
-                scored_chunks.append((score, chunk))
+        except Exception as e:
+            logger.error(f"SQL get_scored_chunks failed for category {self.category}: {e}")
+            
         return scored_chunks
 
 class RAGEngine:
     def __init__(self):
+        self.db_path = os.path.join(DATA_DIR, 'db', 'rag.db')
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self._init_db()
+        
         self.reasoner = ReasonerWrapper(llm_instance)
-        self.special_index = SimpleIndex(reasoner=self.reasoner)
-        self.general_index = SimpleIndex(reasoner=self.reasoner)
-        self.pi_storage = os.path.join(DATA_DIR, 'pageindex')
-        os.makedirs(self.pi_storage, exist_ok=True)
-        self._pi_cache = []
-        self._pi_cache_lock = threading.Lock()
-
-        # Load existing trees
-        self._load_existing_pi_trees()
-        # Worker Pool for background PageIndexing (Balanced default)
+        self.special_index = SimpleIndex(reasoner=self.reasoner, category="special", db_path=self.db_path)
+        self.general_index = SimpleIndex(reasoner=self.reasoner, category="general", db_path=self.db_path)
+        
+        # Parallel page indexing pool
         self.pi_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="PI_Worker")
         
+    def _init_db(self):
+        """Initializes database schema and FTS5 search engines for chunks and reasoning trees."""
+        with db_write_lock:
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # 1. RAG chunks table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS rag_chunks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        doc_id TEXT,
+                        category TEXT,
+                        chunk_index INTEGER,
+                        content TEXT
+                    )
+                """)
+                
+                # 2. RAG chunks FTS5 virtual table
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='rag_chunks_fts'")
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        CREATE VIRTUAL TABLE rag_chunks_fts USING fts5(
+                            content,
+                            content='rag_chunks',
+                            content_rowid='id',
+                            tokenize='unicode61'
+                        )
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS rag_chunks_ai AFTER INSERT ON rag_chunks BEGIN
+                            INSERT INTO rag_chunks_fts(rowid, content) VALUES (new.id, new.content);
+                        END
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS rag_chunks_ad AFTER DELETE ON rag_chunks BEGIN
+                            INSERT INTO rag_chunks_fts(rag_chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+                        END
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS rag_chunks_au AFTER UPDATE ON rag_chunks BEGIN
+                            INSERT INTO rag_chunks_fts(rag_chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+                            INSERT INTO rag_chunks_fts(rowid, content) VALUES (new.id, new.content);
+                        END
+                    """)
+                    
+                # 3. PageIndex trees table
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS page_index_trees (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        doc_id TEXT UNIQUE,
+                        category TEXT,
+                        pre_op TEXT,
+                        pre_op_physician_notes TEXT,
+                        procedure TEXT,
+                        procedure_physician_notes TEXT,
+                        post_op_short TEXT,
+                        post_op_short_physician_notes TEXT,
+                        maintenance TEXT,
+                        maintenance_physician_notes TEXT,
+                        summary_text TEXT,
+                        version TEXT,
+                        indexed_at TEXT
+                    )
+                """)
+                
+                # 4. PageIndex FTS5 virtual table
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='page_index_fts'")
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        CREATE VIRTUAL TABLE page_index_fts USING fts5(
+                            summary_text,
+                            content='page_index_trees',
+                            content_rowid='id',
+                            tokenize='unicode61'
+                        )
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS page_index_ai AFTER INSERT ON page_index_trees BEGIN
+                            INSERT INTO page_index_fts(rowid, summary_text) VALUES (new.id, new.summary_text);
+                        END
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS page_index_ad AFTER DELETE ON page_index_trees BEGIN
+                            INSERT INTO page_index_fts(page_index_fts, rowid, summary_text) VALUES('delete', old.id, old.summary_text);
+                        END
+                    """)
+                    cursor.execute("""
+                        CREATE TRIGGER IF NOT EXISTS page_index_au AFTER UPDATE ON page_index_trees BEGIN
+                            INSERT INTO page_index_fts(page_index_fts, rowid, summary_text) VALUES('delete', old.id, old.summary_text);
+                            INSERT INTO page_index_fts(rowid, summary_text) VALUES (new.id, new.summary_text);
+                        END
+                    """)
+                    
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.error(f"Failed to initialize SQLite RAG database: {e}")
+                
     def ingest_special_data(self, documents):
         logger.info(f"Ingesting {len(documents)} special documents into Index.")
         for doc in documents:
@@ -115,19 +256,18 @@ class RAGEngine:
         content = doc.get('content', '')
         if not content or len(content) < 300: return
         
-        target_dir = os.path.join(self.pi_storage, category)
-        os.makedirs(target_dir, exist_ok=True)
-        tree_file = os.path.join(target_dir, f"{os.path.basename(doc_id)}.pi.json")
-        
-        if os.path.exists(tree_file): 
-            try:
-                with open(tree_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    with self._pi_cache_lock:
-                        self._pi_cache.append(data)
-            except: pass
-            return
-        
+        # Check if reasoning tree already exists in database
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
+            cursor.execute("SELECT doc_id FROM page_index_trees WHERE doc_id = ?", (doc_id,))
+            exists = cursor.fetchone()
+            conn.close()
+            if exists:
+                return # Already built
+        except Exception as e:
+            logger.error(f"Failed checking tree existence: {e}")
+            
         try:
             tree_system = "你是一個醫療文件分析專家。請將輸入的文件內容轉化為結構化的 JSON 推理樹。請勿輸出 JSON 以外的任何文字（除思考過程外）。"
             tree_prompt = f"""請分析以下醫療/診所文件，並生成一個「結構化推理樹」。
@@ -169,40 +309,31 @@ class RAGEngine:
                     "maintenance": "解析失敗"
                 }
             
-            data = {
-                "id": doc_id, 
-                "tree": tree_data, 
-                "indexed_at": str(datetime.datetime.now()),
-                "version": "2.0" # Clinical Reasoning Tree version
-            }
+            summary_text = f"{tree_data.get('pre_op')} {tree_data.get('procedure')} {tree_data.get('post_op_short')} {tree_data.get('maintenance')}"
             
-            with open(tree_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-            
-            with self._pi_cache_lock:
-                self._pi_cache.append(data)
-            logger.info(f"✅ [PageIndex] Clinical Reasoning Tree ready: {os.path.basename(doc_id)}")
+            # Persistent database write
+            with db_write_lock:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                
+                # Delete existing to trigger FTS update correctly
+                cursor.execute("DELETE FROM page_index_trees WHERE doc_id = ?", (doc_id,))
+                
+                cursor.execute("""
+                    INSERT INTO page_index_trees 
+                    (doc_id, category, pre_op, pre_op_physician_notes, procedure, procedure_physician_notes,
+                     post_op_short, post_op_short_physician_notes, maintenance, maintenance_physician_notes,
+                     summary_text, version, indexed_at)
+                    VALUES (?, ?, ?, NULL, ?, NULL, ?, NULL, ?, NULL, ?, ?, ?)
+                """, (doc_id, category, tree_data.get('pre_op'), tree_data.get('procedure'),
+                      tree_data.get('post_op_short'), tree_data.get('maintenance'),
+                      summary_text, "2.0", str(datetime.datetime.now())))
+                      
+                conn.commit()
+                conn.close()
+            logger.info(f"✅ [PageIndex] Clinical Reasoning Tree ready in database: {os.path.basename(doc_id)}")
         except Exception as e:
             logger.error(f"PageIndex build failed for {doc_id}: {e}")
-                
-    def _load_existing_pi_trees(self):
-        """Loads all existing .pi.json files from storage into memory cache."""
-        count = 0
-        for category in ["special", "general"]:
-            path = os.path.join(self.pi_storage, category)
-            if not os.path.exists(path): continue
-            
-            for file in os.listdir(path):
-                if file.endswith(".pi.json"):
-                    try:
-                        with open(os.path.join(path, file), 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            with self._pi_cache_lock:
-                                self._pi_cache.append(data)
-                            count += 1
-                    except Exception as e:
-                        logger.error(f"Failed to load tree {file}: {e}")
-        logger.info(f"💾 Loaded {count} PageIndex trees into memory.")
 
     def query(self, question, route="special", image_data=None):
         return self.query_integrated(question, route=route, image_data=image_data)
@@ -214,134 +345,227 @@ class RAGEngine:
         # 1. Identify which tree node this belongs to
         target_node = "procedure" # default
         if any(k in question for k in ["術前", "禁忌", "過敏", "準備"]): target_node = "pre_op"
-        elif any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "休養"]): target_node = "post_op_short"
+        elif any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "修養"]): target_node = "post_op_short"
         elif any(k in question for k in ["維持", "多久", "保養", "防曬", "效果"]): target_node = "maintenance"
 
-        # 2. Find the most relevant existing tree in cache
-        # Enhanced matching: Check keywords AND file titles
+        # 2. Find the most relevant existing tree in database
         keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question)
-        best_tree = None
-        best_score = 0
+        fts_query = " OR ".join([f'"{k}"' for k in keywords if k not in ["請問", "療程"]])
         
-        with self._pi_cache_lock:
-            for item in self._pi_cache:
-                if item.get('version') != "2.0": continue
+        best_doc_id = None
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
+        cursor = conn.cursor()
+        
+        if fts_query:
+            try:
+                cursor.execute("""
+                    SELECT t.doc_id FROM page_index_trees t
+                    JOIN page_index_fts f ON t.id = f.rowid
+                    WHERE page_index_fts MATCH ?
+                    LIMIT 1
+                """, (fts_query,))
+                row = cursor.fetchone()
+                if row:
+                    best_doc_id = row[0]
+            except Exception as e:
+                logger.error(f"FTS lookup for backflow failed: {e}")
                 
-                score = 0
-                tree_text = json.dumps(item.get('tree', {}), ensure_ascii=False)
-                filename = os.path.basename(item['id'])
-                
-                # Title weight (Highest priority)
-                title_hits = sum(50 for k in keywords if k in filename)
-                # Content weight
-                content_hits = sum(10 for k in keywords if k in tree_text)
-                
-                score = title_hits + content_hits
-                
-                if score > best_score:
-                    best_score = score
-                    best_tree = item
+        # If no FTS match, find using basic substring match in doc_id
+        if not best_doc_id:
+            try:
+                cursor.execute("SELECT doc_id FROM page_index_trees")
+                all_docs = [r[0] for r in cursor.fetchall()]
+                best_score = 0
+                for doc_id in all_docs:
+                    score = sum(50 for k in keywords if k in os.path.basename(doc_id))
+                    if score > best_score:
+                        best_score = score
+                        best_doc_id = doc_id
+            except Exception as e:
+                logger.error(f"Fallback lookup for backflow failed: {e}")
 
-        if best_tree and best_score >= 10:
-            logger.info(f"📍 Matching tree found: {os.path.basename(best_tree['id'])} (Score: {best_score})")
-            
-            with self._pi_cache_lock:
-                # Update the tree in memory (Inside Lock)
-                tree = best_tree['tree']
+        if best_doc_id:
+            logger.info(f"📍 Matching database entry found: {os.path.basename(best_doc_id)}")
+            try:
                 note_key = f"{target_node}_physician_notes"
-                
-                # Initialize or append to physician notes
-                existing_notes = tree.get(note_key, "")
-                new_note = f"【醫師校正】: {answer}"
-                
-                if new_note not in existing_notes:
-                    tree[note_key] = f"{existing_notes}\n{new_note}".strip()
-                    best_tree['indexed_at'] = str(datetime.datetime.now())
+                cursor.execute(f"SELECT {note_key}, pre_op, procedure, post_op_short, maintenance, pre_op_physician_notes, procedure_physician_notes, post_op_short_physician_notes, maintenance_physician_notes FROM page_index_trees WHERE doc_id = ?", (best_doc_id,))
+                row = cursor.fetchone()
+                if row:
+                    existing_notes = row[0] or ""
+                    pre_op, procedure, post_op_short, maintenance = row[1], row[2], row[3], row[4]
+                    pre_notes, proc_notes, post_notes, maint_notes = row[5] or "", row[6] or "", row[7] or "", row[8] or ""
                     
-                    # Persistent storage update (Atomic Write)
-                    try:
-                        category = "special" if "/special/" in best_tree['id'] else "general"
-                        target_dir = os.path.join(self.pi_storage, category)
-                        os.makedirs(target_dir, exist_ok=True)
-                        tree_file = os.path.join(target_dir, f"{os.path.basename(best_tree['id'])}.pi.json")
+                    new_note = f"【醫師校正】: {answer}"
+                    if new_note not in existing_notes:
+                        updated_notes = f"{existing_notes}\n{new_note}".strip()
                         
-                        # Atomic write pattern: write to temp then replace
-                        temp_file = tree_file + ".tmp"
-                        with open(temp_file, 'w', encoding='utf-8') as f:
-                            json.dump(best_tree, f, ensure_ascii=False, indent=4)
-                        os.replace(temp_file, tree_file)
+                        # Apply local note change
+                        local_notes = {
+                            "pre_op_physician_notes": pre_notes,
+                            "procedure_physician_notes": proc_notes,
+                            "post_op_short_physician_notes": post_notes,
+                            "maintenance_physician_notes": maint_notes
+                        }
+                        local_notes[note_key] = updated_notes
                         
-                        logger.info(f"💾 PageIndex tree '{tree_file}' updated atomically.")
-                    except Exception as e:
-                        logger.error(f"Failed to update PageIndex storage: {e}")
+                        # Update notes & summary
+                        summary_text = f"{pre_op} {procedure} {post_op_short} {maintenance} {local_notes['pre_op_physician_notes']} {local_notes['procedure_physician_notes']} {local_notes['post_op_short_physician_notes']} {local_notes['maintenance_physician_notes']}"
+                        
+                        with db_write_lock:
+                            cursor.execute(f"""
+                                UPDATE page_index_trees 
+                                SET {note_key} = ?, summary_text = ?, indexed_at = ?
+                                WHERE doc_id = ?
+                            """, (updated_notes, summary_text, str(datetime.datetime.now()), best_doc_id))
+                            conn.commit()
+                        logger.info(f"💾 PageIndex DB record for '{best_doc_id}' updated atomically.")
+            except Exception as e:
+                logger.error(f"Failed to update PageIndex record: {e}")
         else:
-            logger.warning(f"⚠️ No matching PageIndex tree found for backflow (Best Score: {best_score}). Skipping direct injection.")
+            logger.warning("⚠️ No matching PageIndex entry found for backflow.")
+            
+        conn.close()
 
-    def _get_context(self, question):
+    def _get_context(self, question, route="special"):
         """Internal helper to gather SQL, PI, and RAG context with Physician Note priority."""
-        # 1. SQL
+        logger.info(f"[_get_context] Starting context gathering for route '{route}'...")
         db_path = os.path.join(DATA_DIR, 'db', 'clinic.db')
         sql_context = "無相關資料庫紀錄。"
-        if os.path.exists(db_path):
+        
+        # 1. SQL Operational Data Lookup
+        if route == "special" and os.path.exists(db_path):
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
+                
+                # Fetch basic clinic details for all special route queries
+                cursor.execute("SELECT clinic_name_chinese, phone, address, website FROM clinic_info LIMIT 1")
+                clinic_row = cursor.fetchone()
+                if clinic_row:
+                    sql_context = f"診所基本資訊: {clinic_row[0]}, 電話: {clinic_row[1]}, 地址: {clinic_row[2]}, 網站: {clinic_row[3]}"
+                
                 if any(k in question for k in ["門診", "時間", "開", "休息", "排班"]):
                     cursor.execute("SELECT day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, evening_start, evening_end FROM v_clinic_hours_this_week LIMIT 7")
                     records = cursor.fetchall()
-                    if records: sql_context = f"診所門診時間表:\n{records}"
+                    if records: sql_context += f"\n診所門診時間表:\n{records}"
                 conn.close()
             except Exception as e: logger.error(f"SQL Error: {e}")
+        logger.info(f"[_get_context] SQL done. sql_context length: {len(sql_context)}")
 
         # 2. PageIndex (Semantic Memory)
+        logger.info(f"[_get_context] Querying PageIndex for route '{route}'...")
         pi_context_list = []
         keywords = re.findall(r'[\u4e00-\u9fff]{2,}', question) 
-        with self._pi_cache_lock:
-            cache_snapshot = list(self._pi_cache)
         
-        for item in cache_snapshot:
-            # Handle version 2.0 (Reasoning Tree)
-            if item.get('version') == "2.0":
-                tree = item.get('tree', {})
-                relevant_parts = []
+        # Filter common Chinese stop words to avoid matching generic query helpers
+        stop_words = {
+            "請問", "在哪", "哪裡", "多少", "類似", "療程", "治療", "多久", "可以", 
+            "注意", "什麼", "如果", "出現", "情況", "需要", "立即", "如何", "是不是", 
+            "有沒有", "現在", "一個", "一些", "以及", "關於", "建議", "提供", "就醫",
+            "回診", "或者", "還是"
+        }
+        filtered_keywords = [k for k in keywords if k not in stop_words and not any(sw in k for sw in ["請問", "什麼", "可以", "需要", "有沒有"])]
+        if not filtered_keywords:
+            filtered_keywords = keywords
+            
+        if filtered_keywords:
+            fts_query = " OR ".join([f'"{k}"' for k in filtered_keywords])
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
                 
-                # Check for physician notes first in each relevant branch
-                if any(k in question for k in ["術前", "禁忌", "過敏", "注意"]):
-                    note = tree.get('pre_op_physician_notes')
-                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
-                    relevant_parts.append(f"[術前須知]: {tree.get('pre_op')}")
+                # Fetch matching PageIndex trees from database FTS index
+                cursor.execute("""
+                    SELECT t.doc_id, t.pre_op, t.procedure, t.post_op_short, t.maintenance,
+                           t.pre_op_physician_notes, t.procedure_physician_notes, 
+                           t.post_op_short_physician_notes, t.maintenance_physician_notes
+                    FROM page_index_trees t
+                    JOIN page_index_fts f ON t.id = f.rowid
+                    WHERE t.category = ? AND page_index_fts MATCH ?
+                    LIMIT 10
+                """, (route, fts_query))
                 
-                if any(k in question for k in ["步驟", "原理", "怎麼做", "多長"]):
-                    note = tree.get('procedure_physician_notes')
-                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
-                    relevant_parts.append(f"[療程原理]: {tree.get('procedure')}")
+                rows = cursor.fetchall()
+                conn.close()
                 
-                if any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "運動"]):
-                    note = tree.get('post_op_short_physician_notes')
-                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
-                    relevant_parts.append(f"[立即照護]: {tree.get('post_op_short')}")
+                for row in rows:
+                    doc_id, pre_op, procedure, post_op_short, maintenance, \
+                    pre_notes, proc_notes, post_notes, maint_notes = row
+                    
+                    doc_filename = os.path.basename(doc_id)
+                    relevant_parts = []
+                    
+                    # 1. Match category keywords
+                    if any(k in question for k in ["術前", "禁忌", "過敏", "注意"]):
+                        if pre_notes: relevant_parts.append(f"🌟 [醫師權威指令]: {pre_notes}")
+                        if pre_op and pre_op not in ["無相關資料", "解析失敗"]:
+                            relevant_parts.append(f"[術前須知]: {pre_op}")
+                    
+                    if any(k in question for k in ["步驟", "原理", "怎麼做", "多長"]):
+                        if proc_notes: relevant_parts.append(f"🌟 [醫師權威指令]: {proc_notes}")
+                        if procedure and procedure not in ["無相關資料", "解析失敗"]:
+                            relevant_parts.append(f"[療程原理]: {procedure}")
+                    
+                    if any(k in question for k in ["術後", "洗臉", "冰敷", "化妝", "運動"]):
+                        if post_notes: relevant_parts.append(f"🌟 [醫師權威指令]: {post_notes}")
+                        if post_op_short and post_op_short not in ["無相關資料", "解析失敗"]:
+                            relevant_parts.append(f"[立即照護]: {post_op_short}")
+                    
+                    if any(k in question for k in ["維持", "多久打一次", "效果", "防曬"]):
+                        if maint_notes: relevant_parts.append(f"🌟 [醫師權威指令]: {maint_notes}")
+                        if maintenance and maintenance not in ["無相關資料", "解析失敗"]:
+                            relevant_parts.append(f"[長期保養]: {maintenance}")
+                    
+                    # Fallback 1: match keywords inside sections
+                    if not relevant_parts:
+                        for name, val, note in [
+                            ("術前須知", pre_op, pre_notes),
+                            ("療程原理", procedure, proc_notes),
+                            ("立即照護", post_op_short, post_notes),
+                            ("長期保養", maintenance, maint_notes)
+                        ]:
+                            if val and val not in ["無相關資料", "解析失敗"] and any(k in val for k in filtered_keywords):
+                                if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
+                                relevant_parts.append(f"[{name}]: {val}")
+                                
+                    # Fallback 2: if still empty and title matches, add all valid sections
+                    title_match = any(k in doc_filename for k in filtered_keywords)
+                    if not relevant_parts and title_match:
+                        for name, val, note in [
+                            ("術前須知", pre_op, pre_notes),
+                            ("療程原理", procedure, proc_notes),
+                            ("立即照護", post_op_short, post_notes),
+                            ("長期保養", maintenance, maint_notes)
+                        ]:
+                            if val and val not in ["無相關資料", "解析失敗"]:
+                                if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
+                                relevant_parts.append(f"[{name}]: {val}")
+                                
+                    summary_text = "\n".join(relevant_parts)
+                    
+                    # Compute score to rank candidates
+                    title_score = sum(50 for k in filtered_keywords if k in doc_filename)
+                    content_score = sum(10 for k in filtered_keywords if k in summary_text)
+                    score = title_score + content_score
+                    
+                    if score > 0 and summary_text.strip():
+                        pi_context_list.append((score, f"【文件: {doc_filename}】\n{summary_text}"))
+            except Exception as e:
+                logger.error(f"SQL PageIndex context query failed: {e}")
                 
-                if any(k in question for k in ["維持", "多久打一次", "效果", "防曬"]):
-                    note = tree.get('maintenance_physician_notes')
-                    if note: relevant_parts.append(f"🌟 [醫師權威指令]: {note}")
-                    relevant_parts.append(f"[長期保養]: {tree.get('maintenance')}")
-                
-                summary_text = "\n".join(relevant_parts) if relevant_parts else json.dumps(tree, ensure_ascii=False)
-            else:
-                # Legacy version 1.0 (Flat Summary)
-                summary_text = item.get('summary', '')
-
-            score = sum(10 for k in keywords if k in summary_text)
-            if score > 0:
-                pi_context_list.append((score, summary_text))
-        
+        logger.info(f"[_get_context] PageIndex done. Found {len(pi_context_list)} candidate matches for route '{route}'.")
         pi_context_list.sort(reverse=True, key=lambda x: x[0])
-        pi_context = "\n\n".join([x[1] for x in pi_context_list[:5]])
+        pi_context = "\n\n".join([x[1] for x in pi_context_list[:3]])
         if not pi_context: pi_context = "無相關深度推理摘要。"
+        logger.info(f"[_get_context] PageIndex top 3 selected. Context length: {len(pi_context)}")
 
-        # 3. SimpleIndex
-        rag_scored_chunks = self.special_index.get_scored_chunks(question)
-        rag_scored_chunks.extend(self.general_index.get_scored_chunks(question))
+        # 3. SimpleIndex Context Lookup
+        logger.info(f"[_get_context] Querying SimpleIndex (route: {route})...")
+        if route == "special":
+            rag_scored_chunks = self.special_index.get_scored_chunks(question)
+        else:
+            rag_scored_chunks = self.general_index.get_scored_chunks(question)
+            
         rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
         top_chunks = []
         seen = set()
@@ -351,15 +575,16 @@ class RAGEngine:
                 text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電確認]', chunk)
                 text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電確認]', text)
                 top_chunks.append(text)
-            if len(top_chunks) >= 8: break 
+            if len(top_chunks) >= 4: break 
         rag_context = "\n\n".join(top_chunks)
         if not rag_context: rag_context = "無相關原始文本片段。"
+        logger.info(f"[_get_context] SimpleIndex done. Context length: {len(rag_context)}")
         
         return sql_context, pi_context, rag_context
 
     def query_integrated(self, question, route="special", image_data=None, force_llm_knowledge=False):
         logger.info(f"Deep Hybrid Reasoning ({route}) for: {question} (image: {image_data is not None}, force_llm: {force_llm_knowledge})")
-        sql_context, pi_context, rag_context = self._get_context(question)
+        sql_context, pi_context, rag_context = self._get_context(question, route=route)
         
         # 1. First, get the answer
         current_date = datetime.date.today()
@@ -376,7 +601,7 @@ class RAGEngine:
             if force_llm_knowledge:
                 not_found_instruction = "4. **找不到資料時**：若內部資料庫中沒有相關資訊，請根據你的「專業醫療與醫美知識」提供一個初步草案回答，並在回答開頭標註『[AI 預擬草案]』，供醫師後續校正。"
             else:
-                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請禮貌告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"
+                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請禮貌告知：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」"
 
             system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
 你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
@@ -408,9 +633,9 @@ class RAGEngine:
 
 【回答原則】
 1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答，確保資訊正確且有益。
-2. **專業且繁體**：使用親切且專業的繁體中文回答。
+2. **專業且繁體**：使用親切且專業的繁體中文回答.
 3. **安全性**：提醒使用者你的建議僅供參考，若症狀持續應尋求醫師診斷。
-4. **嚴禁報價**：絕對禁止提及任何具體價格。"""
+4. **嚴禁報價**：絕對禁止提及 any 具體價格。"""
 
         messages = [
             {
@@ -449,7 +674,7 @@ class RAGEngine:
 
     def query_integrated_stream(self, question, route="special", image_data=None, force_llm_knowledge=False):
         logger.info(f"Deep Hybrid Reasoning (Stream, {route}) for: {question} (image: {image_data is not None}, force_llm: {force_llm_knowledge})")
-        sql_context, pi_context, rag_context = self._get_context(question)
+        sql_context, pi_context, rag_context = self._get_context(question, route=route)
         
         current_date = datetime.date.today()
         
@@ -466,7 +691,7 @@ class RAGEngine:
             if force_llm_knowledge:
                 not_found_instruction = "4. **找不到資料時**：若內部資料庫中沒有相關資訊，請根據你的「專業醫療與醫美知識」提供一個初步草案回答，並在回答開頭標註『[AI 預擬草案]』，供醫師後續校正。"
             else:
-                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請告知：「對不起，資料庫中目前沒有該項目的特定詳細資料，建議您聯繫專業醫師以獲取精確建議。」"
+                not_found_instruction = "4. **找不到資料時**：若真的完全沒有關於該主題的資料，請告知：「目前無法確認該活動的時效與具體內容，為避免提供錯誤資訊，建議您致電診所向專人諮詢以獲取最準確的報價喔！」"
 
             system_instruction = f"""你是一個具備頂尖『PageIndex 深度推理』能力的專業醫美與診所 AI 助理。今天是 {current_date}。
         你的任務是從提供的資料中「挖掘」出最精確長度之醫學與術後建議。
@@ -489,18 +714,18 @@ class RAGEngine:
 
         else:
             system_instruction = f"""你是一個專業的醫學與健康知識 AI 助理。今天是 {current_date}。
-你可以結合「提供的參考資料」與你的「專業醫學知識庫」來回答使用者的健康問題。
-{'如果你看到圖片，請結合圖片中的徵兆進行分析。' if image_data else ''}
+        你可以結合「提供的參考資料」與你的「專業醫學知識庫」來回答使用者的健康問題。
+        {'如果你看到圖片，請結合圖片中的徵兆進行分析。' if image_data else ''}
 
-【參考資料 (診所提供)】
-{pi_context}
-{rag_context}
+        【參考資料 (診所提供)】
+        {pi_context}
+        {rag_context}
 
-【回答原則】
-1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答。
-2. **專業且繁體**：使用親切且專業的繁體中文回答。
-3. **安全性**：提醒使用者你的建議僅供參考。
-4. **嚴禁報價**：絕對禁止提及任何具體價格。"""
+        【回答原則】
+        1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答。
+        2. **專業且繁體**：使用親切且專業的繁體中文回答。
+        3. **安全性**：提醒使用者你的建議僅供參考。
+        4. **嚴禁報價**：絕對禁止任價格。"""
 
         messages = [
             {

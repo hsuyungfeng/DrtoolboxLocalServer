@@ -63,8 +63,14 @@ def evaluate():
         total_latency += latency
 
         # 2. Use LLM as a Judge to score the answer
-        judge_prompt = f"""你是一個專業的醫療 RAG 評測員。
-請嚴格根據『標準答案』與『評分準則』，對『AI 回答』進行評分（1 到 5 分）。
+        messages = [
+            {
+                "role": "system", 
+                "content": "你是一個專業的醫療 RAG 評測員。請根據給定的標準答案和評分準則對 AI 的回答進行評分，並以指定的 JSON 格式回傳。"
+            },
+            {
+                "role": "user",
+                "content": f"""請評估以下 AI 回答：
 
 【問題】
 {question}
@@ -86,11 +92,12 @@ def evaluate():
 2分：嚴重不足，漏掉核心警訊，或包含錯誤資訊。
 1分：完全錯誤、包含敏感報價、答非所問或具備醫療風險。
 
-要求：請直接以 JSON 格式回傳評分結果。
-格式範例：{{"score": 5, "reason": "說明理由"}}
-"""
+要求：請以 JSON 格式回傳評分結果，格式如下：
+{{"score": 5, "reason": "說明理由"}}"""
+            }
+        ]
         try:
-            judge_res_raw = llm_instance.generate(judge_prompt, max_tokens=300).strip()
+            judge_res_raw = llm_instance.chat_generate(messages, max_tokens=300).strip()
             
             # Remove thinking tags
             if "<think>" in judge_res_raw:

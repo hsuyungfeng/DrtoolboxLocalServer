@@ -72,20 +72,20 @@ class HermesAgent:
 
     def determine_route(self, prompt: str) -> str:
         """Decides which knowledge base to prioritize."""
-        router_prompt = f"""<|im_start|>system
-你是一個門診分流機器人。請將使用者的問題分類為以下兩類之一：
-- 'special'：關於診所「本身」的資訊（地址、電話、營業時間、特定醫師、價格諮詢、預約、特定的療程項目）。
-- 'general'：一般的「醫學健康知識」（例如：感冒吃什麼、保養秘訣、不適症狀的通用解釋）。
-
-請只回傳一個單字：'special' 或 'general'。
-<|im_end|>
-<|im_start|>user
-{prompt}
-<|im_end|>
-<|im_start|>assistant
-"""
+        messages = [
+            {
+                "role": "system",
+                "content": "你是一個門診分流機器人。請將使用者的問題分類為以下兩類之一：\n- 'special'：關於診所「本身」的資訊（地址、電話、營業時間、特定醫師、價格諮詢、預約、特定的療程項目）。\n- 'general'：一般的「醫學健康知識」（例如：感冒吃什麼、保養秘訣、不適症狀的通用解釋）。\n\n請只回傳一個單字：'special' 或 'general'。"
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
         try:
-            res = self.llm.generate(router_prompt, max_tokens=10).strip().lower()
+            res = self.llm.chat_generate(messages, max_tokens=10).strip().lower()
+            if "<think>" in res:
+                res = res.split("</think>")[-1].strip()
             return "special" if "special" in res else "general"
         except:
             return "special"

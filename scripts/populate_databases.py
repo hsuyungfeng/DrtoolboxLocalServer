@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any
 
 # Database paths
-DB_DIR = Path("data/local_db")
+DB_DIR = Path("data/db")
 MEDICAL_DB = DB_DIR / "medical.db"
 CLINIC_DB = DB_DIR / "clinic.db"
 
@@ -202,30 +202,30 @@ class ClinicDatabasePopulator:
         print("🏪 Adding clinic information...")
 
         clinic = {
-            'clinic_name': 'Healthy Life Clinic',
-            'clinic_name_english': 'Healthy Life Clinic',
-            'clinic_name_chinese': '健康生活診所',
-            'phone': '(02) 2345-6789',
-            'fax': '(02) 2345-6790',
-            'email': 'info@healthyclinic.tw',
-            'website': 'www.healthyclinic.tw',
-            'address': '台北市信義區市府路1號',
-            'district': '信義區',
-            'city': '台北市',
-            'postal_code': '11001',
-            'gps_latitude': 25.0333,
-            'gps_longitude': 121.5627,
-            'established_year': 2015,
-            'department_type': '綜合診所',
-            'specialties': json.dumps(['內科', '外科', '小兒科', '婦產科']),
-            'director_name': '王醫生',
+            'clinic_name': 'Zhiyan Aesthetic Clinic',
+            'clinic_name_english': 'Zhiyan Aesthetic Clinic',
+            'clinic_name_chinese': '緻妍外科診所',
+            'phone': '04-2395-0960',
+            'fax': '04-2395-0961',
+            'email': 'info@zhiyan.tw',
+            'website': 'www.zhiyan.tw',
+            'address': '台中市太平區新福路208號',
+            'district': '太平區',
+            'city': '台中市',
+            'postal_code': '41102',
+            'gps_latitude': 24.1485,
+            'gps_longitude': 120.7135,
+            'established_year': 2020,
+            'department_type': '醫美診所',
+            'specialties': json.dumps(['外科', '整形外科', '微整形', '皮膚照護']),
+            'director_name': '緻妍院長',
             'director_title': '院長',
-            'staff_count': 12,
-            'num_beds': 6,
+            'staff_count': 15,
+            'num_beds': 8,
             'has_imaging': 1,
             'has_lab': 1,
             'has_emergency': 0,
-            'notes': '提供24小時掛號預約服務',
+            'notes': '提供卓越的醫美與外科服務',
         }
 
         try:
