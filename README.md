@@ -43,27 +43,82 @@ Drtoolbox 是一個專為診所設計的**隱私優先 (Privacy-First)** 本地 
 
 ## 🛠️ 部署與使用說明 (Deployment & Usage)
 
-### 1. 生態系一鍵啟動 (推薦)
+### 1. 新機器全新部署步驟 (New Machine Deployment)
+
+若要在全新機器上部署本系統，請遵循以下步驟：
+
+#### 步驟 1：安裝系統層級依賴 (Prerequisites)
+系統執行 RAG 圖文識別需要 OCR 以及底層的處理庫：
+```bash
+# Linux (Debian/Ubuntu)
+sudo apt-get update
+sudo apt-get install -y git python3-pip python3-venv sqlite3 tesseract-ocr tesseract-ocr-chi-tra
+
+# 確保安裝 Docker（用於運行本地 LLM 推理容器）
+sudo apt-get install -y docker.io
+```
+
+#### 步驟 2：複製專案與初始化虛擬環境
+```bash
+git clone <repository_url> DrtoolboxLocalServer
+cd DrtoolboxLocalServer
+
+# 建立並啟用 Python 3 虛擬環境
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 安裝所有依賴套件
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+#### 步驟 3：部署本地 LLM 推理容器 (Qwen)
+本系統的核心推理使用本地運行的 LLM 模型。請配置支援 OpenAI 相容 API 的推理伺服器（預設連接埠為 `8080`）：
+```bash
+# 示範：拉取並啟動包含 LLaMA 推理引擎的容器（名稱設為 llama-qwen）
+# 請確保載入了合適的 Qwen-based 模型（如 Qwen2.5-7B-Instruct-GGUF）
+docker run -d --name llama-qwen --gpus all -p 8080:8080 -v /path/to/models:/models ghcr.io/ggerganov/llama.cpp:server -m /models/qwen2.5-7b-instruct.Q4_K_M.gguf -c 8192 --host 0.0.0.0 --port 8080
+```
+
+#### 步驟 4：設定環境變數 (.env)
+配置根目錄下的 `.env` 檔案以確保 LINE Webhook 及本地推理管道暢通，主要設定包括：
+```env
+# 核心伺服器配置
+PORT=5000
+LLAMA_URL=http://127.0.0.1:8080/v1/chat/completions
+
+# 外部渠道對接 (LINE & Messenger)
+LINE_CHANNEL_SECRET=your_line_channel_secret
+LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
+
+# HIS 連線與數據庫位置
+DB_PATH=data/db/clinic.db
+```
+
+#### 步驟 5：建立必要目錄與資料庫初始化
+```bash
+# 建立存放 RAG 文件、日誌與 SQLite 資料庫的目錄
+mkdir -p data/db data/documents/special data/documents/general logs
+
+# 初始化 SQLite 數據庫並將現有 PageIndex JSON 結構遷移匯入
+python scripts/migrate_json_to_db.py
+```
+
+#### 步驟 6：生態系一鍵啟動 (推薦)
 本系統包含多個關聯服務，請使用統一腳本啟動：
 ```bash
-# 啟動 Main Server (5000), FileBrowser (8081), Hermes API (8642)
+# 一鍵啟動 Main Server (5000), FileBrowser (8081), Hermes API (8642)
 bash scripts/start_ecosystem.sh
 ```
 
-### 2. 基礎啟動步驟 (個別啟動)
-```bash
-# 1. 確保 LLM 容器已在運行 (Port 8080)
-docker start llama-qwen
+---
 
-# 2. 啟動主後端服務 (Port 5000)
-bash scripts/start_server.sh
-```
-
-### 3. 排程設定 (自動化學習)
+### 2. 排程設定 (夜間自動化學習)
 請安裝 crontab 以啟用夜間自動同步與學習機制：
 ```bash
 crontab cron/crontab.txt
 ```
+
 
 ---
 
