@@ -8,6 +8,7 @@ import re
 import threading
 import concurrent.futures
 from config.settings import DATA_DIR, PROJECT_ROOT
+from src.rag.graph_rag_engine import GraphRAGEngine
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ class RAGEngine:
         self.db_path = os.path.join(DATA_DIR, 'db', 'rag.db')
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
+        self.graph_engine = GraphRAGEngine()
         
         self.reasoner = ReasonerWrapper(llm_instance)
         self.special_index = SimpleIndex(reasoner=self.reasoner, category="special", db_path=self.db_path)
@@ -587,6 +589,20 @@ class RAGEngine:
         sql_context, pi_context, rag_context = self._get_context(question, route=route)
         
         # 1. First, get the answer
+        # ----------------------------------------------------
+        # 2.5. 查詢醫療知識圖譜 (Graph-RAG 關聯資料)
+        # ----------------------------------------------------
+        graph_raw = self.graph_engine.query_graph_context(question)
+        if graph_raw:
+            graph_context = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電診所確認]', graph_raw)
+            graph_context = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電診所確認]', graph_context)
+            graph_context = re.sub(r'(?:價格|售價|特價|優惠價|費用|價值)[\s:：]*\d+(?:,\d+)*', '價格[請致電診所確認]', graph_context)
+            graph_context = re.sub(r'\d+\s*[堂次管]\s*/\s*[$]?\s*\d+(?:,\d+)*', '[請致電診所確認]', graph_context)
+            graph_context = re.sub(r'(?<!\d)(?!(?:202\d|11\d)\b)[1-9]\d{3,7}(?!\d)', '[請致電診所確認]', graph_context)
+            graph_context = re.sub(r'(?<!\d)[1-9]\d{0,2}(?:,\d{3})+(?!\d)', '[請致電診所確認]', graph_context)
+            graph_context = re.sub(r'(?:CC|U|瓶|堂|次)[\s/]+\d+(?:,\d+)*', ' [請致電診所確認]', graph_context, flags=re.IGNORECASE)
+        else:
+            graph_context = "無相關醫學知識圖譜資料。"
         current_date = datetime.date.today()
         if image_data:
             user_content = [
@@ -616,6 +632,9 @@ class RAGEngine:
 【基礎資料來源：診所資料庫 (營運相關)】
 {sql_context}
 
+【關聯資料來源：醫學知識圖譜 (關聯推導結果)】
+{graph_context}
+
 【專業回答指南】
 1. **嚴禁簡體中文**：全程必須使用繁體中文。
 2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
@@ -630,6 +649,9 @@ class RAGEngine:
 【參考資料 (診所提供)】
 {pi_context}
 {rag_context}
+
+【關聯參考資料 (知識圖譜)】
+{graph_context}
 
 【回答原則】
 1. **結合知識**：如果參考資料中沒有提到，請使用你的專業醫學知識進行回答，確保資訊正確且有益。
