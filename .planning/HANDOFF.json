@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-16T09:46:03.422Z",
+  "timestamp": "2026-07-16T09:55:55.000Z",
   "phase": "04",
   "phase_name": "integration-of-medical-knowledge-graph",
   "phase_dir": ".planning/phases/04-integration-of-medical-knowledge-graph",
@@ -18,11 +18,13 @@
   ],
   "remaining_tasks": [],
   "blockers": [],
-  "human_actions_pending": [],
+  "human_actions_pending": [
+    {"action": "Run the Flask web server to verify Graph-RAG chatbot responses in UI.", "context": "Need to confirm that the chat interface loads and formats knowledge graph elements correctly.", "blocking": false}
+  ],
   "decisions": [
     {"decision": "Migrate Neo4j JSON to local SQLite tables (medical_nodes, medical_edges, disease_details) inside clinic.db instead of installing Neo4j service.", "rationale": "Avoid heavy container orchestration, reduce deployment weight and memory signature to maintain clean portable local stack.", "phase": "04"}
   ],
   "uncommitted_files": [],
-  "next_action": "Decide on next project feature roadmap or begin Phase 5.",
-  "context_notes": "Phase 04 completed successfully. Verified SQLite ingestion, GraphRAG retrieval logic, and RAGEngine query integration."
+  "next_action": "Start the Flask application (python3 src/api/app.py) and test the chat interface on port 5000.",
+  "context_notes": "Phase 04 completed, rebased, and successfully pushed to remote master. Next action is to perform live user/UI testing."
 }
