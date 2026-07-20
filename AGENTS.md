@@ -15,7 +15,7 @@
 ---
 
 ## 2. 混合檢索與 RAG 運作模式 (RAG Architecture)
-本專案採用無向量庫 (Vectorless) 的階層式推理檢索架構，融合了**NousResearch/hermes-agent** 與 **VectifyAI/PageIndex**：
+本專案採用無向量庫 (Vectorless) 的階層式推理檢索架構，融合了 **NousResearch/hermes-agent**、**VectifyAI/PageIndex** 以及 **SQLite Graph-RAG** 醫療知識圖譜：
 
 ### A. 數據隔離 (Data Segregation)
 知識庫明確劃分為兩個目錄，上傳的檔案經 OCR 萃取後存於對應目錄：
@@ -24,10 +24,12 @@
 
 ### B. 混合查詢流程 (Hybrid Query)
 系統使用 `src/rag_engine.py` 中的 `query_integrated(prompt)` 方法進行查詢：
-1. **意圖路由**：藉由 `src/agent/hermes_router.py` 判定查詢意圖為 `special` 或 `general`。
+1. **意圖路由**：藉由 `src/agent/hermes_router.py` 判定查詢意圖為 `special` (診所專屬) 或 `general` (一般醫學/臨床)。
 2. **資料庫檢索**：查詢 `clinic.db` 中的 HIS 診所資訊、員工清單與預約紀錄。
-3. **文件檢索**：藉由 PageIndex 對文字檔進行階層式上下文匹配。
-4. **上下文注入**：將資料庫與文件的檢索結果結合成 Text Context，直接注入給本地 LLM 進行推理。
+3. **文件檢索 (PageIndex)**：藉由 PageIndex 對文字檔進行階層式上下文匹配。
+4. **知識圖譜檢索 (Graph-RAG)**：當查詢涉及醫療或臨床問題時，調用 `src/rag/graph_rag_engine.py` 進行 SQLite 中的實體匹配與多步關係檢索。
+5. **上下文注入**：將資料庫、PageIndex 與 Graph-RAG 的檢索結果結合成 Text Context，直接注入給本地 LLM 進行推理。
+
 
 ---
 
@@ -48,9 +50,11 @@
 ## 4. 目錄結構與開發規範 (Structure & Dev Rules)
 * **資料夾配置**：
   * `/src/agent/`：Hermes 代理人核心邏輯與路由 (`hermes_core.py` & `hermes_router.py`)。
+  * `/src/rag/`：Graph-RAG 檢索引擎核心 (`graph_rag_engine.py`)。
   * `/src/api/`：Flask API 伺服器，對外提供 `/message` 與 `/api/v1/setup/` 控制端點。
   * `/data/`：包含 RAG 文本與 SQLite `clinic.db`。所有動態生成的數據必須存在此處以維持系統的可移植性。
 * **開發原則**：
+
   * 所有核心推理必須使用本地運行的模型，不依賴雲端 API（除非 local 服務完全不可用時的備援）。
   * 保持 API 與 RAG 邏輯在 `pytest` 測試中的覆蓋，修改後應至 `tests/` 進行驗證。
 
