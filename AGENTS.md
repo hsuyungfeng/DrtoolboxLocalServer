@@ -22,13 +22,19 @@
 1. **診所專屬資料 (Clinic Special)**：`./data/documents/special/` (存放診所內部行銷、活動、內部流程等)。
 2. **一般醫學資料 (General Medical)**：`./data/documents/general/` (存放一般醫學常識、科普等)。
 
-### B. 混合查詢流程 (Hybrid Query)
+### B. PageIndex 與 RAG 數據庫設計 (rag.db)
+為免除重複建樹的 GPU/LLM 運算開銷，系統採用 SQLite 本地資料庫 `./data/db/rag.db` 快取與索引推理樹：
+1. **`page_index_trees` 表**：儲存由 PageIndex 產出的臨床推理樹（包含 `pre_op`、`procedure`、`post_op_short`、`maintenance` 以及對應的醫師校正備忘錄 `*_physician_notes`）。搭配 FTS5 虛擬表 `page_index_fts` 進行秒級語意檢索。
+2. **`rag_chunks` 表**：將原始文本進行輕量分塊，並搭配 FTS5 虛擬表 `rag_chunks_fts` 進行快速 keyword 與 N-gram 全文檢索。
+
+### C. 混合查詢流程 (Hybrid Query)
 系統使用 `src/rag_engine.py` 中的 `query_integrated(prompt)` 方法進行查詢：
 1. **意圖路由**：藉由 `src/agent/hermes_router.py` 判定查詢意圖為 `special` (診所專屬) 或 `general` (一般醫學/臨床)。
 2. **資料庫檢索**：查詢 `clinic.db` 中的 HIS 診所資訊、員工清單與預約紀錄。
-3. **文件檢索 (PageIndex)**：藉由 PageIndex 對文字檔進行階層式上下文匹配。
-4. **知識圖譜檢索 (Graph-RAG)**：當查詢涉及醫療或臨床問題時，調用 `src/rag/graph_rag_engine.py` 進行 SQLite 中的實體匹配與多步關係檢索。
-5. **上下文注入**：將資料庫、PageIndex 與 Graph-RAG 的檢索結果結合成 Text Context，直接注入給本地 LLM 進行推理。
+3. **文件檢索 (PageIndex)**：從 `rag.db` 的 `page_index_trees` 進行階層式上下文與醫師校對資訊匹配。
+4. **快速分塊檢索 (SimpleIndex)**：從 `rag.db` 的 `rag_chunks` 進行 FTS5 全文及細粒度 N-gram 排序檢索。
+5. **知識圖譜檢索 (Graph-RAG)**：當查詢涉及醫療或臨床問題時，調用 `src/rag/graph_rag_engine.py` 進行 SQLite 中的實體匹配與多步關係檢索。
+6. **上下文注入**：將上述檢索結果結合為 Text Context，直接注入給本地 LLM 進行推理。
 
 
 ---
@@ -52,7 +58,7 @@
   * `/src/agent/`：Hermes 代理人核心邏輯與路由 (`hermes_core.py` & `hermes_router.py`)。
   * `/src/rag/`：Graph-RAG 檢索引擎核心 (`graph_rag_engine.py`)。
   * `/src/api/`：Flask API 伺服器，對外提供 `/message` 與 `/api/v1/setup/` 控制端點。
-  * `/data/`：包含 RAG 文本與 SQLite `clinic.db`。所有動態生成的數據必須存在此處以維持系統的可移植性。
+  * `/data/`：包含 RAG 文本、SQLite `clinic.db`（診所 HIS 與預約數據）及 `rag.db`（RAG 與 PageIndex 數據庫）。所有動態生成的數據必須存在此處以維持系統的可移植性。
 * **開發原則**：
 
   * 所有核心推理必須使用本地運行的模型，不依賴雲端 API（除非 local 服務完全不可用時的備援）。

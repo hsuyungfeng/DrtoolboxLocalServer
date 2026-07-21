@@ -70,7 +70,7 @@ class HybridRAG:
                 })
             
             with open(tree_path, 'w', encoding='utf-8') as f:
-                json.dump(tree_nodes, f, ensure_用水=False)
+                json.dump(tree_nodes, f, ensure_ascii=False)
             
             logger.info(f"✅ [PageIndex] Reasoning tree ready: {doc_id}")
         except Exception as e:

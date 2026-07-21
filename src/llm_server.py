@@ -32,7 +32,7 @@ class LocalLLM:
             logger.error(f"LLM API request failed: {e}")
             return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
 
-    def chat_generate(self, messages, max_tokens=1024, temperature=0.2):
+    def chat_generate(self, messages, max_tokens=4096, temperature=0.2):
         try:
             logger.info("Sending chat generation request (multimodal support) to LLM server on 8080...")
             response = requests.post(
@@ -61,8 +61,9 @@ class LocalLLM:
             logger.error(f"LLM API chat request failed: {e}")
             return f"對不起，連接到本地 AI 模型時發生錯誤：{e}"
 
-    def chat_generate_stream(self, messages, max_tokens=1024, temperature=0.2):
+    def chat_generate_stream(self, messages, max_tokens=4096, temperature=0.2):
         """Streams response with support for multimodal messages."""
+
         try:
             import json
             logger.info("Sending chat streaming request (multimodal support) to LLM server on 8080...")

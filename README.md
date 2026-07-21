@@ -105,6 +105,9 @@ mkdir -p data/db data/documents/special data/documents/general logs
 # 初始化 SQLite 數據庫並將現有 PageIndex JSON 結構遷移匯入
 python scripts/migrate_json_to_db.py
 ```
+* **PageIndex/RAG 數據庫說明 (`data/db/rag.db`)**：
+  * **`page_index_trees`**：快取與結構化儲存 PageIndex 2.0 臨床推理樹（含術前、步驟、術後短期照護與長期維持等節點，並支援醫師手動校正的筆記欄位）。搭配 FTS5 進行秒級查詢。
+  * **`rag_chunks`**：快取文檔分塊，利用 FTS5 全文檢索與細粒度 N-gram 混合重排提供高關聯度文檔匹配。
 
 #### 步驟 6：生態系一鍵啟動 (推薦)
 本系統包含多個關聯服務，請使用統一腳本啟動：
