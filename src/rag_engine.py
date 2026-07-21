@@ -450,6 +450,18 @@ class RAGEngine:
                     cursor.execute("SELECT day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, evening_start, evening_end FROM v_clinic_hours_this_week LIMIT 7")
                     records = cursor.fetchall()
                     if records: sql_context += f"\n診所門診時間表:\n{records}"
+                
+                # Dynamic OTC Drug Localization Mapping
+                if any(k in question for k in ["藥", "普拿疼", "退燒", "止痛", "感冒", "抗生素", "成分", "用藥", "副作用", "布洛芬"]):
+                    try:
+                        cursor.execute("SELECT ingredient, otc_name FROM drugs WHERE otc_name IS NOT NULL GROUP BY ingredient LIMIT 30")
+                        otc_mappings = cursor.fetchall()
+                        if otc_mappings:
+                            mapping_str = ", ".join([f"{row[0]} -> {row[1]}" for row in otc_mappings])
+                            sql_context += f"\n本診所藥物成分本地化對照表 (OTC Mapping): {mapping_str}"
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch OTC mappings: {e}")
+                        
                 conn.close()
             except Exception as e: logger.error(f"SQL Error: {e}")
         logger.info(f"[_get_context] SQL done. sql_context length: {len(sql_context)}")
@@ -753,7 +765,7 @@ class RAGEngine:
         1. **嚴禁簡體中文**：全程必須使用繁體中文。
         2. **優先權**：若 PageIndex 摘要中有提到具體醫學流程或術後原則，請優先採用。
         3. **禁止報價**：絕對不能出現任何金錢數字、價格資訊。遇到價格一律引導致電診所。
-        4. **藥名本地化**：提及「乙醯胺酚」時，請寫為「俗稱普拿疼的乙醯胺酚」；提及「布洛芬」時，請寫為「常見的布洛芬」。
+        4. **藥物名稱在地化 (OTC Localization)**：提及任何藥物成分時，務必對照並使用【本診所藥物成分本地化對照表】中的中文俗名（例如：若成分為 ACETAMINOPHEN，請一律回答「普拿疼 (退燒止痛藥)」），讓病患容易理解。
         5. **預約與互動引導**：如果查詢與「頭痛」或臨床症狀相關，請務必在結尾加入以下內容：
            - 警示引導：「若您有上述紅旗症狀，或是頭痛已影響日常，建議您**點擊下方『預約門診』**由我們的專科醫師為您評估，以利安排進一步檢查。」
            - 互動提問：「若您能補充頭痛的部位、性質（如搏動/緊箍/刺痛）、持續時間、誘發因素或已嘗試的緩解方式，我可為您提供更精準的建議！」
@@ -773,7 +785,7 @@ class RAGEngine:
         2. **專業且繁體**：使用親切且專業的繁體中文回答。
         3. **安全性**：提醒使用者你的建議僅供參考。
         4. **嚴禁報價**：絕對禁止任價格。
-        5. **藥名本地化**：提及「乙醯胺酚」時，請一律寫為「俗稱普拿疼的乙醯胺酚」；提及「布洛芬」時，請一律寫為「常見的布洛芬」。
+        5. **藥物名稱在地化 (OTC Localization)**：提及任何藥物成分時，務必對照並使用【本診所藥物成分本地化對照表】中的中文俗名（例如：若成分為 ACETAMINOPHEN，請一律回答「普拿疼 (退燒止痛藥)」），讓病患容易理解。
         6. **預約與互動引導**：如果查詢與「頭痛」或臨床症狀相關，請在回答末尾加入以下內容：
            - 警示引導：「若您有上述紅旗症狀，或是頭痛已影響日常，建議您**點擊下方『預約門診』**由我們的專科醫師為您評估，以利安排進一步檢查。」
            - 互動提問：「若您能補充頭痛的部位、性質（如搏動/緊箍/刺痛）、持續時間、誘發因素或已嘗試的緩解方式，我可為您提供更精準的建議！」"""

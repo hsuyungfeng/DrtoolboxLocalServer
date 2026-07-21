@@ -506,6 +506,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
                 }
             });
+            
+            // ICD-10 Risk Analysis
+            if (data.icd10_risks && data.icd10_risks.labels.length > 0) {
+                new Chart(document.getElementById('icd10RiskChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.icd10_risks.labels,
+                        datasets: [{
+                            label: '高風險病患數',
+                            data: data.icd10_risks.values,
+                            backgroundColor: '#ef4444',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { stepSize: 1 } } }
+                    }
+                });
+                
+                // Render Knowledge Cards
+                const knowledgeList = document.getElementById('icd10KnowledgeList');
+                if (knowledgeList && data.icd10_risks.knowledge) {
+                    let html = '';
+                    for (const [key, info] of Object.entries(data.icd10_risks.knowledge)) {
+                        if (info && info.name) {
+                            html += `
+                                <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                    <h4 style="margin: 0 0 10px 0; color: #f87171;">${key} - ${info.name}</h4>
+                                    <div style="font-size: 0.85rem; color: #cbd5e1;">
+                                        ${info.drugs.length > 0 ? `<p style="margin: 4px 0;"><strong>💊 推薦用藥:</strong> ${info.drugs.join(', ')}</p>` : ''}
+                                        ${info.checks.length > 0 ? `<p style="margin: 4px 0;"><strong>🩺 建議檢查:</strong> ${info.checks.join(', ')}</p>` : ''}
+                                        ${info.do_eat.length > 0 ? `<p style="margin: 4px 0;"><strong>✅ 建議飲食:</strong> ${info.do_eat.join(', ')}</p>` : ''}
+                                        ${info.not_eat.length > 0 ? `<p style="margin: 4px 0;"><strong>❌ 飲食禁忌:</strong> ${info.not_eat.join(', ')}</p>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                    knowledgeList.innerHTML = html;
+                }
+            }
 
             // Knowledge Gaps List
             const gapList = document.getElementById('knowledgeGapsList');

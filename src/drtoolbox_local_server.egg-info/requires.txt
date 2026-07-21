@@ -11,3 +11,7 @@ pdf2image>=1.17.0
 faster-whisper>=1.0.3
 torch>=2.0.0
 chromadb>=0.4.0
+psutil>=7.2.2
+pandas>=3.0.3
+ehrapy>=0.15.0
+anndata>=0.13.2

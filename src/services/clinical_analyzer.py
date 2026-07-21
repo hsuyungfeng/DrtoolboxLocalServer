@@ -72,6 +72,8 @@ class ClinicalAnalyzer:
             avg_age = float(df['age'].mean()) if not df['age'].empty else 0
             if pd.isna(avg_age): avg_age = 0
 
+            icd10_risks = self._analyze_icd10_risks(df)
+
             summary = {
                 "total_patients": len(df),
                 "avg_age": avg_age,
@@ -80,6 +82,7 @@ class ClinicalAnalyzer:
                     "values": [int(v) for v in age_dist.values()]
                 },
                 "knowledge_gaps": knowledge_gaps,
+                "icd10_risks": icd10_risks,
                 "timestamp": datetime.now().isoformat(),
                 "insights": self._generate_text_insights(df)
             }
@@ -159,5 +162,62 @@ class ClinicalAnalyzer:
             insights.append(f"偵測到 {diabetes_count} 名病患具備糖尿病史，已將相關專業衛教優先級調高。")
 
         return insights
+
+    def _analyze_icd10_risks(self, df):
+        """Map medical history to high-risk ICD-10 categories and fetch medical knowledge."""
+        try:
+            # Map traditional kw to (code_prefix, simplified_kw_for_kg)
+            risk_keywords = {
+                '糖尿病': ('E11', '糖尿病'), 
+                '高血壓': ('I10', '高血压'), 
+                '心臟病': ('I51', '心脏病'), 
+                '氣喘': ('J45', '哮喘'), 
+                '憂鬱症': ('F32', '抑郁症')
+            }
+            risk_counts = {}
+            risk_knowledge = {}
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            for kw, (code_prefix, sc_kw) in risk_keywords.items():
+                count = df['medical_history'].str.contains(kw, na=False).sum()
+                if count > 0:
+                    cursor.execute("SELECT name_cn FROM icd10_codes WHERE code LIKE ? LIMIT 1", (f'{code_prefix}%',))
+                    row = cursor.fetchone()
+                    name = row[0] if row else kw
+                    key = f"{code_prefix} ({name})"
+                    risk_counts[key] = int(count)
+                    
+                    # Fetch extra knowledge using Simplified Chinese keyword
+                    cursor.execute("SELECT name, common_drug, check_items, do_eat, not_eat FROM disease_knowledge WHERE name LIKE ? LIMIT 1", (f'%{sc_kw}%',))
+                    k_row = cursor.fetchone()
+                    if k_row:
+                        try:
+                            import json
+                            cd = json.loads(k_row[1]) if k_row[1] else []
+                            ci = json.loads(k_row[2]) if k_row[2] else []
+                            de = json.loads(k_row[3]) if k_row[3] else []
+                            ne = json.loads(k_row[4]) if k_row[4] else []
+                        except:
+                            cd, ci, de, ne = [], [], [], []
+                        
+                        risk_knowledge[key] = {
+                            "name": k_row[0],
+                            "drugs": cd[:3] if isinstance(cd, list) else [],
+                            "checks": ci[:3] if isinstance(ci, list) else [],
+                            "do_eat": de[:3] if isinstance(de, list) else [],
+                            "not_eat": ne[:3] if isinstance(ne, list) else []
+                        }
+                    
+            conn.close()
+            return {
+                "labels": list(risk_counts.keys()),
+                "values": list(risk_counts.values()),
+                "knowledge": risk_knowledge
+            }
+        except Exception as e:
+            logger.error(f"ICD-10 Risk Analysis failed: {e}")
+            return {"labels": [], "values": [], "knowledge": {}}
 
 clinical_analyzer = ClinicalAnalyzer()

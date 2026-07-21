@@ -33,8 +33,9 @@
 2. **資料庫檢索**：查詢 `clinic.db` 中的 HIS 診所資訊、員工清單與預約紀錄。
 3. **文件檢索 (PageIndex)**：從 `rag.db` 的 `page_index_trees` 進行階層式上下文與醫師校對資訊匹配。
 4. **快速分塊檢索 (SimpleIndex)**：從 `rag.db` 的 `rag_chunks` 進行 FTS5 全文及細粒度 N-gram 排序檢索。
-5. **知識圖譜檢索 (Graph-RAG)**：當查詢涉及醫療或臨床問題時，調用 `src/rag/graph_rag_engine.py` 進行 SQLite 中的實體匹配與多步關係檢索。
-6. **上下文注入**：將上述檢索結果結合為 Text Context，直接注入給本地 LLM 進行推理。
+5. **知識圖譜檢索 (Graph-RAG)**：當查詢涉及醫療或臨床問題時，調用 `src/rag/graph_rag_engine.py` 進行 SQLite 中的實體匹配與多步關係檢索，其中包含 8800+ 種疾病與藥物資料。
+6. **OTC 藥品本地化 (Drug Localization)**：透過 RAG 引擎動態注入 `clinic.db` 中 `drugs` 表的 `otc_name` 映射，讓 AI 自動將艱澀化學名詞翻譯為俗名 (如 ACETAMINOPHEN -> 普拿疼)。
+7. **上下文注入**：將上述檢索結果結合為 Text Context，直接注入給本地 LLM 進行推理。
 
 
 ---

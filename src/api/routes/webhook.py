@@ -30,7 +30,7 @@ else:
     logger.error("❌ CRITICAL: LINE_CHANNEL_SECRET is MISSING from environment!")
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN) if LINE_CHANNEL_ACCESS_TOKEN else None
-handler = WebhookHandler(LINE_CHANNEL_SECRET) if LINE_CHANNEL_SECRET else None
+handler = WebhookHandler(LINE_CHANNEL_SECRET) if LINE_CHANNEL_SECRET else WebhookHandler("DUMMY_SECRET_FOR_LOCAL_TESTING")
 
 @webhook_bp.route('/webhook/line', methods=['GET', 'POST'], strict_slashes=False)
 def line_webhook():
