@@ -34,3 +34,17 @@
 Plans:
 
 - [x] TBD (run /gsd-plan-phase 4 to break down) (completed 2026-07-16)
+
+## Phase 5: Clinical CRM & Advanced BI
+
+**Goal:** Implement clinical CRM views, advanced analytics dashboards, and real-time staff alerts.
+
+- Implement patient tracking view with LINE history and risk alerts.
+- Build ehrapy-based clinical insights dashboard.
+- Implement real-time notifications (LINE/Email) for high-risk patient symptoms.
+- Optimize patient engagement questions, local OTC drug naming, and booking CTAs in RAG answers.
+
+Plans:
+
+- [ ] Define and execute Phase 5 prompts (run /gsd-plan-phase 5 to break down)
+

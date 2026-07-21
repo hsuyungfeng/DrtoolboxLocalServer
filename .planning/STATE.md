@@ -23,9 +23,9 @@ progress:
 
 ## Current Position
 
-- **Active Phase:** Phase 3: Web Dashboard & Feedback Loop (Extensions)
-- **Active Plan:** 03-PLAN.md (Extensions in progress)
-- **Status:** Milestone complete
+- **Active Phase:** Phase 5: Clinical CRM & Advanced BI
+- **Active Plan:** 05-PLAN.md (In progress)
+- **Status:** Resumed / In progress
 
 ## Progress
 
