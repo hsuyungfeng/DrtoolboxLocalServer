@@ -1,15 +1,15 @@
 {
   "model": {
-    "path": "llama-qwen",
-    "name": "llama-qwen",
-    "quantization": "QBC",
-    "estimated_vram_gb": 16,
-    "note": "llama-qwen (Qwen model via mixa3607/llama.cpp-gfx906 docker)"
+    "path": "/home/hsu/llama.cpp/models/Ornith-1.0-9B-UD-Q6_K_XL.gguf",
+    "name": "Ornith-1.0-9B",
+    "quantization": "Q6_K_XL",
+    "estimated_vram_gb": 10,
+    "note": "Ornith 9B (UD, Q6_K_XL)"
   },
   "inference": {
-    "n_ctx": 2048,
+    "n_ctx": 32768,
     "n_threads": 4,
-    "n_gpu_layers": 0,
+    "n_gpu_layers": 99,
     "kv_cache_quantization": true,
     "max_tokens": 1024,
     "temperature": 0.7,

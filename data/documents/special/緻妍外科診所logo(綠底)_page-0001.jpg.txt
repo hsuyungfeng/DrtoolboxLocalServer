@@ -1,0 +1,4 @@
+--- 🤖 AI 影像臨床分析 ---
+
+對不起，連接到本地 AI 模型時發生錯誤：('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+

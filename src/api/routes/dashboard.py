@@ -249,6 +249,8 @@ def get_knowledge_graph():
     except Exception as e:
         logger.error(f"Failed to generate knowledge graph: {e}")
         return jsonify({"error": str(e)}), 500
+
+@dashboard_bp.route('/logs/batch_discard', methods=['POST'])
 def batch_discard_items():
     data = request.json
     if not data or 'items' not in data:

@@ -1,0 +1,4 @@
+--- 🤖 AI 影像臨床分析 ---
+
+對不起，連接到本地 AI 模型時發生錯誤：HTTPConnectionPool(host='127.0.0.1', port=8080): Max retries exceeded with url: /v1/chat/completions (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8080): Failed to establish a new connection: [Errno 111] Connection refused"))
+

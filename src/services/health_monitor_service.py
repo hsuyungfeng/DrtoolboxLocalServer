@@ -81,8 +81,8 @@ class HealthMonitorService:
     def _handle_auto_correction(self, data):
         """Self-healing logic."""
         if data["services"]["llm_engine"] == "offline":
-            logger.warning("🚨 LLM Engine offline! Attempting to restart container...")
-            os.system("docker start llama-qwen")
+            logger.warning("🚨 LLM Engine offline! Attempting to restart systemd service...")
+            os.system("systemctl --user restart llama-server")
             
         if data["resources"]["memory_percent"] > 95:
             logger.error("🛑 System low on memory! Alerting administrator...")

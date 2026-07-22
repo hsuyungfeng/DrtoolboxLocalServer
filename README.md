@@ -79,12 +79,12 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-#### 步驟 3：部署本地 LLM 推理容器 (Qwen)
-本系統的核心推理使用本地運行的 LLM 模型。請配置支援 OpenAI 相容 API 的推理伺服器（預設連接埠為 `8080`）：
+#### 步驟 3：部署本地 LLM 推理伺服器 (Ornith)
+本系統的核心推理使用本地運行的 LLM 模型。我們透過 `llama.cpp` 執行高效能模型，並支援雙顯卡分工架構：
 ```bash
-# 示範：拉取並啟動包含 LLaMA 推理引擎的容器（名稱設為 llama-qwen）
-# 請確保載入了合適的 Qwen-based 模型（如 Qwen2.5-7B-Instruct-GGUF）
-docker run -d --name llama-qwen --gpus all -p 8080:8080 -v /path/to/models:/models ghcr.io/ggerganov/llama.cpp:server -m /models/qwen2.5-7b-instruct.Q4_K_M.gguf -c 8192 --host 0.0.0.0 --port 8080
+# 載入 Ornith-1.0-9B 模型，並利用 -ts 1,0 -mg 1 參數達成
+# 1060 (負責 Context) 與 3060 (負責 LLM Generation) 雙顯卡效能最佳化
+/home/hsu/llama.cpp/llama-server -m /home/hsu/llama.cpp/models/Ornith-1.0-9B-UD-Q6_K_XL.gguf --port 8080 --host 0.0.0.0 -c 8192 -ngl 99 -ts 1,0 -mg 1
 ```
 
 #### 步驟 4：設定環境變數 (.env)
