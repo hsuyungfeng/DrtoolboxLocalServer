@@ -470,37 +470,65 @@ def compare_soap():
         if not transcript:
             transcript = "患者主訴發燒38.5度持續兩天，伴隨嚴重喉嚨痛與咳嗽有黃痰。理學檢查發現雙側扁桃腺紅腫伴有白色斑塊，無呼吸急促。診斷為急性扁桃腺炎，開立普拿疼 (Acetaminophen) 500mg 口服三餐飯後與抗生素 Amoxicillin 500mg 口服7天，叮嚀多喝水休養。"
 
-        # 1. 執行 Local LLM (Ornith-1.0-9B / Hermes Core Agent + DB Context)
+        # 1. 執行 Local LLM (Ornith-1.0-9B / Concise SoapVoice Mode + DB Context)
         from src.agent.hermes_core import get_hermes_agent
-        agent = get_hermes_agent()
+        import time
+        import datetime
         
-        local_prompt = f"""請以專業資深醫師立場，結合診所數據庫資料，為以下病患開立精準繁體中文 SOAP 病歷與 ICD-10 診斷碼：
-病患姓名：{patient_name}
-出生年月日：{patient_dob}
-診察對話與語音紀錄：{transcript}
+        agent = get_hermes_agent()
+        start_time = time.time()
+        timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-請格式化輸出 SOAP：
-S (Subjective 主觀描述):
-O (Objective 客觀檢查):
-A (Assessment 評估與 ICD-10 代碼):
-P (Plan 治療計畫與開立處方藥物俗名):
+        local_prompt = f"""You are a professional medical scribe. Convert the following patient consultation into a CONCISE clinical SOAP note in professional ENGLISH. Include standard ICD-10 codes and Taiwanese OTC drug mapping (e.g., Acetaminophen / Panadol).
+
+Patient: {patient_name} (DOB: {patient_dob})
+Date & Time: {timestamp_str}
+Transcript: {transcript}
+
+CRITICAL RULES:
+1. Output the SOAP note content strictly in ENGLISH.
+2. STRICTLY OMIT all disclaimers, greetings, food recipes, and marketing/booking CTA links.
+3. Keep bullet points concise, high-density, and clinically standard (under 150 words).
+4. Format strictly as:
+### S (Subjective)
+- [Main complaint & duration]
+### O (Objective)
+- [Vitals & Physical Exam]
+### A (Assessment)
+- [Primary Diagnosis] | ICD-10: [Code]
+### P (Plan)
+- [Medications & Dosages]
+- [Follow-up instruction]
 """
-        local_response, route, is_risk, confidence = agent.chat(local_prompt)
+        raw_local_response, route, is_risk, confidence = agent.chat(local_prompt)
+        elapsed_sec = round(time.time() - start_time, 2)
+        date_today = datetime.datetime.now().strftime("%Y-%m-%d")
+        
+        # 加上結構化病患標頭、耗時與時間戳
+        header = f"""**病患姓名：** {patient_name}
+**出生年月日：** {patient_dob}
+**診察日期：** {date_today}
+⏱️ 生成耗時: {elapsed_sec}s | 📅 紀錄時間戳: {timestamp_str}
+
+---
+
+"""
+        local_response = header + raw_local_response
 
         # 2. 模擬 / 執行 Cloud LLM (無 DB / 無 RAG Context 基準測試)
-        cloud_soap_sim = f"""S (Subjective):
-病患 {patient_name}（生於 {patient_dob}）主訴發燒（38.5度）已持續兩天，並伴有劇烈喉嚨疼痛及咳嗽吐黃痰情況。
+        cloud_soap_sim = header + f"""### S (Subjective)
+- Patient reports fever of 38.5°C for 2 days, accompanied by severe sore throat and cough with yellow sputum.
 
-O (Objective):
-理學檢查顯示雙側扁桃腺明顯紅腫且表面見白色滲出物（斑塊），呼吸頻率平穩無急促現象。
+### O (Objective)
+- Body temperature 38.5°C. Bilateral tonsils erythematous and swollen with white exudative plaques. Respiration unlabored.
 
-A (Assessment):
-急性扁桃腺炎 (Acute Tonsillitis)。
+### A (Assessment)
+- Acute Tonsillitis | ICD-10: J03.9
 
-P (Plan):
-1. 口服解熱鎮痛劑 (Acetaminophen 500mg) 每日三次。
-2. 開立抗生素治療 (Amoxicillin 500mg) 7天療程。
-3. 衛教病患多補充水分並充分休息。"""
+### P (Plan)
+- Acetaminophen (Panadol) 500mg PO TID PC for fever and pain relief.
+- Amoxicillin 500mg PO TID for 7 days.
+- Advised rest and adequate hydration; follow up if symptoms persist."""
 
         return jsonify({
             "success": True,
