@@ -67,6 +67,10 @@ def create_app():
     app.register_blueprint(patient_intake_bp)
     app.register_blueprint(rag_dashboard_bp)
     
+    # Start background threads
+    from src.services.notification_service import risk_alert_thread
+    risk_alert_thread.start()
+    
     @app.route('/', methods=['GET', 'POST'])
     def index():
         if request.method == 'POST':

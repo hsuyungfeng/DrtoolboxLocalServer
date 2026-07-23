@@ -58,7 +58,10 @@ class NotificationService:
         # 1. Log locally
         self._log_alert(patient_id, message, risk_type, conversation_id)
 
-        # 2. Send LINE Push to Staff
+        # 2. Send Email Alert (Stub)
+        self._send_email_alert(patient_id, risk_type, message)
+
+        # 3. Send LINE Push to Staff
         success = True
         if STAFF_NOTIFY_LINE_ID:
             success = self._send_line_push(STAFF_NOTIFY_LINE_ID, alert_text)
@@ -110,5 +113,73 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Failed to log staff alert: {e}")
 
-# Singleton
+    def _send_email_alert(self, patient_id: str, risk_type: str, message: str) -> bool:
+        """Helper to send Email alert (Stubbed)."""
+        logger.info(f"Email alert stub triggered for patient {patient_id}. Risk: {risk_type}")
+        # In a real implementation, this would use smtplib or an API like SendGrid
+        return True
+
+import threading
+import time
+import sqlite3
+
+class RiskAlertThread:
+    """Background thread checking incoming queries for critical terms."""
+    def __init__(self, check_interval=10):
+        self.check_interval = check_interval
+        self.is_running = False
+        self.last_checked_timestamp = datetime.now().isoformat()
+        # Fallback path if env var is missing
+        self.db_path = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../clinic.db'))
+        self.critical_terms = ["流血", "劇痛", "發燒", "呼吸困難"]
+
+    def start(self):
+        if not self.is_running:
+            self.is_running = True
+            threading.Thread(target=self._monitor_loop, daemon=True).start()
+            logger.info("🚨 Risk Alerting Background Thread started.")
+
+    def _monitor_loop(self):
+        while self.is_running:
+            try:
+                self._check_for_risks()
+            except Exception as e:
+                logger.error(f"Risk Alerting loop error: {e}")
+            time.sleep(self.check_interval)
+
+    def _check_for_risks(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        
+        # Get new messages since last check
+        rows = conn.execute(
+            "SELECT id, patient_id, text, sender, timestamp FROM patient_conversations WHERE timestamp > ? AND sender = 'user' ORDER BY timestamp ASC",
+            (self.last_checked_timestamp,)
+        ).fetchall()
+        
+        for row in rows:
+            self.last_checked_timestamp = max(self.last_checked_timestamp, row['timestamp'])
+            text = row['text']
+            if not text:
+                continue
+                
+            for term in self.critical_terms:
+                if term in text:
+                    # Trigger high risk notification
+                    notification_service.notify_high_risk(
+                        patient_id=row['patient_id'],
+                        message=text,
+                        risk_type=f"Critical Term Detected: {term}",
+                        conversation_id=str(row['id'])
+                    )
+                    
+                    # Log risk status in db (escalated_flag)
+                    conn.execute("UPDATE patient_conversations SET escalated_flag = 1 WHERE id = ?", (row['id'],))
+                    conn.commit()
+                    break
+                    
+        conn.close()
+
+# Singletons
 notification_service = NotificationService()
+risk_alert_thread = RiskAlertThread()
