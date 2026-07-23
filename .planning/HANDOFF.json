@@ -1,26 +1,66 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-23T07:15:30.160Z",
-  "phase": "05",
-  "phase_name": "Clinical CRM & Advanced BI",
-  "phase_dir": ".planning/phases/05-clinical-crm-and-advanced-bi",
-  "plan": 5,
-  "task": 0,
-  "total_tasks": 0,
-  "status": "paused",
+  "timestamp": "2026-07-23 17:24:26",
+  "phase": "SOAP-Voice-Integration",
+  "phase_name": "SOAP Voice & Dual LLM Comparison Lab",
+  "phase_dir": ".planning",
+  "plan": 1,
+  "task": 5,
+  "total_tasks": 5,
+  "status": "completed",
   "completed_tasks": [
-    {"id": 1, "name": "Milestone 2 - Real-time Staff Alerting", "status": "done", "commit": "f67d072"},
-    {"id": 2, "name": "Milestone 3 - Localization & Interactive Engagement", "status": "done", "commit": "f67d072"},
-    {"id": 3, "name": "Milestone 4 - Verification & Data Expansion", "status": "done", "commit": "f67d072"},
-    {"id": 4, "name": "System Ecosystem Startup & Debugging", "status": "done", "commit": "none"}
+    {
+      "id": 1,
+      "name": "OCR Patient Info Parsing (/api/dashboard/soap/ocr_patient)",
+      "status": "done",
+      "commit": "f30c398"
+    },
+    {
+      "id": 2,
+      "name": "Dual LLM SOAP Comparison API (/api/dashboard/soap/compare)",
+      "status": "done",
+      "commit": "f30c398"
+    },
+    {
+      "id": 3,
+      "name": "SOAP Voice & Comparison Lab Dashboard Tab & Actions",
+      "status": "done",
+      "commit": "b6ebbb0"
+    },
+    {
+      "id": 4,
+      "name": "MITM Proxy Interceptor for doctor-toolbox.com (scripts/mitm_interceptor.py)",
+      "status": "done",
+      "commit": "f30c398"
+    },
+    {
+      "id": 5,
+      "name": "Concise English SOAP Format, Deduplicated Headers & Tab Ordering",
+      "status": "done",
+      "commit": "05d3eba"
+    }
   ],
   "remaining_tasks": [],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "Fixed CLINIC_DB_PATH in .env", "rationale": "App was trying to load the DB from outside the project root.", "phase": "05"}
+    {
+      "decision": "Integrated SoapVoice & DoctorConsultation screen OCR",
+      "rationale": "Enables zero-friction patient info parsing (Name, DOB, MRN) from clinical system screen captures directly into clinic.db",
+      "phase": "SOAP-Voice-Integration"
+    },
+    {
+      "decision": "Concise English SOAP Note Mode",
+      "rationale": "Omit chatbot disclaimers, Greetings & food recipes from SOAP scribe output; keep SOAP notes concise (<150 words) adhering to medical scribe standards",
+      "phase": "SOAP-Voice-Integration"
+    },
+    {
+      "decision": "MITM Proxy via mitmproxy (Port 8888)",
+      "rationale": "Passively intercept doctor-toolbox.com audio files (.wav/.mp3) and cloud SOAP responses for local A/B comparison and archival",
+      "phase": "SOAP-Voice-Integration"
+    }
   ],
-  "uncommitted_files": [".env"],
-  "next_action": "Proceed to next project phase/plan depending on user instruction.",
-  "context_notes": "Phase 05 is entirely complete and the system ecosystem is running locally in the background. The app is serving the main dashboard on port 5000."
+  "uncommitted_files": [],
+  "next_action": "Ready for next feature development or operational testing.",
+  "context_notes": "SOAP Voice Lab, Dual LLM comparison, patient screen OCR, and MITM proxy interceptor are fully implemented, tested, and pushed to master."
 }
