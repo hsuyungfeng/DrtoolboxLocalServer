@@ -489,14 +489,18 @@ CRITICAL RULES:
 1. Output the SOAP note content strictly in ENGLISH.
 2. STRICTLY OMIT all disclaimers, greetings, food recipes, and marketing/booking CTA links.
 3. Keep bullet points concise, high-density, and clinically standard (under 150 words).
-4. Format strictly as:
-### S (Subjective)
+4. DO NOT use ### or markdown heading symbols for S/O/A/P.
+5. Format strictly as:
+S (Subjective):
 - [Main complaint & duration]
-### O (Objective)
+
+O (Objective):
 - [Vitals & Physical Exam]
-### A (Assessment)
+
+A (Assessment):
 - [Primary Diagnosis] | ICD-10: [Code]
-### P (Plan)
+
+P (Plan):
 - [Medications & Dosages]
 - [Follow-up instruction]
 """
@@ -504,7 +508,13 @@ CRITICAL RULES:
         elapsed_sec = round(time.time() - start_time, 2)
         date_today = datetime.datetime.now().strftime("%Y-%m-%d")
         
-        # 加上結構化病患標頭、耗時與時間戳
+        # 移除 LLM 內文重複輸出的 Patient/Date 行與 ### 標頭符號
+        import re
+        clean_response = re.sub(r"^\s*\*\*(Patient|Date)[^*]*\*\*:\s*.*$\n?", "", raw_local_response, flags=re.MULTILINE|re.IGNORECASE)
+        clean_response = re.sub(r"^\s*(Patient|Date):\s*.*$\n?", "", clean_response, flags=re.MULTILINE|re.IGNORECASE)
+        clean_response = re.sub(r"^###\s*", "", clean_response, flags=re.MULTILINE).strip()
+
+        # 加上統一結構化病患標頭、耗時與時間戳
         header = f"""**病患姓名：** {patient_name}
 **出生年月日：** {patient_dob}
 **診察日期：** {date_today}
@@ -513,19 +523,19 @@ CRITICAL RULES:
 ---
 
 """
-        local_response = header + raw_local_response
+        local_response = header + clean_response
 
         # 2. 模擬 / 執行 Cloud LLM (無 DB / 無 RAG Context 基準測試)
-        cloud_soap_sim = header + f"""### S (Subjective)
+        cloud_soap_sim = header + f"""S (Subjective):
 - Patient reports fever of 38.5°C for 2 days, accompanied by severe sore throat and cough with yellow sputum.
 
-### O (Objective)
+O (Objective):
 - Body temperature 38.5°C. Bilateral tonsils erythematous and swollen with white exudative plaques. Respiration unlabored.
 
-### A (Assessment)
+A (Assessment):
 - Acute Tonsillitis | ICD-10: J03.9
 
-### P (Plan)
+P (Plan):
 - Acetaminophen (Panadol) 500mg PO TID PC for fever and pain relief.
 - Amoxicillin 500mg PO TID for 7 days.
 - Advised rest and adequate hydration; follow up if symptoms persist."""
