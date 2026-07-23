@@ -659,6 +659,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        // 4. Load B2B Outreach ROI Analytics
+        fetch('/api/dashboard/analytics/b2b').then(r => r.ok ? r.json() : null).then(res => {
+            if (!res || !res.success || !res.data) return;
+            const b2b = res.data;
+            const leadsEl = document.getElementById('b2bTotalLeads');
+            const sentEl = document.getElementById('b2bTotalSent');
+            const linkedEl = document.getElementById('b2bTotalLinked');
+            const topListEl = document.getElementById('b2bTopLeadsList');
+
+            if (leadsEl) leadsEl.textContent = b2b.total_leads;
+            if (sentEl) sentEl.textContent = b2b.total_emails_sent;
+            if (linkedEl) linkedEl.textContent = b2b.total_line_linked;
+
+            if (topListEl && b2b.top_leads) {
+                topListEl.innerHTML = b2b.top_leads.map(lead => `
+                    <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <div>🏢 <strong>${lead.company_name}</strong> (${lead.company_id})</div>
+                        <div>信件寄送: <span style="color:#a78bfa;">${lead.emails_sent}</span> | VIP 綁定: <span style="color:#34d399; font-weight:bold;">${lead.line_linked_count}</span></div>
+                    </div>
+                `).join('');
+            }
+        });
     }
 
     // --- Tab 2: Upload ---

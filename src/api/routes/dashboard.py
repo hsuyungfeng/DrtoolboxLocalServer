@@ -583,3 +583,17 @@ def receive_intercepted_soap():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@dashboard_bp.route('/analytics/b2b', methods=['GET'])
+def get_b2b_analytics():
+    """取得 B2B 地推漏斗統計資料"""
+    try:
+        from scripts.openoutreach_bridge import OpenOutreachBridge
+        bridge = OpenOutreachBridge()
+        analytics_data = bridge.get_analytics()
+        return jsonify({"success": True, "data": analytics_data})
+    except Exception as e:
+        logger.error(f"Failed to fetch B2B analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+

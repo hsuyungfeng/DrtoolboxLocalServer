@@ -7,7 +7,7 @@
 <domain>
 ## Phase Boundary
 
-This phase integrates `eracle/OpenOutreach` agentic email discovery engine into `DrtoolboxLocalServer` for Zhiyan Aesthetic Clinic (緻妍診所)'s local B2B outreach (corporate wellness, local business partnerships, corporate VIP discounts within 3-5km radius). It bridges OpenOutreach leads with LINE VIP tagging (`line_linking.py`), enforces strict pricing security rules (`AGENTS.md`), and presents B2B funnel tracking in the Web Dashboard (`tab-analytics`).
+This phase integrates `eracle/OpenOutreach` agentic email discovery engine into `DrtoolboxLocalServer` for Zhiyan Aesthetic Clinic (緻妍診所)'s local B2B outreach (corporate wellness, local business partnerships, corporate VIP discounts within 10km radius). It bridges OpenOutreach leads with LINE VIP tagging (`line_linking.py`), enforces strict pricing security rules (`AGENTS.md`), and presents B2B funnel tracking in the Web Dashboard (`tab-analytics`).
 
 </domain>
 

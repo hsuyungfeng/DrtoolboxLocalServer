@@ -79,6 +79,24 @@ def handle_message(event):
     user_id = event.source.user_id
     user_text = event.message.text
     
+    # 檢查是否為 B2B 企業地推追蹤碼 (例如專屬關鍵字或包含 utm_campaign=b2b_xxx)
+    if "b2b_" in user_text:
+        try:
+            from scripts.openoutreach_bridge import DB_PATH
+            import sqlite3
+            match = re.search(r'b2b_([A-Za-z0-9_]+)', user_text)
+            if match:
+                company_id = match.group(1)
+                conn = sqlite3.connect(DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("UPDATE b2b_leads SET line_linked_count = line_linked_count + 1, status = 'linked' WHERE company_id = ?;", (company_id,))
+                cursor.execute("UPDATE patients SET b2b_company_id = ?, tags = 'b2b_vip' WHERE patient_id = ?;", (company_id, user_id))
+                conn.commit()
+                conn.close()
+                logger.info(f"🔗 成功為病患 {user_id} 綁定 B2B 企業 VIP ({company_id})")
+        except Exception as b2b_e:
+            logger.error(f"B2B VIP 綁定失敗: {b2b_e}")
+
     # Start background thread to handle heavy reasoning
     thread = threading.Thread(target=process_line_message_bg, args=(event.reply_token, user_id, user_text))
     thread.start()

@@ -199,6 +199,27 @@
                 <div style="height: 350px;"><canvas id="icd10RiskChart"></canvas></div>
                 <div id="icd10KnowledgeList" style="margin-top: 20px; padding: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;"></div>
             </div>
+            <div class="glass-panel" style="grid-column: 1 / -1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin:0;">🏢 企業地推轉化榜 (Corporate Outreach ROI)</h2>
+                    <span style="font-size: 0.85rem; color: #a78bfa; background: rgba(139, 92, 246, 0.15); padding: 4px 10px; border-radius: 8px;">OpenOutreach Agent Active</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">已掃描開發企業</div>
+                        <div style="font-size: 1.6rem; font-weight: bold; color: #60a5fa;" id="b2bTotalLeads">0</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">已寄送特約信件</div>
+                        <div style="font-size: 1.6rem; font-weight: bold; color: #a78bfa;" id="b2bTotalSent">0</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">LINE VIP 成功綁定</div>
+                        <div style="font-size: 1.6rem; font-weight: bold; color: #34d399;" id="b2bTotalLinked">0</div>
+                    </div>
+                </div>
+                <div id="b2bTopLeadsList" style="font-size: 0.9rem; color: #cbd5e1;"></div>
+            </div>
         </div>
         
         <!-- Tab 2: Upload Data -->
