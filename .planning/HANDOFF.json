@@ -1,33 +1,26 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-21T10:07:39.637Z",
+  "timestamp": "2026-07-23T07:15:30.160Z",
   "phase": "05",
   "phase_name": "Clinical CRM & Advanced BI",
   "phase_dir": ".planning/phases/05-clinical-crm-and-advanced-bi",
-  "plan": 1,
-  "task": 2,
-  "total_tasks": 7,
+  "plan": 5,
+  "task": 0,
+  "total_tasks": 0,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Task 1.1: Build Patient Detail View", "status": "done", "commit": "unknown"},
-    {"id": 2, "name": "Task 1.2: ehrapy Dashboard Integration", "status": "done", "commit": "unknown"},
-    {"id": 3, "name": "Task 3.1: OTC Drug Localization", "status": "done", "progress": "Integrated mapping and RAG injection"}
+    {"id": 1, "name": "Milestone 2 - Real-time Staff Alerting", "status": "done", "commit": "f67d072"},
+    {"id": 2, "name": "Milestone 3 - Localization & Interactive Engagement", "status": "done", "commit": "f67d072"},
+    {"id": 3, "name": "Milestone 4 - Verification & Data Expansion", "status": "done", "commit": "f67d072"},
+    {"id": 4, "name": "System Ecosystem Startup & Debugging", "status": "done", "commit": "none"}
   ],
-  "remaining_tasks": [
-    {"id": 4, "name": "Task 2.1: Implement High-risk Symptom Notification", "status": "not_started"},
-    {"id": 5, "name": "Task 2.2: Add Risk Alerting Background Thread", "status": "not_started"},
-    {"id": 6, "name": "Task 3.2: Reservation CTA Integration", "status": "not_started"},
-    {"id": 7, "name": "Task 3.3: Patient Engagement Follow-up Questions", "status": "not_started"},
-    {"id": 8, "name": "Task 4.1: Populate clinic.db with Diverse Simulated Patients", "status": "not_started"},
-    {"id": 9, "name": "Task 4.2: E2E Verification Tests", "status": "not_started"}
-  ],
+  "remaining_tasks": [],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "Reduced llama-server context size to 32768", "rationale": "The 12GB RTX 3060 cannot handle 128K context + 9B model without OOM. 32K fits perfectly and runs at ~31 t/s.", "phase": "05"},
-    {"decision": "Fixed health monitor to use systemctl", "rationale": "The previous code hardcoded docker container restarts, which caused the backend to crash when llama-server went down.", "phase": "05"}
+    {"decision": "Fixed CLINIC_DB_PATH in .env", "rationale": "App was trying to load the DB from outside the project root.", "phase": "05"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Proceed with Task 2.1 and 2.2 for Real-time Staff Alerting",
-  "context_notes": "We just fixed severe OOM issues with the LLM (reduced context to 32K) and corrected the backend health monitor crash. The system is now fully stable, backend running on port 5000 and LLM on port 8080."
+  "uncommitted_files": [".env"],
+  "next_action": "Proceed to next project phase/plan depending on user instruction.",
+  "context_notes": "Phase 05 is entirely complete and the system ecosystem is running locally in the background. The app is serving the main dashboard on port 5000."
 }
