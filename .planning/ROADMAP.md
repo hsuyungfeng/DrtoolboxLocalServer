@@ -59,5 +59,18 @@ Plans:
 
 Plans:
 
-- [ ] Define and execute Phase 6 prompts (run /gsd-plan-phase 6 to break down)
+- [x] Define and execute Phase 6 prompts (run /gsd-plan-phase 6 to break down) (completed 2026-07-23)
+
+## Phase 7: Multi-Channel 10km Local Business Scraping & Multi-Tier Outreach
+
+**Goal:** Leverage Firecrawl deep-web scraping from `doctor-toolbox-post` to extract 10km local non-clinic business leads (FB, Messenger, Email, Posts), populate expanded `b2b_leads` database, and execute multi-channel outreach.
+
+- Schema migration on `b2b_leads` (add `fb_page_url`, `fb_messenger_url`, `latest_post_url`, `category`, `outreach_channel`).
+- Implement `scripts/local_b2b_scraper.py` using Firecrawl (`:3002`) to mine local businesses (gyms, yoga studios, tech firms, wedding photography) within 10km.
+- Build Multi-Tier Outreach strategy: Email -> FB Messenger -> FB Post Comment.
+- Update Web Dashboard `tab-analytics` B2B panel to visualize multi-channel conversion & LINE VIP linking.
+
+Plans:
+
+- [ ] Define and execute Phase 7 prompts (run /gsd-plan-phase 7 to break down)
 
