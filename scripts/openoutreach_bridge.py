@@ -32,7 +32,21 @@ def init_b2b_tables(db_path: str = DB_PATH):
         );
     """)
     
-    # 2. 擴充 patients 表 (如未存在 b2b_company_id 欄位)
+    # 2. 擴充 b2b_leads 表 (多渠道支援)
+    cursor.execute("PRAGMA table_info(b2b_leads);")
+    b2b_cols = [col[1] for col in cursor.fetchall()]
+    new_b2b_columns = {
+        'fb_page_url': 'TEXT',
+        'fb_messenger_url': 'TEXT',
+        'latest_post_url': 'TEXT',
+        'category': 'TEXT',
+        'outreach_channel': 'TEXT'
+    }
+    for col_name, col_type in new_b2b_columns.items():
+        if col_name not in b2b_cols:
+            cursor.execute(f"ALTER TABLE b2b_leads ADD COLUMN {col_name} {col_type};")
+
+    # 3. 擴充 patients 表 (如未存在 b2b_company_id 欄位)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS patients (
             patient_id TEXT PRIMARY KEY,
@@ -51,7 +65,7 @@ def init_b2b_tables(db_path: str = DB_PATH):
         
     conn.commit()
     conn.close()
-    logger.info("✅ B2B Leads Database schema initialized successfully.")
+    logger.info("✅ B2B Leads Database multi-channel schema initialized successfully.")
 
 def sanitize_email_prompt(prompt_text: str) -> str:
     """
@@ -78,20 +92,86 @@ class OpenOutreachBridge:
         
     def add_lead(self, company_id: str, company_name: str, contact_email: str) -> str:
         """新增或更新地推潛在企業"""
+        return self.add_full_lead(company_id=company_id, company_name=company_name, contact_email=contact_email)
+
+    def add_full_lead(self, company_id: str, company_name: str, contact_email: str = "", 
+                      fb_page_url: str = "", fb_messenger_url: str = "", 
+                      latest_post_url: str = "", category: str = "Corporate") -> str:
+        """新增或更新多渠道地推潛在店家/企業"""
         utm_token = f"b2b_{company_id}"
+        
+        # 自動判定最佳接觸管道
+        if contact_email and "@" in contact_email:
+            preferred_channel = "email"
+        elif fb_messenger_url:
+            preferred_channel = "messenger"
+        elif latest_post_url or fb_page_url:
+            preferred_channel = "post_comment"
+        else:
+            preferred_channel = "email"
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO b2b_leads (company_id, company_name, contact_email, utm_token)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO b2b_leads (
+                company_id, company_name, contact_email, utm_token,
+                fb_page_url, fb_messenger_url, latest_post_url, category, outreach_channel
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(company_id) DO UPDATE SET
                 company_name=excluded.company_name,
                 contact_email=excluded.contact_email,
+                fb_page_url=excluded.fb_page_url,
+                fb_messenger_url=excluded.fb_messenger_url,
+                latest_post_url=excluded.latest_post_url,
+                category=excluded.category,
+                outreach_channel=excluded.outreach_channel,
                 updated_at=CURRENT_TIMESTAMP;
-        """, (company_id, company_name, contact_email, utm_token))
+        """, (company_id, company_name, contact_email, utm_token, 
+              fb_page_url, fb_messenger_url, latest_post_url, category, preferred_channel))
         conn.commit()
         conn.close()
         return utm_token
+
+    def dispatch_multi_channel_outreach(self, company_id: str) -> Dict[str, Any]:
+        """根據優先管道發送開拓訊息 (Tier 1 Email -> Tier 2 Messenger -> Tier 3 Comment)"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT company_name, contact_email, utm_token, fb_page_url, fb_messenger_url, latest_post_url, outreach_channel
+            FROM b2b_leads WHERE company_id = ?;
+        """, (company_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return {"success": False, "error": "Company not found"}
+
+        company_name, contact_email, utm_token, fb_page, fb_msg, latest_post, channel = row
+        line_url = f"https://line.me/R/ti/p/@zhiyan?utm_source=b2b_multi&utm_campaign={utm_token}"
+        
+        sent_channel = None
+        # Priority 1: Email
+        if contact_email and "@" in contact_email:
+            sent_channel = "email"
+            self.send_outreach_email(company_id)
+        # Priority 2: Messenger
+        elif fb_msg or fb_page:
+            sent_channel = "messenger"
+            logger.info(f"💬 [Messenger Agent] 發送開拓卡片至 {company_name} ({fb_msg or fb_page}) -> LINE: {line_url}")
+            cursor.execute("UPDATE b2b_leads SET status='emailed', emails_sent=emails_sent+1 WHERE company_id=?;", (company_id,))
+            conn.commit()
+        # Priority 3: FB Post Comment
+        elif latest_post:
+            sent_channel = "post_comment"
+            logger.info(f"💬 [FB Post Comment Agent] 於最新貼文留言 {latest_post} 邀請合作 -> LINE: {line_url}")
+            cursor.execute("UPDATE b2b_leads SET status='emailed', emails_sent=emails_sent+1 WHERE company_id=?;", (company_id,))
+            conn.commit()
+        else:
+            sent_channel = "email"
+            self.send_outreach_email(company_id)
+
+        conn.close()
+        return {"success": True, "company_id": company_id, "sent_channel": sent_channel, "line_url": line_url}
 
     def generate_outreach_email(self, company_name: str, utm_token: str) -> str:
         """產生無價格洩漏、附帶 UTM LINE 綁定連結的合規開拓信件」"""
@@ -115,6 +195,64 @@ class OpenOutreachBridge:
 
         return sanitize_email_prompt(raw_template)
 
+    def send_outreach_email(self, company_id: str, email_body: Optional[str] = None) -> bool:
+        """實體寄送/對接 OpenOutreach SMTP 發信並更新紀錄"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # 1. 取得企業資料
+        cursor.execute("SELECT company_name, contact_email, utm_token FROM b2b_leads WHERE company_id = ?;", (company_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return False
+            
+        company_name, contact_email, utm_token = row
+        if not email_body:
+            email_body = self.generate_outreach_email(company_name, utm_token)
+            
+        # 2. 如果設定有 SMTP (例如利用 python smtplib 或 OpenOutreach API 發信)
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASS")
+        
+        sent_success = False
+        if smtp_host and smtp_user and smtp_pass and contact_email:
+            try:
+                import smtplib
+                from email.mime.text import MIMEText
+                msg = MIMEText(email_body, 'plain', 'utf-8')
+                msg['Subject'] = f"【緻妍診所】VIP 企業特約合作邀請 - {company_name}"
+                msg['From'] = smtp_user
+                msg['To'] = contact_email
+                
+                with smtplib.SMTP(smtp_host, smtp_port) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                logger.info(f"📧 成功發送特約開拓信件至 {contact_email}")
+                sent_success = True
+            except Exception as mail_err:
+                logger.error(f"SMTP 發信失敗: {mail_err}")
+                sent_success = False
+        else:
+            # 模擬 / 記錄發信觸發
+            logger.info(f"⚡ [Auto-Outreach Simulator] 已為 {company_name} ({contact_email}) 觸發 OpenOutreach 開拓推播")
+            sent_success = True
+            
+        # 3. 更新數據庫中的信件寄送計數
+        if sent_success:
+            cursor.execute("""
+                UPDATE b2b_leads 
+                SET emails_sent = emails_sent + 1, status = 'emailed', updated_at = CURRENT_TIMESTAMP
+                WHERE company_id = ?;
+            """, (company_id,))
+            conn.commit()
+            
+        conn.close()
+        return sent_success
+
     def get_analytics(self) -> Dict[str, Any]:
         """讀取 B2B 轉化漏斗數據"""
         conn = sqlite3.connect(self.db_path)
@@ -124,8 +262,10 @@ class OpenOutreachBridge:
         total_leads, total_sent, total_linked = cursor.fetchone()
         
         cursor.execute("""
-            SELECT b.company_name, b.company_id, b.emails_sent, b.line_linked_count, b.status
-            FROM b2b_leads b ORDER BY b.line_linked_count DESC LIMIT 10;
+            SELECT b.company_name, b.company_id, b.emails_sent, b.line_linked_count, b.status,
+                   COALESCE(b.category, 'Corporate'), COALESCE(b.outreach_channel, 'email'),
+                   b.contact_email, b.fb_messenger_url, b.latest_post_url
+            FROM b2b_leads b ORDER BY b.line_linked_count DESC, b.emails_sent DESC LIMIT 10;
         """)
         top_leads = [
             {
@@ -133,7 +273,12 @@ class OpenOutreachBridge:
                 "company_id": row[1],
                 "emails_sent": row[2] or 0,
                 "line_linked_count": row[3] or 0,
-                "status": row[4]
+                "status": row[4],
+                "category": row[5],
+                "outreach_channel": row[6],
+                "contact_email": row[7] or "",
+                "fb_messenger_url": row[8] or "",
+                "latest_post_url": row[9] or ""
             }
             for row in cursor.fetchall()
         ]

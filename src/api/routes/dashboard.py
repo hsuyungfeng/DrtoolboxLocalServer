@@ -596,4 +596,93 @@ def get_b2b_analytics():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@dashboard_bp.route('/analytics/b2b/add', methods=['POST'])
+def add_b2b_lead():
+    """手動或批次新增地推/特約企業目標，並自動觸發發信"""
+    try:
+        data = request.json or {}
+        company_name = data.get("company_name")
+        company_id = data.get("company_id")
+        contact_email = data.get("contact_email", "")
+        auto_send = data.get("auto_send", True)
+        
+        if not company_name or not company_id:
+            return jsonify({"success": False, "error": "company_name and company_id are required"}), 400
+            
+        from scripts.openoutreach_bridge import OpenOutreachBridge
+        bridge = OpenOutreachBridge()
+        token = bridge.add_lead(company_id, company_name, contact_email)
+        outreach_email = bridge.generate_outreach_email(company_name, token)
+        
+        sent = False
+        if auto_send:
+            sent = bridge.send_outreach_email(company_id, outreach_email)
+        
+        return jsonify({
+            "success": True,
+            "company_id": company_id,
+            "utm_token": token,
+            "email_sent": sent,
+            "email_template": outreach_email
+        })
+    except Exception as e:
+        logger.error(f"Failed to add B2B lead: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dashboard_bp.route('/analytics/b2b/send', methods=['POST'])
+def send_b2b_email():
+    """手動發送/補發特約開拓信件」"""
+    try:
+        data = request.json or {}
+        company_id = data.get("company_id")
+        if not company_id:
+            return jsonify({"success": False, "error": "company_id is required"}), 400
+            
+        from scripts.openoutreach_bridge import OpenOutreachBridge
+        bridge = OpenOutreachBridge()
+        sent = bridge.send_outreach_email(company_id)
+        
+        return jsonify({"success": True, "company_id": company_id, "sent": sent})
+    except Exception as e:
+        logger.error(f"Failed to send B2B email: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dashboard_bp.route('/analytics/b2b/dispatch_channel', methods=['POST'])
+def dispatch_b2b_channel():
+    """三階渠道發送 (Tier 1 Email -> Tier 2 Messenger -> Tier 3 Comment)"""
+    try:
+        data = request.json or {}
+        company_id = data.get("company_id")
+        if not company_id:
+            return jsonify({"success": False, "error": "company_id is required"}), 400
+            
+        from scripts.openoutreach_bridge import OpenOutreachBridge
+        bridge = OpenOutreachBridge()
+        res = bridge.dispatch_multi_channel_outreach(company_id)
+        return jsonify(res)
+    except Exception as e:
+        logger.error(f"Failed to dispatch multi channel outreach: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dashboard_bp.route('/analytics/b2b/scrape_10km', methods=['POST'])
+def trigger_10km_scraping():
+    """觸發 10km 在地店家/企業 Firecrawl 深網爬蟲洗庫"""
+    try:
+        data = request.json or {}
+        category = data.get("category", "Gyms")
+        limit = int(data.get("limit", 3))
+        
+        from scripts.local_b2b_scraper import LocalB2BScraper
+        scraper = LocalB2BScraper()
+        tokens = scraper.run_ingestion(category=category, limit=limit)
+        
+        return jsonify({"success": True, "count": len(tokens), "tokens": tokens})
+    except Exception as e:
+        logger.error(f"Failed to trigger 10km scraping: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 

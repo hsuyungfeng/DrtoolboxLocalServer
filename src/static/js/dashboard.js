@@ -40,6 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.execCommand('copy');
     };
 
+    window.sendB2bEmail = async (companyId) => {
+        try {
+            const res = await fetch('/api/dashboard/analytics/b2b/dispatch_channel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ company_id: companyId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`✅ 成功經由 [${data.sent_channel}] 管道為 ${companyId} 觸發特約開拓推播！`);
+                loadAnalytics();
+            } else {
+                alert(`發送失敗: ${data.error || '未知錯誤'}`);
+            }
+        } catch (e) {
+            alert(`發送失敗: ${e.message}`);
+        }
+    };
+
     // --- Header Actions ---
     const triggerFactCheckBtn = document.getElementById('triggerFactCheckBtn');
     const exportBtn = document.getElementById('exportBtn');
@@ -676,14 +695,100 @@ document.addEventListener('DOMContentLoaded', () => {
             if (linkedEl) linkedEl.textContent = b2b.total_line_linked;
 
             if (topListEl && b2b.top_leads) {
-                topListEl.innerHTML = b2b.top_leads.map(lead => `
-                    <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <div>🏢 <strong>${lead.company_name}</strong> (${lead.company_id})</div>
-                        <div>信件寄送: <span style="color:#a78bfa;">${lead.emails_sent}</span> | VIP 綁定: <span style="color:#34d399; font-weight:bold;">${lead.line_linked_count}</span></div>
-                    </div>
-                `).join('');
+                topListEl.innerHTML = b2b.top_leads.map(lead => {
+                    let channelBadge = '<span style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:rgba(96,165,250,0.2); color:#60a5fa;">📧 Email</span>';
+                    if (lead.outreach_channel === 'messenger') {
+                        channelBadge = '<span style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:rgba(167,139,246,0.2); color:#a78bfa;">💬 Messenger</span>';
+                    } else if (lead.outreach_channel === 'post_comment') {
+                        channelBadge = '<span style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:rgba(251,146,60,0.2); color:#fb923c;">💬 Comment</span>';
+                    }
+                    const categoryTag = `<span style="font-size:0.7rem; color:#94a3b8; margin-left:6px;">[${lead.category || 'General'}]</span>`;
+
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <div>
+                                🏢 <strong>${lead.company_name}</strong> (${lead.company_id}) ${categoryTag}
+                                <div style="margin-top:4px;">${channelBadge}</div>
+                            </div>
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <div>發送數: <span style="color:#a78bfa; font-weight:bold;">${lead.emails_sent}</span> | VIP 綁定: <span style="color:#34d399; font-weight:bold;">${lead.line_linked_count}</span></div>
+                                <button class="tab-btn" style="font-size:0.75rem; padding:4px 8px; background:rgba(167,139,246,0.15); border:1px solid rgba(167,139,246,0.3); color:#a78bfa;" onclick="sendB2bEmail('${lead.company_id}')">📨 觸發開拓發送</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             }
         });
+
+        // 10km Scrape Button Handler
+        const scrapeBtn = document.getElementById('trigger10kmScrapeBtn');
+        if (scrapeBtn && !scrapeBtn.dataset.bound) {
+            scrapeBtn.dataset.bound = "true";
+            scrapeBtn.addEventListener('click', async () => {
+                const category = document.getElementById('scrapeCategorySelect').value;
+                const msgEl = document.getElementById('b2bAddSuccessMsg');
+                try {
+                    const res = await fetch('/api/dashboard/analytics/b2b/scrape_10km', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ category: category, limit: 3 })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (msgEl) {
+                            msgEl.style.display = 'block';
+                            msgEl.innerHTML = `🕷️ 成功抓取洗入 ${data.count} 家 10km 在地 [${category}] 目標店家！`;
+                        }
+                        loadAnalytics();
+                    } else {
+                        alert('爬取失敗: ' + (data.error || '未知錯誤'));
+                    }
+                } catch (e) {
+                    alert('爬取失敗: ' + e.message);
+                }
+            });
+        }
+        });
+
+        // Add B2B Lead Button Handler
+        const addBtn = document.getElementById('addB2bLeadBtn');
+        if (addBtn && !addBtn.dataset.bound) {
+            addBtn.dataset.bound = "true";
+            addBtn.addEventListener('click', async () => {
+                const name = document.getElementById('newB2bName').value.trim();
+                const id = document.getElementById('newB2bId').value.trim();
+                const email = document.getElementById('newB2bEmail').value.trim();
+                const msgEl = document.getElementById('b2bAddSuccessMsg');
+
+                if (!name || !id) {
+                    alert('請輸入企業名稱與企業代號！');
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/dashboard/analytics/b2b/add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ company_name: name, company_id: id, contact_email: email })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        if (msgEl) {
+                            msgEl.style.display = 'block';
+                            msgEl.innerHTML = `✅ 成功建立特約目標！UTM Token: <strong>${data.utm_token}</strong>`;
+                        }
+                        document.getElementById('newB2bName').value = '';
+                        document.getElementById('newB2bId').value = '';
+                        document.getElementById('newB2bEmail').value = '';
+                        loadAnalytics();
+                    } else {
+                        alert('建立失敗: ' + (data.error || '未知錯誤'));
+                    }
+                } catch (e) {
+                    alert('建立失敗: ' + e.message);
+                }
+            });
+        }
     }
 
     // --- Tab 2: Upload ---
