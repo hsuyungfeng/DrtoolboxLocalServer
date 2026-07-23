@@ -509,7 +509,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Tab 5: Analytics ---
     function loadAnalytics() {
         // 1. Load Business Analytics (Procedures & Pain Points)
-        fetch('/api/dashboard/analytics').then(r => r.json()).then(data => {
+        fetch('/api/dashboard/analytics').then(r => r.ok ? r.json() : null).then(data => {
+            if (!data || !data.procedures) return;
             new Chart(document.getElementById('proceduresChart'), { 
                 type: 'bar', 
                 data: { 
@@ -529,7 +530,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 2. Load System Health Metrics
-        fetch('/api/v1/system/metrics').then(r => r.json()).then(data => {
+        fetch('/api/v1/system/metrics').then(r => r.ok ? r.json() : null).then(data => {
+            if (!data || !data.health_check || !data.health_check.resources) return;
             const health = data.health_check.resources;
             
             // System Resources Chart
