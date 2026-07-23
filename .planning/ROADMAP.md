@@ -48,3 +48,16 @@ Plans:
 
 - [ ] Define and execute Phase 5 prompts (run /gsd-plan-phase 5 to break down)
 
+## Phase 6: OpenOutreach B2B Local Outreach & LINE Integration
+
+**Goal:** Integrate OpenOutreach agentic email engine for local clinic B2B partnership outreach, bound with LINE VIP linking, strict pricing protection, and BI funnel tracking.
+
+- Configure OpenOutreach Docker / Python agentic lead discovery for local business parks, clinics, and corporates (ICP 3-5km radius).
+- Build bridge scripts connecting OpenOutreach outreach emails to DrtoolboxLocalServer LINE linking (`line_linking.py`).
+- Enforce strict pricing security rules (AGENTS.md compliance) in LLM email copy generator.
+- Integrate Corporate Outreach ROI dashboard (`tab-analytics` B2B funnel tracking).
+
+Plans:
+
+- [ ] Define and execute Phase 6 prompts (run /gsd-plan-phase 6 to break down)
+
