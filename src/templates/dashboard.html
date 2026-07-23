@@ -11,8 +11,8 @@
         <div class="header-left">
             <h1>訓練控制面板</h1>
             <nav class="nav-tabs">
-                <button class="tab-btn active" data-tab="curation">資料校正</button>
-                <button class="tab-btn" data-tab="soap-lab">🎙️ SOAP 語音實驗室</button>
+                <button class="tab-btn active" data-tab="soap-lab">🎙️ SOAP 語音實驗室</button>
+                <button class="tab-btn" data-tab="curation">資料校正</button>
                 <button class="tab-btn" data-tab="knowledge-map">診所知識地圖</button>
                 <button class="tab-btn" data-tab="articles">文章同步</button>
                 <button class="tab-btn" data-tab="analytics">營運數據</button>
@@ -29,7 +29,7 @@
     
     <main>
         <!-- Tab 1: Curation -->
-        <div id="tab-curation" class="tab-content active-tab">
+        <div id="tab-curation" class="tab-content" style="display: none;">
             <div class="glass-panel">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 5px;">
                     <h2 style="margin:0;">待校正清單</h2>
@@ -70,7 +70,7 @@
         </div>
 
         <!-- Tab: SOAP Voice & LLM Comparison Lab -->
-        <div id="tab-soap-lab" class="tab-content" style="display: none;">
+        <div id="tab-soap-lab" class="tab-content active-tab" style="display: block;">
             <div style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
                 <!-- Left Panel: OCR & Voice Input -->
                 <div class="glass-panel">
