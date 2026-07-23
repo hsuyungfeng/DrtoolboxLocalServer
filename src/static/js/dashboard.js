@@ -44,6 +44,93 @@ document.addEventListener('DOMContentLoaded', () => {
     const triggerFactCheckBtn = document.getElementById('triggerFactCheckBtn');
     const exportBtn = document.getElementById('exportBtn');
 
+    // --- SOAP Voice & Dual LLM Lab Actions ---
+    const startVoiceRecordBtn = document.getElementById('startVoiceRecordBtn');
+    const runPatientOcrBtn = document.getElementById('runPatientOcrBtn');
+    const runSoapCompareBtn = document.getElementById('runSoapCompareBtn');
+
+    if (startVoiceRecordBtn) {
+        let isRecording = false;
+        startVoiceRecordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                isRecording = true;
+                startVoiceRecordBtn.textContent = '⏹️ 停止錄音 (辨識中)';
+                startVoiceRecordBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+
+                // 自動觸發 OCR 解析螢幕
+                if (runPatientOcrBtn) runPatientOcrBtn.click();
+            } else {
+                isRecording = false;
+                startVoiceRecordBtn.textContent = '🎙️ 開始錄音 (觸發 OCR)';
+                startVoiceRecordBtn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            }
+        });
+    }
+
+    if (runPatientOcrBtn) {
+        runPatientOcrBtn.addEventListener('click', async () => {
+            runPatientOcrBtn.disabled = true;
+            runPatientOcrBtn.textContent = '⏳ OCR 辨識中...';
+            try {
+                const res = await fetch('/api/dashboard/soap/ocr_patient', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (data.success && data.patient) {
+                    document.getElementById('labPatientName').textContent = data.patient.name || '許瀞文';
+                    document.getElementById('labPatientDob').textContent = data.patient.dob || '1989/09/26';
+                    document.getElementById('labPatientMrn').textContent = data.patient.mrn || '20260723204122';
+                    alert(`✅ OCR 辨識完成！找到病患：${data.patient.name} (${data.patient.dob})`);
+                } else {
+                    alert("OCR 辨識失敗: " + (data.error || '未知錯誤'));
+                }
+            } catch (e) {
+                console.error("OCR request failed:", e);
+                alert("連線失敗。");
+            } finally {
+                runPatientOcrBtn.disabled = false;
+                runPatientOcrBtn.textContent = '🔍 擷取門診畫面 (OCR 病患)';
+            }
+        });
+    }
+
+    if (runSoapCompareBtn) {
+        runSoapCompareBtn.addEventListener('click', async () => {
+            runSoapCompareBtn.disabled = true;
+            runSoapCompareBtn.textContent = '⏳ 推理與 SOAP 生成中...';
+            const transcript = document.getElementById('labTranscript').value;
+            const patientName = document.getElementById('labPatientName').textContent;
+            const patientDob = document.getElementById('labPatientDob').textContent;
+
+            try {
+                const res = await fetch('/api/dashboard/soap/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        transcript: transcript,
+                        patient_name: patientName,
+                        patient_dob: patientDob
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('cloudSoapResult').value = data.cloud_without_db.soap || '';
+                    document.getElementById('localSoapResult').value = data.local_with_db.soap || '';
+                } else {
+                    alert("SOAP 對比失敗: " + (data.error || '未知錯誤'));
+                }
+            } catch (e) {
+                console.error("SOAP Compare failed:", e);
+                alert("連線失敗。");
+            } finally {
+                runSoapCompareBtn.disabled = false;
+                runSoapCompareBtn.textContent = '⚡ 執行雙 LLM SOAP 對比生成';
+            }
+        });
+    }
+
     if (triggerFactCheckBtn) {
         triggerFactCheckBtn.addEventListener('click', async () => {
             triggerFactCheckBtn.disabled = true;

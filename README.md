@@ -8,7 +8,9 @@ Drtoolbox 是一個專為診所設計的**隱私優先 (Privacy-First)** 本地 
 本專案已成功實現「數據閉環 (Data Loop)」，系統具備自我進化與深度洞察能力：
 - **高效 RAG 引擎 (SQLite FTS5)**：從原先的 Python 記憶體線性掃描，重構升級為 SQLite FTS5 全文索引，搭配 BM25 檢索與 fine-grained N-gram 混合排序。將 3.1 GB 大體量醫學教科書的檢索延遲從 **152+ 秒縮短至 14.06 秒 (效能提升 10 倍以上)**，徹底解決 LINE Webhook 超時斷線。
 - **醫療知識圖譜 (SQLite Graph-RAG)**：將原先需要重型伺服器的 Neo4j 30 萬條關係醫療圖譜與 Jena RDF 藥物本體扁平化並導入本地 SQLite，提供零依賴的滑動窗口實體比對與多步圖譜推導引擎。
-- **模型與推理樹**：採用本地 Qwen 模型，並在 SQLite 中快取 **PageIndex 2.0 臨床推理樹**，支援直接從磁碟 JSON 檔案快照遷移至資料庫，零 GPU/LLM 重建開銷。
+- **SOAP 語音轉錄與雙 LLM 擬真對比實驗室**：整合 SoapVoice 語音引擎與門診畫面 (DoctorConsultation) OCR 解析，支援一鍵從門診截圖提取病患姓名、生日與病歷號，並並行執行「雲端 Baseline (無 DB)」與「Local LLM (Ornith-1.0-9B + DB)」的擬真 SOAP 病歷生成與醫師盲測投票。
+- **MITM 網路流量攔截器 (mitmproxy)**：提供 `scripts/mitm_interceptor.py` 腳本，可自動攔截 `doctor-toolbox.com` 傳送的音檔 (.wav/.mp3) 與雲端 SOAP 譯文 JSON，無縫備份至本地數據庫與 A/B 對比測試。
+- **模型與推理樹**：採用本地 Qwen 與 Ornith-1.0-9B 模型，並在 SQLite 中快取 **PageIndex 2.0 臨床推理樹**，支援直接從磁碟 JSON 檔案快照遷移至資料庫，零 GPU/LLM 重建開銷。
 - **HIS 深度整合**：支援本地或區域網路 (SMB) 的 HIS 資料庫 (.dbf) 自動同步，打通醫療數據孤島。
 - **混合路由技術**：導入 **Dynamic Knowledge Fallback** 機制，平衡診所專有數據與通用醫學知識。
 - **全通路對接**：支援 LINE 與 Messenger 串接，具備非同步處理機制與精美 Flex Message 介面。

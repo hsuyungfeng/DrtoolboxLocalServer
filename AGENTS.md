@@ -76,3 +76,12 @@
   * 不要使用 `page.wait_for_timeout()`（reCAPTCHA 會偵測）
   * 使用 `page.type()` 而非 `page.fill()` 填寫表單
   * 使用 `time.sleep()` 而非 CDP 定時器
+
+### B. SOAP 語音紀錄與 MITM 流量攔截 (SoapVoice & MITM Interceptor)
+* **端點介面**：
+  * `POST /api/dashboard/soap/ocr_patient`：擷取門診畫面圖像或預設 `/tmp/waveterm` 截圖，自動 OCR 辨識病患姓名、生日與病歷號，寫入 `clinic.db` 的 `patients` 表。
+  * `POST /api/dashboard/soap/compare` (或 `/api/v1/soap/compare`)：接受診察轉錄文字，雙軌並行生成雲端 Base SOAP 與 Local LLM (Ornith-1.0-9B + HIS DB + Graph-RAG) 的精準擬真病歷。
+  * `POST /api/dashboard/soap/intercept`：接收 mitmproxy 攔截到的 `doctor-toolbox.com` 音檔與 SOAP JSON 紀錄。
+* **MITM 攔截代理**：
+  * 指令：`uv run mitmdump -s scripts/mitm_interceptor.py -p 8888`
+  * 攔截備份位置：`./data/intercepted_audios/`

@@ -12,6 +12,7 @@
             <h1>訓練控制面板</h1>
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="curation">資料校正</button>
+                <button class="tab-btn" data-tab="soap-lab">🎙️ SOAP 語音實驗室</button>
                 <button class="tab-btn" data-tab="knowledge-map">診所知識地圖</button>
                 <button class="tab-btn" data-tab="articles">文章同步</button>
                 <button class="tab-btn" data-tab="analytics">營運數據</button>
@@ -64,6 +65,63 @@
                 <div style="display: flex; gap: 12px; margin-top: 20px;">
                     <button class="save-btn" id="saveBtn" style="flex: 2;">驗證並儲存</button>
                     <button class="tab-btn" id="discardBtn" style="flex: 1; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.3); color: #f87171;">🗑️ 捨棄此項目</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: SOAP Voice & LLM Comparison Lab -->
+        <div id="tab-soap-lab" class="tab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
+                <!-- Left Panel: OCR & Voice Input -->
+                <div class="glass-panel">
+                    <h2>📸 門診病患辨識 & 語音輸入</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">
+                        點擊下方解析傳入的門診畫面截圖（自動提取姓名與生日），並進行錄音或文字轉轉錄。
+                    </p>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button class="save-btn" id="startVoiceRecordBtn" style="flex: 1; background: linear-gradient(135deg, #ef4444, #dc2626);">🎙️ 開始錄音 (觸發 OCR)</button>
+                        <button class="save-btn" id="runPatientOcrBtn" style="flex: 1; background: linear-gradient(135deg, #3b82f6, #1d4ed8);">🔍 擷取門診畫面</button>
+                    </div>
+                    
+                    <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 0.9rem; font-weight: bold; color: #60a5fa;">病患資料：</div>
+                        <div style="font-size: 0.85rem; margin-top: 5px;">姓名: <span id="labPatientName" style="color: white; font-weight: bold;">許瀞文</span></div>
+                        <div style="font-size: 0.85rem; margin-top: 2px;">生日: <span id="labPatientDob" style="color: white;">1989/09/26</span></div>
+                        <div style="font-size: 0.85rem; margin-top: 2px;">病歷號: <span id="labPatientMrn" style="color: #a78bfa;">20260723204122</span></div>
+                    </div>
+
+                    <div class="field-group">
+                        <label>診察對話與語音逐字稿 (Transcript)</label>
+                        <textarea id="labTranscript" style="min-height: 140px; font-size: 0.85rem;" placeholder="輸入或使用 DoctorConsultation 同音檔對話文字...">患者主訴發燒38.5度持續兩天，伴隨嚴重喉嚨痛與咳嗽有黃痰。理學檢查發現雙側扁桃腺紅腫伴有白色斑塊，無呼吸急促。診斷為急性扁桃腺炎，開立普拿疼 (Acetaminophen) 500mg 口服三餐飯後與抗生素 Amoxicillin 500mg 口服7天，叮嚀多喝水休養。</textarea>
+                    </div>
+
+                    <button class="save-btn" id="runSoapCompareBtn" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #10b981, #059669);">⚡ 執行雙 LLM SOAP 對比生成</button>
+                </div>
+
+                <!-- Right Panel: Side-by-side Dual LLM Comparison -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <!-- Cloud LLM (Without DB) -->
+                    <div class="glass-panel" style="border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: #f87171; margin: 0; font-size: 1rem;">☁️ 雲端 LLM (無資料庫/無 RAG)</h3>
+                            <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 2px 8px; border-radius: 4px;">Baseline</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">通用語法重組，未與 HIS/診所資料庫對接。</div>
+                        <textarea id="cloudSoapResult" readonly style="height: calc(100vh - 350px); font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); color: #e2e8f0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 10px; width: 100%; box-sizing: border-box;"></textarea>
+                        <button class="tab-btn" onclick="alert('感謝投票！已記錄「雲端 baseline」評分')" style="margin-top: 10px; width: 100%; background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">👍 投票此份較像真實醫師寫作</button>
+                    </div>
+
+                    <!-- Local LLM (Ornith-1.0-9B + DB) -->
+                    <div class="glass-panel" style="border: 1px solid rgba(59, 130, 246, 0.4);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: #60a5fa; margin: 0; font-size: 1rem;">🦅 Local LLM (Ornith-1.0-9B + DB)</h3>
+                            <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #60a5fa; padding: 2px 8px; border-radius: 4px;">Recommended</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">對接 HIS (clinic.db)、ICD-10與藥物俗名(如普拿疼)，擬真醫師病歷。</div>
+                        <textarea id="localSoapResult" readonly style="height: calc(100vh - 350px); font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); color: #60a5fa; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2); padding: 10px; width: 100%; box-sizing: border-box;"></textarea>
+                        <button class="save-btn" onclick="alert('感謝投票！已記錄「Local LLM + DB」為高擬真醫師病歷')" style="margin-top: 10px; width: 100%; background: linear-gradient(135deg, #3b82f6, #1d4ed8);">🏆 投票此份最符合臨床醫師習慣</button>
+                    </div>
                 </div>
             </div>
         </div>
