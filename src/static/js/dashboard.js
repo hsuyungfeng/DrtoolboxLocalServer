@@ -969,6 +969,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const copyLocalSoapBtn = document.getElementById('copyLocalSoapBtn');
         const clearPatientInfoBtn = document.getElementById('clearPatientInfoBtn');
 
+        const quickPatientSelect = document.getElementById('quickPatientSelect');
+        if (quickPatientSelect) {
+            quickPatientSelect.addEventListener('change', (e) => {
+                const parts = e.target.value.split('|');
+                if (parts.length >= 3) {
+                    const labPatientName = document.getElementById('labPatientName');
+                    const labPatientDob = document.getElementById('labPatientDob');
+                    const labPatientMrn = document.getElementById('labPatientMrn');
+                    if (labPatientName) labPatientName.innerText = parts[0];
+                    if (labPatientDob) labPatientDob.innerText = parts[1];
+                    if (labPatientMrn) labPatientMrn.innerText = parts[2];
+                }
+            });
+        }
+
         if (clearPatientInfoBtn) {
             clearPatientInfoBtn.addEventListener('click', () => {
                 const labPatientName = document.getElementById('labPatientName');

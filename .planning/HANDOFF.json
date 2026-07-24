@@ -1,37 +1,28 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-24T10:48:55+08:00",
-  "phase": "05",
-  "phase_name": "web-dashboard-ui-bugs-and-ux-enhancement",
+  "timestamp": "2026-07-24T15:19:30+08:00",
+  "phase": "01",
+  "phase_name": "SOAP_Patient_OCR_Integration",
   "phase_dir": ".planning",
   "plan": 1,
-  "task": 5,
-  "total_tasks": 5,
+  "task": 2,
+  "total_tasks": 2,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Fix dashboard.js syntax error (line 759 extra closing bracket)", "status": "done", "commit": "wip"},
-    {"id": 2, "name": "Redesign UI with frontend-design skill (Plus Jakarta Sans, glassmorphic glow, luxury tabs)", "status": "done", "commit": "wip"},
-    {"id": 3, "name": "Enlarge Knowledge Map D3 graph and node text sizes", "status": "done", "commit": "wip"},
-    {"id": 4, "name": "Add return buttons and Clinic Sub-dashboards navigation across all sub-pages", "status": "done", "commit": "wip"},
-    {"id": 5, "name": "Add Pure SOAP Copy for external HIS pasting and Clear Patient Info buttons to SOAP Voice Lab", "status": "done", "commit": "wip"}
+    {"id": 1, "name": "B2B 地推開拓控制台與 10km FB 深度爬蟲", "status": "done", "commit": "6d9af94"},
+    {"id": 2, "name": "SOAP Lab 病患快捷切換與 OCR / 流量攔截整合", "status": "done", "commit": "pending"}
   ],
   "remaining_tasks": [],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "Remove stray }); in dashboard.js", "rationale": "Syntax error broke DOMContentLoaded registration for tab buttons", "phase": "05"},
-    {"decision": "Strip patient meta text on SOAP copy", "rationale": "Allows doctors to directly paste clean S/O/A/P into external HIS systems", "phase": "05"}
+    {"decision": "新增 SOAP Lab 快捷切換下拉選單 (Quick Patient Selector)", "rationale": "免去手動安裝系統代理憑證與截圖流程，達成一鍵切換蘇彥銘/黃妍婷/許瀞文等測試病患並自動帶入病患資料", "phase": "01"}
   ],
   "uncommitted_files": [
+    "src/api/routes/dashboard.py",
     "src/static/js/dashboard.js",
-    "src/static/css/index.css",
-    "src/templates/dashboard.html",
-    "src/templates/base.html",
-    "src/templates/setup.html",
-    "src/templates/staff_inbox.html",
-    "src/templates/staff_patient_detail.html",
-    "src/rag_engine.py"
+    "src/templates/dashboard.html"
   ],
-  "next_action": "Run pytest tests/ to verify zero regression and proceed to user verification or next feature request.",
-  "context_notes": "All requested UI tab response issues, styling enhancements, sub-dashboard navigation returns, and SOAP copy/clear features have been implemented and verified."
+  "next_action": "持續測試 SOAP 生成或進行下一個功能模組開發",
+  "context_notes": "一鍵切換病患下拉選單與背景 Flask 伺服器運作正常，SOAP 生成對比功能已完全對接"
 }

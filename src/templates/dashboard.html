@@ -100,13 +100,20 @@
                     </div>
                     
                     <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="font-size: 0.9rem; font-weight: bold; color: #60a5fa;">病患資料：</div>
-                            <button class="tab-btn" id="clearPatientInfoBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);">🗑️ 清除病患資料</button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-size: 0.9rem; font-weight: bold; color: #60a5fa;">病患資料 (可手動快捷切換)：</div>
+                            <button class="tab-btn" id="clearPatientInfoBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);">🗑️ 清除</button>
                         </div>
-                        <div style="font-size: 0.85rem; margin-top: 5px;">姓名: <span id="labPatientName" style="color: white; font-weight: bold;">許瀞文</span></div>
-                        <div style="font-size: 0.85rem; margin-top: 2px;">生日: <span id="labPatientDob" style="color: white;">1989/09/26</span></div>
-                        <div style="font-size: 0.85rem; margin-top: 2px;">病歷號: <span id="labPatientMrn" style="color: #a78bfa;">20260723204122</span></div>
+                        <select id="quickPatientSelect" class="form-select form-select-sm mb-2" style="background: rgba(15,23,42,0.8); color:#38bdf8; border: 1px solid rgba(56,189,248,0.3); font-size: 0.85rem;">
+                            <option value="蘇彥銘|2026/02/11|20260211123021">👤 蘇彥銘 (身分證: M123021893 | 生日: 2026/02/11)</option>
+                            <option value="黃妍婷|1990/10/15|20261015091720">👤 黃妍婷 (身分證: L223991720 | 生日: 1990/10/15)</option>
+                            <option value="許瀞文|1989/09/26|20260723204122">👤 許瀞文 (身分證: AA225716119 | 生日: 1989/09/26)</option>
+                            <option value="劉大衛|1951/06/14|20260614101010">👤 劉大衛 (身分證: A123456789 | 生日: 1951/06/14)</option>
+                            <option value="林秀蘭|1946/11/28|20261128202020">👤 林秀蘭 (身分證: F224884762 | 生日: 1946/11/28)</option>
+                        </select>
+                        <div style="font-size: 0.85rem; margin-top: 5px;">姓名: <span id="labPatientName" style="color: white; font-weight: bold;">蘇彥銘</span></div>
+                        <div style="font-size: 0.85rem; margin-top: 2px;">生日: <span id="labPatientDob" style="color: white;">2026/02/11</span></div>
+                        <div style="font-size: 0.85rem; margin-top: 2px;">病歷號: <span id="labPatientMrn" style="color: #a78bfa;">20260211123021</span></div>
                     </div>
 
                     <div class="field-group">
