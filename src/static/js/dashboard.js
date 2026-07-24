@@ -6,8 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContents = document.querySelectorAll('.tab-content');
 
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
             const tabName = btn.dataset.tab;
+            if (tabName === 'setup') {
+                return; // Let inline onclick redirect to /dashboard/setup/
+            }
             console.log("Switching to tab:", tabName);
             tabBtns.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => {
@@ -19,7 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetId = `tab-${tabName}`;
             const targetEl = document.getElementById(targetId);
             if (targetEl) {
-                targetEl.style.display = (tabName === 'analytics') ? 'grid' : 'block';
+                if (tabName === 'analytics') {
+                    targetEl.style.display = 'grid';
+                } else if (['upload', 'chat', 'knowledge-map'].includes(tabName)) {
+                    targetEl.style.display = 'flex';
+                } else {
+                    targetEl.style.display = 'block';
+                }
                 targetEl.classList.add('active-tab');
             }
             
@@ -27,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (tabName === 'articles') loadArticles();
             if (tabName === 'analytics') loadAnalytics();
             if (tabName === 'knowledge-map') {
-                // Delay to ensure the panel is visible and has dimensions
                 setTimeout(loadKnowledgeGraph, 100);
             }
         });
@@ -748,7 +756,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        });
 
         // Add B2B Lead Button Handler
         const addBtn = document.getElementById('addB2bLeadBtn');
@@ -955,6 +962,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+        // --- SOAP Lab Copy & Clear Handlers ---
+        const labTranscript = document.getElementById('labTranscript');
+        const clearTranscriptBtn = document.getElementById('clearTranscriptBtn');
+        const copyTranscriptBtn = document.getElementById('copyTranscriptBtn');
+        const copyCloudSoapBtn = document.getElementById('copyCloudSoapBtn');
+        const copyLocalSoapBtn = document.getElementById('copyLocalSoapBtn');
+        const clearPatientInfoBtn = document.getElementById('clearPatientInfoBtn');
+
+        if (clearPatientInfoBtn) {
+            clearPatientInfoBtn.addEventListener('click', () => {
+                const labPatientName = document.getElementById('labPatientName');
+                const labPatientDob = document.getElementById('labPatientDob');
+                const labPatientMrn = document.getElementById('labPatientMrn');
+                if (labPatientName) labPatientName.innerText = '未辨識';
+                if (labPatientDob) labPatientDob.innerText = '--/--/--';
+                if (labPatientMrn) labPatientMrn.innerText = 'N/A';
+            });
+        }
+
+        if (clearTranscriptBtn) {
+            clearTranscriptBtn.addEventListener('click', () => {
+                if (labTranscript) {
+                    labTranscript.value = '';
+                    labTranscript.focus();
+                }
+            });
+        }
+
+        const copyTextToClipboard = async (text, btnElement, defaultLabel, isSoapOnly = false) => {
+            if (!text) return;
+            let textToCopy = text;
+            if (isSoapOnly) {
+                // 剔除病患姓名、生日、日期、耗時與分隔線，僅保留精準 S / O / A / P 的純病歷紀錄
+                textToCopy = textToCopy.replace(/^\*\*病患姓名[^\n]*\n?/gm, '')
+                                       .replace(/^\*\*出生年月日[^\n]*\n?/gm, '')
+                                       .replace(/^\*\*診察日期[^\n]*\n?/gm, '')
+                                       .replace(/^⏱️[^\n]*\n?/gm, '')
+                                       .replace(/^---[^\n]*\n?/gm, '')
+                                       .trim();
+            }
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                if (btnElement) {
+                    btnElement.innerText = '✅ 已複製純 SOAP！';
+                    setTimeout(() => { btnElement.innerText = defaultLabel; }, 2000);
+                }
+            } catch (err) {
+                console.error('Clipboard copy failed:', err);
+            }
+        };
+
+        if (copyTranscriptBtn) {
+            copyTranscriptBtn.addEventListener('click', () => {
+                copyTextToClipboard(labTranscript ? labTranscript.value : '', copyTranscriptBtn, '📋 複製');
+            });
+        }
+
+        if (copyCloudSoapBtn) {
+            copyCloudSoapBtn.addEventListener('click', () => {
+                const cloudSoapResult = document.getElementById('cloudSoapResult');
+                copyTextToClipboard(cloudSoapResult ? cloudSoapResult.value : '', copyCloudSoapBtn, '📋 複製 SOAP', true);
+            });
+        }
+
+        if (copyLocalSoapBtn) {
+            copyLocalSoapBtn.addEventListener('click', () => {
+                const localSoapResult = document.getElementById('localSoapResult');
+                copyTextToClipboard(localSoapResult ? localSoapResult.value : '', copyLocalSoapBtn, '📋 複製 SOAP', true);
+            });
+        }
+
     // --- Knowledge Map (D3.js) ---
     const knowledgeGraphContainer = document.getElementById('knowledgeGraph');
     const graphTooltip = document.getElementById('graphTooltip');
@@ -998,18 +1076,18 @@ document.addEventListener('DOMContentLoaded', () => {
         svg.call(d3.zoom().scaleExtent([0.1, 8]).on("zoom", (event) => g.attr("transform", event.transform)));
 
         const simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.links).id(d => d.id).distance(150))
-            .force("charge", d3.forceManyBody().strength(-400))
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(220))
+            .force("charge", d3.forceManyBody().strength(-700))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(60));
+            .force("collision", d3.forceCollide().radius(90));
 
         const link = g.append("g")
             .selectAll("line")
             .data(data.links)
             .join("line")
-            .attr("stroke", "rgba(56, 189, 248, 0.2)")
-            .attr("stroke-width", 1.5)
-            .attr("stroke-dasharray", d => d.type === 'has_correction' ? "4,4" : "0");
+            .attr("stroke", "rgba(56, 189, 248, 0.35)")
+            .attr("stroke-width", 2)
+            .attr("stroke-dasharray", d => d.type === 'has_correction' ? "5,5" : "0");
 
         const node = g.append("g")
             .selectAll("g")
@@ -1019,12 +1097,18 @@ document.addEventListener('DOMContentLoaded', () => {
             .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
 
         node.append("circle")
-            .attr("r", d => d.type === 'physician_note' ? 8 : 12)
-            .attr("fill", d => d.type === 'physician_note' ? "#fbbf24" : (d.category === 'special' ? "#3b82f6" : "#10b981"))
-            .attr("stroke", "rgba(255,255,255,0.2)")
-            .attr("stroke-width", 2);
+            .attr("r", d => d.type === 'physician_note' ? 14 : 20)
+            .attr("fill", d => d.type === 'physician_note' ? "#fbbf24" : (d.category === 'special' ? "#38bdf8" : "#10b981"))
+            .attr("stroke", "rgba(255,255,255,0.4)")
+            .attr("stroke-width", 2.5);
 
-        node.append("text").text(d => d.id).attr("x", 18).attr("y", 5).attr("fill", "#e2e8f0").style("font-size", "0.8rem");
+        node.append("text")
+            .text(d => d.id)
+            .attr("x", 26)
+            .attr("y", 6)
+            .attr("fill", "#f8fafc")
+            .style("font-size", "0.95rem")
+            .style("font-weight", "600");
 
         node.on("mouseover", (event, d) => {
             graphTooltip.style.display = 'block';

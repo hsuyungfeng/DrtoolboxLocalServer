@@ -143,7 +143,8 @@ class RAGEngine:
         """Initializes database schema and FTS5 search engines for chunks and reasoning trees."""
         with db_write_lock:
             try:
-                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                conn = sqlite3.connect(self.db_path, timeout=60.0)
+                conn.execute("PRAGMA journal_mode=WAL;")
                 cursor = conn.cursor()
                 
                 # 1. RAG chunks table

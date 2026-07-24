@@ -1,14 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
 
 :root {
-    --bg-primary: #09090e;
-    --bg-gradient: radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
-                   radial-gradient(circle at 85% 30%, rgba(129, 140, 248, 0.08), transparent 25%);
-    --glass-bg: rgba(15, 23, 42, 0.45);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --bg-primary: #07090e;
+    --bg-gradient: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.12), transparent 30%),
+                   radial-gradient(circle at 85% 70%, rgba(168, 85, 247, 0.12), transparent 35%),
+                   radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05), transparent 45%);
+    --glass-bg: rgba(15, 23, 42, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     --accent-color: #38bdf8;
-    --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    --accent-gradient: linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #ec4899 100%);
     --accent-hover: #0ea5e9;
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
@@ -20,7 +21,7 @@
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--bg-primary);
     background-image: var(--bg-gradient);
     color: var(--text-main);
@@ -28,6 +29,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
+    letter-spacing: -0.01em;
 }
 
 /* Animations */
@@ -56,47 +58,62 @@ header {
 
 header h1 {
     margin: 0;
-    font-family: 'Outfit', sans-serif;
-    font-weight: 700;
-    font-size: 1.6rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 1.7rem;
     background: var(--accent-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.8px;
+    filter: drop-shadow(0 2px 10px rgba(168, 85, 247, 0.3));
 }
 
 .nav-tabs {
     display: flex;
-    gap: 8px;
-    background: rgba(255,255,255,0.03);
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.7);
     padding: 6px;
-    border-radius: 12px;
+    border-radius: 16px;
     border: 1px solid var(--glass-border);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .tab-btn {
     background: transparent;
     color: var(--text-muted);
     border: none;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 500;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
-    padding: 8px 20px;
-    border-radius: 8px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 10px 18px;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
 }
 
 .tab-btn:hover {
     color: var(--text-main);
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
 }
 
 .tab-btn.active {
     color: #fff;
-    background: var(--glass-bg);
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    background: var(--accent-gradient);
+    box-shadow: 0 8px 20px rgba(168, 85, 247, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.nav-dropdown:hover .dropdown-content {
+    display: block !important;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.dropdown-content a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #38bdf8 !important;
 }
 
 .export-btn {
@@ -140,80 +157,52 @@ main {
     justify-content: center;
 }
 
+#tab-articles.active-tab, #tab-curation.active-tab, #tab-soap-lab.active-tab {
+    display: block;
+}
+
 .glass-panel {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
     border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 30px;
+    border-radius: 24px;
+    padding: 32px;
     box-shadow: var(--glass-shadow);
-    transition: border-color 0.3s ease, transform 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+.glass-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
 }
 
 .glass-panel:hover {
-    border-color: rgba(255,255,255,0.15);
-}
-
-#tab-upload .glass-panel, #tab-chat .glass-panel {
-    width: 100%;
-    max-width: 850px;
-}
-
-.log-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: calc(100vh - 180px);
-    overflow-y: auto;
-    padding-right: 10px;
-}
-
-.log-item {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 20px;
-    border-radius: 14px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.log-item:hover {
-    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.22);
     transform: translateY(-2px);
-    border-color: rgba(255,255,255,0.1);
-}
-
-.log-item.active {
-    border-color: var(--accent-color);
-    background: rgba(56, 189, 248, 0.05);
-    box-shadow: 0 4px 20px rgba(56,189,248,0.1);
-}
-
-.log-meta {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    font-family: 'Outfit', sans-serif;
-    letter-spacing: 0.5px;
-}
-
-.log-prompt {
-    font-weight: 400;
-    line-height: 1.6;
-    font-size: 0.95rem;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 h2 {
     margin-top: 0;
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.4rem;
-    font-weight: 600;
     margin-bottom: 24px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.45rem;
+    font-weight: 700;
     color: #fff;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .field-group {

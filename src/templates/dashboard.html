@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drtoolbox - 訓練控制面板</title>
-    <link rel="stylesheet" href="/static/css/index.css?v=12">
+    <link rel="stylesheet" href="/static/css/index.css?v=99">
 </head>
 <body>
     <header>
@@ -18,7 +18,21 @@
                 <button class="tab-btn" data-tab="analytics">營運數據</button>
                 <button class="tab-btn" data-tab="upload">上傳資料</button>
                 <button class="tab-btn" data-tab="chat">即時對話</button>
-                <button class="tab-btn" onclick="window.location.href='/dashboard/setup/'" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2);">⚙️ 系統設定</button>
+                <div class="nav-dropdown" style="position: relative; display: inline-block;">
+                    <button class="tab-btn" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3);">🏥 診所管理子系統 ▾</button>
+                    <div class="dropdown-content" style="display: none; position: absolute; right: 0; top: 100%; min-width: 180px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000; padding: 6px 0; margin-top: 6px;">
+                        <a href="/dashboard/staff/patients" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">👨‍⚕️ 患者管理</a>
+                        <a href="/dashboard/staff/inbox" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">📥 門診收件箱</a>
+                        <a href="/dashboard/analytics" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">📈 臨床數據分析</a>
+                        <a href="/dashboard/staff/sync" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">☁️ 雲端備份同步</a>
+                        <a href="/dashboard/system/" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">🖥️ 系統運作監控</a>
+                        <a href="/dashboard/setup/" style="display: block; padding: 8px 16px; color: #a78bfa; text-decoration: none; font-size: 0.85rem; font-weight: bold;">⚙️ 系統設定中心</a>
+                        <a href="/dashboard/chat-monitor/" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">💬 AI 對話即時監控</a>
+                        <a href="/dashboard/files/" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">📂 衛教與醫療檔案</a>
+                        <a href="/dashboard/crm/" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">📊 CRM 營運報告</a>
+                        <a href="/dashboard/external-comments/" style="display: block; padding: 8px 16px; color: #f8fafc; text-decoration: none; font-size: 0.85rem;">⭐ 外部社群評論管理</a>
+                    </div>
+                </div>
             </nav>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
@@ -85,14 +99,23 @@
                     </div>
                     
                     <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                        <div style="font-size: 0.9rem; font-weight: bold; color: #60a5fa;">病患資料：</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 0.9rem; font-weight: bold; color: #60a5fa;">病患資料：</div>
+                            <button class="tab-btn" id="clearPatientInfoBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);">🗑️ 清除病患資料</button>
+                        </div>
                         <div style="font-size: 0.85rem; margin-top: 5px;">姓名: <span id="labPatientName" style="color: white; font-weight: bold;">許瀞文</span></div>
                         <div style="font-size: 0.85rem; margin-top: 2px;">生日: <span id="labPatientDob" style="color: white;">1989/09/26</span></div>
                         <div style="font-size: 0.85rem; margin-top: 2px;">病歷號: <span id="labPatientMrn" style="color: #a78bfa;">20260723204122</span></div>
                     </div>
 
                     <div class="field-group">
-                        <label>診察對話與語音逐字稿 (Transcript)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="margin-bottom: 0;">診察對話與語音逐字稿 (Transcript)</label>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="tab-btn" id="copyTranscriptBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">📋 複製</button>
+                                <button class="tab-btn" id="clearTranscriptBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);">🗑️ 清除</button>
+                            </div>
+                        </div>
                         <textarea id="labTranscript" style="min-height: 140px; font-size: 0.85rem;" placeholder="輸入或使用 DoctorConsultation 同音檔對話文字...">患者主訴發燒38.5度持續兩天，伴隨嚴重喉嚨痛與咳嗽有黃痰。理學檢查發現雙側扁桃腺紅腫伴有白色斑塊，無呼吸急促。診斷為急性扁桃腺炎，開立普拿疼 (Acetaminophen) 500mg 口服三餐飯後與抗生素 Amoxicillin 500mg 口服7天，叮嚀多喝水休養。</textarea>
                     </div>
 
@@ -105,7 +128,10 @@
                     <div class="glass-panel" style="border: 1px solid rgba(239, 68, 68, 0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h3 style="color: #f87171; margin: 0; font-size: 1rem;">☁️ 雲端 LLM (無資料庫/無 RAG)</h3>
-                            <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 2px 8px; border-radius: 4px;">Baseline</span>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button class="tab-btn" id="copyCloudSoapBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">📋 複製</button>
+                                <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.1); color: #f87171; padding: 2px 8px; border-radius: 4px;">Baseline</span>
+                            </div>
                         </div>
                         <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">通用語法重組，未與 HIS/診所資料庫對接。</div>
                         <textarea id="cloudSoapResult" readonly style="height: calc(100vh - 350px); font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); color: #e2e8f0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 10px; width: 100%; box-sizing: border-box;"></textarea>
@@ -116,7 +142,10 @@
                     <div class="glass-panel" style="border: 1px solid rgba(59, 130, 246, 0.4);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h3 style="color: #60a5fa; margin: 0; font-size: 1rem;">🦅 Local LLM (Ornith-1.0-9B + DB)</h3>
-                            <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #60a5fa; padding: 2px 8px; border-radius: 4px;">Recommended</span>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button class="tab-btn" id="copyLocalSoapBtn" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">📋 複製</button>
+                                <span style="font-size: 0.75rem; background: rgba(59, 130, 246, 0.1); color: #60a5fa; padding: 2px 8px; border-radius: 4px;">Recommended</span>
+                            </div>
                         </div>
                         <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">對接 HIS (clinic.db)、ICD-10與藥物俗名(如普拿疼)，擬真醫師病歷。</div>
                         <textarea id="localSoapResult" readonly style="height: calc(100vh - 350px); font-family: monospace; font-size: 0.85rem; background: rgba(0,0,0,0.3); color: #60a5fa; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2); padding: 10px; width: 100%; box-sizing: border-box;"></textarea>
@@ -128,10 +157,10 @@
 
         <!-- Tab 3: Knowledge Map -->
         <div id="tab-knowledge-map" class="tab-content" style="display: none;">
-            <div class="glass-panel" style="height: calc(100vh - 150px); overflow: hidden; position: relative;">
+            <div class="glass-panel" style="width: 100%; height: 85vh; min-height: 700px; overflow: hidden; position: relative;">
                 <h2 style="margin-bottom: 5px;">🧠 診所知識邏輯地圖</h2>
                 <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">此圖呈現 AI 內部 PageIndex 2.0 推理樹的邏輯關聯。節點間的連線代表臨床邏輯的交集。</p>
-                <div id="knowledgeGraph" style="width: 100%; height: 100%; background: rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);"></div>
+                <div id="knowledgeGraph" style="width: 100%; height: calc(100% - 70px); background: rgba(0,0,0,0.1); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05);"></div>
                 <div id="graphTooltip" style="position: absolute; display: none; background: rgba(15, 23, 42, 0.95); color: white; padding: 12px; border-radius: 8px; font-size: 0.85rem; border: 1px solid var(--accent-color); z-index: 1000; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);"></div>
             </div>
         </div>
@@ -298,6 +327,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="/static/js/dashboard.js?v=13"></script>
+    <script src="/static/js/dashboard.js?v=99"></script>
 </body>
 </html>

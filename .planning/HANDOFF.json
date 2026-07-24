@@ -1,66 +1,37 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-23 17:24:26",
-  "phase": "SOAP-Voice-Integration",
-  "phase_name": "SOAP Voice & Dual LLM Comparison Lab",
+  "timestamp": "2026-07-24T10:48:55+08:00",
+  "phase": "05",
+  "phase_name": "web-dashboard-ui-bugs-and-ux-enhancement",
   "phase_dir": ".planning",
   "plan": 1,
   "task": 5,
   "total_tasks": 5,
-  "status": "completed",
+  "status": "paused",
   "completed_tasks": [
-    {
-      "id": 1,
-      "name": "OCR Patient Info Parsing (/api/dashboard/soap/ocr_patient)",
-      "status": "done",
-      "commit": "f30c398"
-    },
-    {
-      "id": 2,
-      "name": "Dual LLM SOAP Comparison API (/api/dashboard/soap/compare)",
-      "status": "done",
-      "commit": "f30c398"
-    },
-    {
-      "id": 3,
-      "name": "SOAP Voice & Comparison Lab Dashboard Tab & Actions",
-      "status": "done",
-      "commit": "b6ebbb0"
-    },
-    {
-      "id": 4,
-      "name": "MITM Proxy Interceptor for doctor-toolbox.com (scripts/mitm_interceptor.py)",
-      "status": "done",
-      "commit": "f30c398"
-    },
-    {
-      "id": 5,
-      "name": "Concise English SOAP Format, Deduplicated Headers & Tab Ordering",
-      "status": "done",
-      "commit": "05d3eba"
-    }
+    {"id": 1, "name": "Fix dashboard.js syntax error (line 759 extra closing bracket)", "status": "done", "commit": "wip"},
+    {"id": 2, "name": "Redesign UI with frontend-design skill (Plus Jakarta Sans, glassmorphic glow, luxury tabs)", "status": "done", "commit": "wip"},
+    {"id": 3, "name": "Enlarge Knowledge Map D3 graph and node text sizes", "status": "done", "commit": "wip"},
+    {"id": 4, "name": "Add return buttons and Clinic Sub-dashboards navigation across all sub-pages", "status": "done", "commit": "wip"},
+    {"id": 5, "name": "Add Pure SOAP Copy for external HIS pasting and Clear Patient Info buttons to SOAP Voice Lab", "status": "done", "commit": "wip"}
   ],
   "remaining_tasks": [],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {
-      "decision": "Integrated SoapVoice & DoctorConsultation screen OCR",
-      "rationale": "Enables zero-friction patient info parsing (Name, DOB, MRN) from clinical system screen captures directly into clinic.db",
-      "phase": "SOAP-Voice-Integration"
-    },
-    {
-      "decision": "Concise English SOAP Note Mode",
-      "rationale": "Omit chatbot disclaimers, Greetings & food recipes from SOAP scribe output; keep SOAP notes concise (<150 words) adhering to medical scribe standards",
-      "phase": "SOAP-Voice-Integration"
-    },
-    {
-      "decision": "MITM Proxy via mitmproxy (Port 8888)",
-      "rationale": "Passively intercept doctor-toolbox.com audio files (.wav/.mp3) and cloud SOAP responses for local A/B comparison and archival",
-      "phase": "SOAP-Voice-Integration"
-    }
+    {"decision": "Remove stray }); in dashboard.js", "rationale": "Syntax error broke DOMContentLoaded registration for tab buttons", "phase": "05"},
+    {"decision": "Strip patient meta text on SOAP copy", "rationale": "Allows doctors to directly paste clean S/O/A/P into external HIS systems", "phase": "05"}
   ],
-  "uncommitted_files": [],
-  "next_action": "Ready for next feature development or operational testing.",
-  "context_notes": "SOAP Voice Lab, Dual LLM comparison, patient screen OCR, and MITM proxy interceptor are fully implemented, tested, and pushed to master."
+  "uncommitted_files": [
+    "src/static/js/dashboard.js",
+    "src/static/css/index.css",
+    "src/templates/dashboard.html",
+    "src/templates/base.html",
+    "src/templates/setup.html",
+    "src/templates/staff_inbox.html",
+    "src/templates/staff_patient_detail.html",
+    "src/rag_engine.py"
+  ],
+  "next_action": "Run pytest tests/ to verify zero regression and proceed to user verification or next feature request.",
+  "context_notes": "All requested UI tab response issues, styling enhancements, sub-dashboard navigation returns, and SOAP copy/clear features have been implemented and verified."
 }
