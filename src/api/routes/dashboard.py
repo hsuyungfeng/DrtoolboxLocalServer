@@ -669,20 +669,28 @@ def dispatch_b2b_channel():
 
 @dashboard_bp.route('/analytics/b2b/scrape_10km', methods=['POST'])
 def trigger_10km_scraping():
-    """觸發 10km 在地店家/企業 Firecrawl 深網爬蟲洗庫"""
+    """觸發 10km 在地店家/企業 Firecrawl 深網爬蟲洗庫 (每日上限 200 筆)"""
     try:
         data = request.json or {}
-        category = data.get("category", "Gyms")
-        limit = int(data.get("limit", 3))
+        category = data.get("category", "Local_FB_Public")
+        limit = int(data.get("limit", 5))
         
         from scripts.local_b2b_scraper import LocalB2BScraper
         scraper = LocalB2BScraper()
-        tokens = scraper.run_ingestion(category=category, limit=limit)
+        result = scraper.run_ingestion(category=category, limit=limit)
         
-        return jsonify({"success": True, "count": len(tokens), "tokens": tokens})
+        return jsonify(result)
     except Exception as e:
         logger.error(f"Failed to trigger 10km scraping: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@dashboard_bp.route('/b2b-targets', methods=['GET'])
+@dashboard_bp.route('/b2b-targets/', methods=['GET'])
+def view_b2b_targets():
+    """渲染獨立建立地推 Target - 10km 在地企業與店家開發中心頁面"""
+    return render_template('b2b_targets.html')
+
 
 
 

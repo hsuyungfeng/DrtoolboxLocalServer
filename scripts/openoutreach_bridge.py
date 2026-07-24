@@ -264,8 +264,8 @@ class OpenOutreachBridge:
         cursor.execute("""
             SELECT b.company_name, b.company_id, b.emails_sent, b.line_linked_count, b.status,
                    COALESCE(b.category, 'Corporate'), COALESCE(b.outreach_channel, 'email'),
-                   b.contact_email, b.fb_messenger_url, b.latest_post_url
-            FROM b2b_leads b ORDER BY b.line_linked_count DESC, b.emails_sent DESC LIMIT 10;
+                   b.contact_email, b.fb_messenger_url, b.latest_post_url, b.fb_page_url
+            FROM b2b_leads b ORDER BY b.line_linked_count DESC, b.created_at DESC LIMIT 50;
         """)
         top_leads = [
             {
@@ -278,7 +278,8 @@ class OpenOutreachBridge:
                 "outreach_channel": row[6],
                 "contact_email": row[7] or "",
                 "fb_messenger_url": row[8] or "",
-                "latest_post_url": row[9] or ""
+                "latest_post_url": row[9] or "",
+                "fb_page_url": row[10] or ""
             }
             for row in cursor.fetchall()
         ]

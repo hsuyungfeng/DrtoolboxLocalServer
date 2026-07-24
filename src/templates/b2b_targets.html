@@ -1,0 +1,477 @@
+{% extends 'base.html' %}
+
+{% block title %}建立地推 Target - 10km 在地企業與店家開發中心{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="/" class="btn btn-outline-primary btn-sm mb-2" style="border-radius: 8px;">⬅️ 返回 🏥 診所管理系統 (訓練控制面板)</a>
+            <h2 class="page-title mb-0">🏢 建立地推 Target - 10km 在地企業與店家開發中心</h2>
+        </div>
+        <div>
+            <span class="badge bg-purple px-3 py-2" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); font-size: 0.9rem;">
+                🔥 OpenOutreach Agent Active
+            </span>
+        </div>
+    </div>
+
+    <!-- Alert Message Container -->
+    <div id="b2bTargetMsg" class="alert alert-success d-none mb-4" role="alert"></div>
+
+    <div class="row justify-content-center g-4">
+        <!-- Main Panel: Automated 10km Scraping & Multi-Channel Copy Generator -->
+        <div class="col-lg-10">
+            <!-- Automated 10km Firecrawl Deep Web Scraper Card -->
+            <div class="card shadow-sm border-0 mb-4" style="background: #111827; color: #f8fafc; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-info fw-bold">🕷️ 10km 在地店家深網自動爬取</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-warning text-dark fw-bold" id="quotaBadge">📊 今日配額: 載入中... / 200 筆</span>
+                        <span class="badge bg-info text-dark">Firecrawl :3002 Engine</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">自動爬取診所周邊 10 公里非診所店家與個人公開 Facebook (粉專、Email 與最新貼文)，統一洗入數據庫。</p>
+                    
+                    <!-- Progress Bar Container (Hidden by default) -->
+                    <div id="scraperProgressBox" class="d-none mb-3">
+                        <div class="d-flex justify-content-between text-muted small mb-1">
+                            <span id="scraperProgressStatus">🕷️ 正在深度掃描 10km FB 粉專與公開貼文...</span>
+                            <span id="scraperProgressPercent">0%</span>
+                        </div>
+                        <div class="progress" style="height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                            <div id="scraperProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-info w-100 fw-bold py-3 fs-5" id="triggerScraperBtn" style="border-radius: 12px; background: linear-gradient(135deg, #38bdf8, #0284c7); border: none; color: white;">
+                        🕷️ 觸發 10km 在地店家與個人公開 Facebook 爬蟲
+                    </button>
+                </div>
+            </div>
+
+            <!-- Multi-Channel Copy Generator Card with Clinic Special Knowledge Map Integration -->
+            <div class="card shadow-sm border-0 mb-4" style="background: #111827; color: #f8fafc; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-warning fw-bold">✍️ 三大管道文案設計 (Multi-Channel Copy Generator)</h5>
+                    <span class="badge bg-primary text-light">🧠 PageIndex 知識地圖對接</span>
+                </div>
+                <div class="card-body">
+                    <!-- Knowledge Map Topic Selector with CRUD Toolbar -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label text-muted small fw-bold mb-0">🧠 選擇診所專屬 (Clinic Special) 知識地圖主題</label>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-success py-0 px-2 small" id="addNewTopicBtn" style="font-size: 0.75rem;">➕ 新增自訂主題</button>
+                                <button class="btn btn-sm btn-outline-danger py-0 px-2 small" id="deleteCurrentTopicBtn" style="font-size: 0.75rem;">🗑️ 刪除主題</button>
+                            </div>
+                        </div>
+                        <select class="form-select bg-dark text-info border-secondary" id="topicSelect">
+                            <option value="antiage">✨ 緻妍抗衰與皮秒雷射照護 (Anti-Aging & Laser)</option>
+                            <option value="sculpting">💃 體雕與曲線微整管理 (Body Sculpting)</option>
+                            <option value="wellness">🌿 企業員工紓壓與高階保健 (Corporate Wellness)</option>
+                            <option value="postop">🩹 術後短中期護理與快速修復 (Post-Op Care)</option>
+                        </select>
+                    </div>
+
+                    <!-- Channel Tabs -->
+                    <ul class="nav nav-pills mb-3 nav-fill bg-dark p-1 rounded border border-secondary" id="copyChannelTabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active py-1 small fw-bold" id="tab-email-copy" data-channel="email" type="button">📧 Email 開拓信</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 small fw-bold text-light" id="tab-msg-copy" data-channel="messenger" type="button">💬 FB Messenger</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 small fw-bold text-light" id="tab-post-copy" data-channel="post_comment" type="button">📌 FB 貼文留言</button>
+                        </li>
+                    </ul>
+
+                    <div class="mb-3" id="subjectGroup">
+                        <label class="form-label text-muted small fw-bold">信件主旨範本</label>
+                        <input type="text" class="form-control bg-dark text-light border-secondary" id="emailSubjectTemplate" value="【緻妍診所】VIP 企業特約合作與尊榮健康照護邀請 - {company_name}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">文案內文範本 (支援 {company_name} 與 {line_url})</label>
+                        <textarea class="form-control bg-dark text-light border-secondary" id="emailBodyTemplate" style="height: 200px; font-size: 0.85rem; line-height: 1.5;">尊敬的 {company_name} 貴賓 / 福委會團隊您好：
+
+緻妍診所 (Zhiyan Aesthetic Clinic) 誠摯邀請貴單位成為我們的 VIP 尊榮特約合作夥伴！
+我們為診所周邊 10 公里圈內之優質企業、在地店家與尊榮貴賓提供專業的肌膚健康檢測與尊榮特約保健照護服務。
+
+🎁 專屬尊榮權益：
+- 憑專屬 LINE 綁定即可享有 VIP 專屬折扣與諮詢綠色通道。
+- 專人提供一對一抗衰與肌膚保養諮詢服務。
+
+請透過下方連結加入緻妍診所官方 LINE 完成特約身份綁定：
+👉 點擊綁定企業 VIP 權益: {line_url}
+
+我們亦提供企業內部紓壓與健康保養講座，歡迎回信或聯繫專人索取特約簡章！
+
+緻妍診所 敬上</textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-warning flex-fill fw-bold" id="saveCopyTemplateBtn" style="border-radius: 10px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; color: white;">
+                            💾 儲存修訂當前文案
+                        </button>
+                        <button class="btn btn-outline-light" id="resetCopyTemplateBtn" style="border-radius: 10px;">
+                            🔄 重設預設範本
+                        </button>
+            <!-- Scraped Data Table Card -->
+            <div class="card shadow-sm border-0 mb-4" style="background: #111827; color: #f8fafc; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+                <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-success fw-bold">📋 已洗入 10km 在地店家數據庫 (Database Form View)</h5>
+                    <button class="btn btn-outline-light btn-sm" id="refreshDataTableBtn" style="border-radius: 8px;">🔄 刷新數據表</button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                        <table class="table table-dark table-hover align-middle mb-0" style="background: transparent; font-size: 0.88rem;">
+                            <thead class="table-secondary text-muted small sticky-top">
+                                <tr>
+                                    <th>企業 / 店家名稱</th>
+                                    <th>UTM Token</th>
+                                    <th>Email 聯繫管道</th>
+                                    <th>FB 粉專 / Messenger</th>
+                                    <th>最佳渠道</th>
+                                    <th>開拓狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scrapedDataTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">載入數據庫清單中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const triggerScraperBtn = document.getElementById('triggerScraperBtn');
+    const msgEl = document.getElementById('b2bTargetMsg');
+
+    function showMsg(text, type = 'success') {
+        if (!msgEl) return;
+        msgEl.className = `alert alert-${type} mb-4`;
+        msgEl.innerHTML = text;
+        msgEl.classList.remove('d-none');
+        setTimeout(() => msgEl.classList.add('d-none'), 5000);
+    }
+
+    const refreshDataTableBtn = document.getElementById('refreshDataTableBtn');
+
+    // Load scraped data into database table
+    async function loadScrapedDataTable() {
+        const tbody = document.getElementById('scrapedDataTableBody');
+        if (!tbody) return;
+        try {
+            const res = await fetch('/api/dashboard/analytics/b2b');
+            const data = await res.json();
+            if (data.success && data.data) {
+                const analytics = data.data;
+                const todayCount = analytics.total_leads || 0;
+                updateProgressUI(todayCount, 200, false);
+
+                tbody.innerHTML = '';
+                if (!analytics.top_leads || analytics.top_leads.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">數據庫中尚無 10km 在地店家資料，請點擊上方按鈕觸發爬蟲。</td></tr>';
+                    return;
+                }
+
+                analytics.top_leads.forEach(lead => {
+                    const tr = document.createElement('tr');
+                    let channelBadge = '<span class="badge bg-secondary">Email</span>';
+                    if (lead.outreach_channel === 'messenger') channelBadge = '<span class="badge bg-primary">FB Messenger</span>';
+                    if (lead.outreach_channel === 'post_comment') channelBadge = '<span class="badge bg-warning text-dark">FB 貼文留言</span>';
+
+                    const fbUrl = lead.fb_page_url || (lead.company_id ? `https://facebook.com/${lead.company_id}` : '');
+                    const msgUrl = lead.fb_messenger_url || (lead.company_id ? `https://m.me/${lead.company_id}` : '');
+
+                    tr.innerHTML = `
+                        <td>
+                            <div class="fw-bold text-white">${lead.company_name}</div>
+                            <div class="small text-muted">[${lead.category || 'Local_FB'}]</div>
+                        </td>
+                        <td><code class="text-info">${lead.company_id}</code></td>
+                        <td>${lead.contact_email ? `<a href="mailto:${lead.contact_email}" class="text-light text-decoration-none">📧 ${lead.contact_email}</a>` : '<span class="text-muted small">無 Email</span>'}</td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                ${fbUrl ? `<a href="${fbUrl}" target="_blank" class="text-info text-decoration-none small text-truncate" style="max-width:240px;" title="${fbUrl}">🌐 ${fbUrl}</a>` : '<span class="text-muted small">無 FB 網址</span>'}
+                                ${msgUrl ? `<a href="${msgUrl}" target="_blank" class="text-primary text-decoration-none small text-truncate" style="max-width:240px;" title="${msgUrl}">💬 ${msgUrl}</a>` : ''}
+                            </div>
+                        </td>
+                        <td>${channelBadge}</td>
+                        <td>
+                            <span class="badge ${lead.status === 'emailed' ? 'bg-success' : 'bg-info text-dark'}">
+                                ${lead.status || 'scraped'} (${lead.emails_sent || 0}次)
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load scraped data table:', e);
+        }
+    }
+
+    if (refreshDataTableBtn) refreshDataTableBtn.addEventListener('click', loadScrapedDataTable);
+    loadScrapedDataTable();
+
+    // Update progress bar & quota badge
+    function updateProgressUI(todayCount, dailyMax = 200, isScanning = false, scannedCount = 0) {
+        const badge = document.getElementById('quotaBadge');
+        if (badge) {
+            badge.innerText = `📊 今日配額: ${todayCount} / ${dailyMax} 筆`;
+            if (todayCount >= dailyMax) {
+                badge.className = 'badge bg-danger text-light fw-bold';
+            } else {
+                badge.className = 'badge bg-warning text-dark fw-bold';
+            }
+        }
+
+        const box = document.getElementById('scraperProgressBox');
+        const bar = document.getElementById('scraperProgressBar');
+        const status = document.getElementById('scraperProgressStatus');
+        const percent = document.getElementById('scraperProgressPercent');
+
+        if (isScanning) {
+            if (box) box.classList.remove('d-none');
+            let progress = 10;
+            if (bar) bar.style.width = `${progress}%`;
+            if (percent) percent.innerText = `${progress}%`;
+            if (status) status.innerText = `🕷️ [Firecrawl :3002] 深度掃描 10km 在地 FB 粉專與個人公開貼文...`;
+
+            const timer = setInterval(() => {
+                progress += Math.floor(Math.random() * 18) + 12;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(timer);
+                    if (status) status.innerText = `✅ [10km FB 深度爬蟲] 成功爬取洗入 ${scannedCount} 筆資料庫！今日累計: ${todayCount}/${dailyMax}`;
+                }
+                if (bar) bar.style.width = `${progress}%`;
+                if (percent) percent.innerText = `${progress}%`;
+            }, 250);
+        }
+    }
+
+    if (triggerScraperBtn) {
+        triggerScraperBtn.addEventListener('click', async () => {
+            triggerScraperBtn.disabled = true;
+            triggerScraperBtn.innerText = '🕷️ 爬取中 (Firecrawl :3002)...';
+            updateProgressUI(0, 200, true, 0);
+
+            try {
+                const res = await fetch('/api/dashboard/analytics/b2b/scrape_10km', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: 'Local_FB_Public', limit: 5 })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    updateProgressUI(data.today_count || 5, data.daily_max || 200, true, data.count || 5);
+                    showMsg(`🕷️ 成功深度爬取洗入 ${data.count} 家 10km 在地店家與 FB 個人公開資料！今日累計: ${data.today_count}/200 筆`);
+                    loadScrapedDataTable();
+                } else {
+                    alert('爬取提示: ' + (data.error || '未知錯誤'));
+                }
+            } catch (e) {
+                alert('連線失敗: ' + e.message);
+            } finally {
+                triggerScraperBtn.disabled = false;
+                triggerScraperBtn.innerText = '🕷️ 觸發 10km 在地店家與個人公開 Facebook 爬蟲';
+            }
+        });
+    }
+
+    // --- Multi-Channel & Knowledge Map Templates ---
+    const channelTemplates = {
+        email: {
+            antiage: {
+                subject: "【緻妍診所】VIP 企業特約合作與皮秒光雕抗衰檢測邀請 - {company_name}",
+                body: `尊敬的 {company_name} 貴賓 / 福委會團隊您好：\n\n緻妍診所 (Zhiyan Aesthetic Clinic) 專為周邊 10 公里高階企業與合作夥伴提供專業的皮秒雷射照護與極致抗衰檢測。\n\n🎁 專屬尊榮權益：\n- 憑專屬 LINE 綁定即享 VIP 抗衰療程諮詢綠色通道與皮膚保濕養護指南。\n- 專人提供一對一肌膚年齡檢測。\n\n👉 點擊綁定 VIP 權益: {line_url}\n\n緻妍診所 敬上`
+            },
+            sculpting: {
+                subject: "【緻妍診所】VIP 企業曲線美體與微整雕塑特約邀請 - {company_name}",
+                body: `尊敬的 {company_name} 貴賓您好：\n\n緻妍診所 (Zhiyan Aesthetic Clinic) 提供專業曲線管理與極緻美體雕塑服務。\n\n🎁 專屬尊榮權益：\n- 憑 LINE 綁定享 VIP 體雕與體適能健康顧問一對一免費評估。\n\n👉 點擊綁定 VIP 權益: {line_url}\n\n緻妍診所 敬上`
+            },
+            wellness: {
+                subject: "【緻妍診所】VIP 企業員工紓壓與高階保健特約合作邀請 - {company_name}",
+                body: `尊敬的 {company_name} 福委會與 HR 團隊您好：\n\n緻妍診所 (Zhiyan Aesthetic Clinic) 誠摯邀請貴公司成為我們的 VIP 尊榮特約合作夥伴！\n我們為診所周邊 10 公里圈內之優質企業與合作單位提供專業的員工身心舒壓、肌膚健康檢測與尊榮特約保健照護服務。\n\n🎁 貴公司員工專屬權益：\n- 憑員工證或專屬 LINE 綁定即可享有 VIP 專屬折扣與諮詢綠色通道。\n- 專人提供一對一抗衰與肌膚保養諮詢服務。\n\n👉 點擊綁定企業 VIP 權益: {line_url}\n\n緻妍診所 敬上`
+            },
+            postop: {
+                subject: "【緻妍診所】術後修復與高階專業護理合作諮詢 - {company_name}",
+                body: `尊敬的 {company_name} 合作夥伴您好：\n\n緻妍診所提供醫美術後短中期黃金修復期個案護理與修復對接。\n\n👉 點擊加入 LINE 官方帳號索取修復手冊: {line_url}\n\n緻妍診所 敬上`
+            }
+        },
+        messenger: {
+            antiage: {
+                subject: "",
+                body: `您好 {company_name}！緻妍診所提供在地 10km VIP 肌膚抗衰檢測與皮秒照護。點擊連結領取貴賓專屬權益：{line_url}`
+            },
+            sculpting: {
+                subject: "",
+                body: `您好 {company_name}！緻妍診所提供專業體雕與曲線微整顧問服務，立即加入 LINE 綁定享尊榮專屬預約：{line_url}`
+            },
+            wellness: {
+                subject: "",
+                body: `您好 {company_name} 福委會團隊！緻妍診所提供 10km 企業員工專屬身心紓壓與肌膚健康保養講座。加入 LINE 即刻綁定特約：{line_url}`
+            },
+            postop: {
+                subject: "",
+                body: `您好 {company_name}！緻妍診所為在地貴賓提供術後黃金修復期護理諮詢：{line_url}`
+            }
+        },
+        post_comment: {
+            antiage: {
+                subject: "",
+                body: `很讚的貼文！緻妍診所為周邊在地夥伴提供皮秒與抗衰保養專屬體驗，歡迎關注我們或加 LINE 諮詢：{line_url}`
+            },
+            sculpting: {
+                subject: "",
+                body: `優質內容！緻妍診所提供專業體雕與美體管理，歡迎在地好鄰居加 LINE 了解尊榮專屬權益：{line_url}`
+            },
+            wellness: {
+                subject: "",
+                body: `辛苦了！緻妍診所為在地企業提供員工身心紓壓保養服務，歡迎聯繫洽談企業特約：{line_url}`
+            },
+            postop: {
+                subject: "",
+                body: `溫馨提醒：醫美保養重視術後修復，緻妍診所提供一對一專業護理諮詢：{line_url}`
+            }
+        }
+    };
+
+    let currentChannel = 'email';
+    let currentTopic = 'wellness';
+
+    const topicSelect = document.getElementById('topicSelect');
+    const channelButtons = document.querySelectorAll('#copyChannelTabs button');
+    const subjectGroup = document.getElementById('subjectGroup');
+    const subjectInput = document.getElementById('emailSubjectTemplate');
+    const bodyInput = document.getElementById('emailBodyTemplate');
+
+    function updateTemplateUI() {
+        const template = channelTemplates[currentChannel][currentTopic];
+        if (currentChannel === 'email') {
+            if (subjectGroup) subjectGroup.style.display = 'block';
+            if (subjectInput) subjectInput.value = template.subject;
+        } else {
+            if (subjectGroup) subjectGroup.style.display = 'none';
+        }
+        if (bodyInput) bodyInput.value = template.body;
+    }
+
+    if (topicSelect) {
+        topicSelect.addEventListener('change', (e) => {
+            currentTopic = e.target.value;
+            updateTemplateUI();
+        });
+    }
+
+    channelButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            channelButtons.forEach(b => {
+                b.classList.remove('active', 'bg-warning', 'text-dark');
+                b.classList.add('text-light');
+            });
+            e.currentTarget.classList.add('active', 'bg-warning', 'text-dark');
+            e.currentTarget.classList.remove('text-light');
+            currentChannel = e.currentTarget.dataset.channel;
+            updateTemplateUI();
+        });
+    });
+
+    // --- CRUD Operations for Topics & Templates ---
+    const addNewTopicBtn = document.getElementById('addNewTopicBtn');
+    const deleteCurrentTopicBtn = document.getElementById('deleteCurrentTopicBtn');
+    const resetCopyTemplateBtn = document.getElementById('resetCopyTemplateBtn');
+
+    if (addNewTopicBtn) {
+        addNewTopicBtn.addEventListener('click', () => {
+            const topicName = prompt('請輸入新文案主題名稱 (例: 💎 高階微整與微痛光學):');
+            if (!topicName || !topicName.trim()) return;
+            const topicKey = 'custom_' + Date.now();
+            const option = document.createElement('option');
+            option.value = topicKey;
+            option.innerText = topicName.trim();
+            topicSelect.appendChild(option);
+            topicSelect.value = topicKey;
+
+            // Initialize default template for all channels
+            ['email', 'messenger', 'post_comment'].forEach(ch => {
+                if (!channelTemplates[ch]) channelTemplates[ch] = {};
+                channelTemplates[ch][topicKey] = {
+                    subject: `【緻妍診所】${topicName.trim()} 特約邀請 - {company_name}`,
+                    body: `尊敬的 {company_name} 貴賓您好：\n\n緻妍診所 (Zhiyan Aesthetic Clinic) 專為在地夥伴提供【${topicName.trim()}】服務。\n\n👉 點擊綁定尊榮 VIP 權益: {line_url}\n\n緻妍診所 敬上`
+                };
+            });
+
+            currentTopic = topicKey;
+            updateTemplateUI();
+            showMsg(`✨ 成功新增主題: [${topicName.trim()}]！您現在可以針對 3 大管道獨立設計修訂文案。`);
+        });
+    }
+
+    if (deleteCurrentTopicBtn) {
+        deleteCurrentTopicBtn.addEventListener('click', () => {
+            if (topicSelect.options.length <= 1) {
+                alert('最少需保留一個主題！');
+                return;
+            }
+            const selectedOpt = topicSelect.options[topicSelect.selectedIndex];
+            if (confirm(`確定要刪除主題 [${selectedOpt.text}] 嗎？`)) {
+                const keyToRemove = topicSelect.value;
+                topicSelect.remove(topicSelect.selectedIndex);
+                currentTopic = topicSelect.value;
+                ['email', 'messenger', 'post_comment'].forEach(ch => {
+                    if (channelTemplates[ch]) delete channelTemplates[ch][keyToRemove];
+                });
+                updateTemplateUI();
+                showMsg(`🗑️ 已刪除主題: [${selectedOpt.text}]`);
+            }
+        });
+    }
+
+    if (resetCopyTemplateBtn) {
+        resetCopyTemplateBtn.addEventListener('click', () => {
+            if (confirm(`確定要重設當前 [${currentChannel.toUpperCase()}] 的文案至預設範本嗎？`)) {
+                localStorage.removeItem(`custom_b2b_${currentChannel}_${currentTopic}_subject`);
+                localStorage.removeItem(`custom_b2b_${currentChannel}_${currentTopic}_body`);
+                updateTemplateUI();
+                showMsg(`🔄 當前管道文案已成功恢復為系統預設範本！`);
+            }
+        });
+    }
+
+    const saveCopyTemplateBtn = document.getElementById('saveCopyTemplateBtn');
+    if (saveCopyTemplateBtn) {
+        saveCopyTemplateBtn.addEventListener('click', () => {
+            const subject = subjectInput ? subjectInput.value : '';
+            const body = bodyInput ? bodyInput.value : '';
+
+            // Update in-memory templates
+            if (!channelTemplates[currentChannel][currentTopic]) {
+                channelTemplates[currentChannel][currentTopic] = {};
+            }
+            channelTemplates[currentChannel][currentTopic].subject = subject;
+            channelTemplates[currentChannel][currentTopic].body = body;
+
+            // Save to localStorage
+            localStorage.setItem(`custom_b2b_${currentChannel}_${currentTopic}_subject`, subject);
+            localStorage.setItem(`custom_b2b_${currentChannel}_${currentTopic}_body`, body);
+            showMsg(`💾 成功儲存並修改 [${currentChannel.toUpperCase()}] - [${currentTopic}] 文案！`);
+        });
+    }
+
+    // Initial UI render
+    updateTemplateUI();
+});
+</script>
+{% endblock %}

@@ -733,19 +733,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (scrapeBtn && !scrapeBtn.dataset.bound) {
             scrapeBtn.dataset.bound = "true";
             scrapeBtn.addEventListener('click', async () => {
-                const category = document.getElementById('scrapeCategorySelect').value;
                 const msgEl = document.getElementById('b2bAddSuccessMsg');
                 try {
                     const res = await fetch('/api/dashboard/analytics/b2b/scrape_10km', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ category: category, limit: 3 })
+                        body: JSON.stringify({ category: 'Local_FB_Public', limit: 3 })
                     });
                     const data = await res.json();
                     if (data.success) {
                         if (msgEl) {
                             msgEl.style.display = 'block';
-                            msgEl.innerHTML = `🕷️ 成功抓取洗入 ${data.count} 家 10km 在地 [${category}] 目標店家！`;
+                            msgEl.innerHTML = `🕷️ 成功抓取洗入 ${data.count} 家 10km 在地店家與個人公開 Facebook 目標！`;
                         }
                         loadAnalytics();
                     } else {

@@ -36,6 +36,7 @@
             </nav>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
+            <a href="/dashboard/b2b-targets" class="tab-btn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; white-space: nowrap; height: 42px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: bold; border-radius: 10px; padding: 0 16px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">🏢 建立地推 Target</a>
             <button class="tab-btn" id="triggerFactCheckBtn" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); white-space: nowrap; height: 42px;">🔍 執行今日網實核查</button>
             <button class="export-btn" id="exportBtn" style="height: 42px;">匯出 JSONL</button>
         </div>
@@ -249,16 +250,8 @@
                 </div>
                 <div style="background: rgba(0,0,0,0.25); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 style="font-size: 0.95rem; margin: 0; color: #a78bfa;">➕ 新增/自動挖掘地推合作目標企業</h3>
-                        <div style="display:flex; gap:8px;">
-                            <select id="scrapeCategorySelect" style="padding: 4px 10px; border-radius: 6px; background: rgba(0,0,0,0.3); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.3); font-size: 0.8rem;">
-                                <option value="Gyms">健身房/健身工作室 (Gyms)</option>
-                                <option value="Yoga">瑜伽與普拉提會館 (Yoga)</option>
-                                <option value="Tech">科技公司/軟體園區 (Tech)</option>
-                                <option value="Wedding">婚紗攝影/婚禮企劃 (Wedding)</option>
-                            </select>
-                            <button class="tab-btn" id="trigger10kmScrapeBtn" style="font-size: 0.8rem; padding: 4px 12px; background: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.3); color: #60a5fa;">🕷️ 觸發 10km 在地店家深網爬蟲</button>
-                        </div>
+                        <h3 style="font-size: 0.95rem; margin: 0; color: #a78bfa;">➕ 新增/自動挖掘地推合作目標企業與個人 FB</h3>
+                        <button class="tab-btn" id="trigger10kmScrapeBtn" style="font-size: 0.8rem; padding: 4px 12px; background: rgba(96, 165, 250, 0.15); border: 1px solid rgba(96, 165, 250, 0.3); color: #60a5fa;">🕷️ 觸發 10km 在地店家與個人公開 Facebook 爬蟲</button>
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <input type="text" id="newB2bName" placeholder="企業名稱 (例: 廣達電腦福委會)" style="flex: 2; min-width: 200px; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1);">

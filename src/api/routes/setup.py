@@ -579,3 +579,11 @@ def get_setup_logs():
 def setup_dashboard():
     """系統設定儀表板頁面"""
     return render_template('setup.html')
+
+
+@setup_bp.route('/dashboard/b2b-targets/', methods=['GET'])
+@setup_bp.route('/dashboard/b2b-targets', methods=['GET'])
+def b2b_targets_dashboard():
+    """建立地推 Target - 10km 在地企業與店家開發中心獨立頁面"""
+    return render_template('b2b_targets.html')
+
