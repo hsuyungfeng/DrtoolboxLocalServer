@@ -85,36 +85,23 @@ def analyze_medical_image(filepath):
         return ""
 
 def extract_text_from_file(filepath):
-    from PIL import Image
-    import pytesseract
+    from src.services.anydoc_parser import anydoc_parser
+
     ext = filepath.lower().split('.')[-1]
     try:
+        # 1. Plain text & Markdown
         if ext in ['txt', 'md']:
             with open(filepath, 'r', encoding='utf-8') as f:
                 return f.read()
-        elif ext == 'pdf':
-            import PyPDF2
-            text = ""
-            try:
-                with open(filepath, 'rb') as f:
-                    reader = PyPDF2.PdfReader(f)
-                    for page in reader.pages[:30]: # Limit reading to first 30 pages
-                        extracted = page.extract_text()
-                        if extracted:
-                            text += extracted + "\n"
-            except: pass
-            
-            if len(text.strip()) < 15:
-                logger.info(f"PDF {filepath} 似乎是掃描檔或讀取失敗，啟動 OCR 備援機制...")
-                text = _do_pdf_ocr(filepath)
-            return text
+
+        # 2. Pure Images (OCR & Vision Analysis)
         elif ext in ['jpg', 'jpeg', 'png']:
             try:
+                from PIL import Image
+                import pytesseract
                 with Image.open(filepath) as img:
-                    # Resize if massive
                     if img.width > 4000 or img.height > 4000:
                         img.thumbnail((3000, 3000), Image.Resampling.LANCZOS)
-                    # Grayscale for OCR
                     img = img.convert('L')
                     try:
                         return pytesseract.image_to_string(img, lang='chi_tra+eng')
@@ -123,6 +110,8 @@ def extract_text_from_file(filepath):
             except Exception as ocr_e:
                 logger.error(f"Image OCR failed for {filepath}: {ocr_e}")
                 return ""
+
+        # 3. Audio & Video (Whisper Transcription)
         elif ext in ['mp4', 'mp3', 'm4a', 'wav', 'flv']:
             logger.info(f"Starting Whisper transcription for {filepath}")
             try:
@@ -140,36 +129,64 @@ def extract_text_from_file(filepath):
                 logger.error(f"Whisper transcription failed for {filepath}: {whisper_e}")
                 return f"--- 語音逐字稿失敗: {whisper_e} ---"
 
-        # === Office File Parsing ===
+        # 4. Office & PDF Documents: Primary Anydoc Rust GFM Extraction
+        if anydoc_parser.is_supported(filepath):
+            parse_res = anydoc_parser.parse(filepath)
+            if parse_res.get("success") and len(parse_res.get("markdown", "").strip()) >= 15:
+                logger.info(f"✅ Anydoc parsed {filepath} in {parse_res.get('elapsed_ms')}ms")
+                return parse_res["markdown"]
+
+        # === 5. Graceful Fallbacks (Native Python & LibreOffice) ===
         text = ""
-        if ext == 'docx':
-            import docx
-            doc = docx.Document(filepath)
-            text = "\n".join([p.text for p in doc.paragraphs])
+        if ext == 'pdf':
+            import PyPDF2
+            try:
+                with open(filepath, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page in reader.pages[:30]:
+                        extracted = page.extract_text()
+                        if extracted:
+                            text += extracted + "\n"
+            except Exception:
+                pass
+        elif ext == 'docx':
+            try:
+                import docx
+                doc = docx.Document(filepath)
+                text = "\n".join([p.text for p in doc.paragraphs])
+            except Exception:
+                pass
+        elif ext == 'pptx':
+            try:
+                from pptx import Presentation
+                prs = Presentation(filepath)
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            text += shape.text + "\n"
+            except Exception:
+                pass
         elif ext in ['doc', 'ppt']:
             import subprocess, tempfile
-            logger.info(f"Using LibreOffice to extract text from legacy {ext} file: {filepath}")
+            logger.info(f"Using LibreOffice fallback for legacy {ext} file: {filepath}")
             try:
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    subprocess.run(['soffice', '--headless', '--convert-to', 'txt:Text', '--outdir', temp_dir, filepath], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        ['soffice', '--headless', '--convert-to', 'txt:Text', '--outdir', temp_dir, filepath],
+                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
                     base_name = os.path.splitext(os.path.basename(filepath))[0]
                     txt_file = os.path.join(temp_dir, f"{base_name}.txt")
                     if os.path.exists(txt_file):
                         with open(txt_file, 'r', encoding='utf-8', errors='ignore') as f:
                             text = f.read()
             except Exception as e:
-                logger.error(f"Failed to convert legacy {ext} file {filepath}: {e}")
-        elif ext == 'pptx':
-            from pptx import Presentation
-            prs = Presentation(filepath)
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        text += shape.text + "\n"
+                logger.error(f"LibreOffice fallback failed for {filepath}: {e}")
 
-        if ext in ['doc', 'docx', 'ppt', 'pptx'] and len(text.strip()) < 15:
-            logger.info(f"{ext} 檔案 {filepath} 似乎是由純圖片組成，啟動 OCR 備援機制...")
-            text = _do_pdf_ocr(filepath) # Re-use PDF OCR logic (works because we convert office to PDF)
+        # === 6. Scanned Document OCR Fallback ===
+        if (ext in ['pdf', 'doc', 'docx', 'ppt', 'pptx']) and len(text.strip()) < 15:
+            logger.info(f"{ext} 檔案 {filepath} 包含純圖片或掃描頁面，啟動 Tesseract OCR 備援機制...")
+            text = _do_pdf_ocr(filepath)
 
         return text
     except Exception as e:

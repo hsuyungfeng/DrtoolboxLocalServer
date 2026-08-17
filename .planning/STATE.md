@@ -23,12 +23,12 @@ progress:
 
 ## Current Position
 
-Phase: 08 (OpenMed Integration) — COMPLETED
+Phase: 09 (Firecrawl Anydoc Integration) — COMPLETED
 Plan: 1 of 1 completed
 
-- **Active Phase:** Phase 8: OpenMed Integration for Privacy & Clinical NER
-- **Active Plan:** 08-PLAN.md (Completed)
-- **Status:** Phase 08 successfully executed and verified (17/17 tests passing)
+- **Active Phase:** Phase 9: High-Speed Document Parsing & Markdown Normalization with Firecrawl Anydoc
+- **Active Plan:** 09-PLAN.md (Completed)
+- **Status:** Phase 09 successfully executed and verified (22/22 tests passing)
 
 ## Progress
 

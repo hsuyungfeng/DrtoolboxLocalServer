@@ -87,3 +87,16 @@ Plans:
 
 - [x] Define and execute Phase 8 prompts (08-01-PLAN.md) (completed 2026-08-17)
 
+## Phase 9: High-Speed Document Parsing & Markdown Normalization with Firecrawl Anydoc
+
+**Goal:** Integrate Firecrawl's Rust-based `anydoc` parser into `src/data_loader.py` to convert all incoming office documents (.docx, .pptx, .xlsx, .pdf, .csv, .odt) into standardized GitHub-Flavored Markdown in <5ms, while retaining pytesseract OCR and faster-whisper.
+
+- Build `AnydocParser` service in `src/services/anydoc_parser.py`.
+- Refactor `src/data_loader.py` with multi-tier parsing pipeline (Anydoc -> Fallback Parsers -> Tesseract OCR -> Whisper Audio).
+- Add document parsing preview endpoint `POST /api/dashboard/documents/parse_preview`.
+- Comprehensive unit test suite in `tests/test_anydoc_parser.py`.
+
+Plans:
+
+- [x] Define and execute Phase 9 prompts (09-PLAN.md) (completed 2026-08-17)
+

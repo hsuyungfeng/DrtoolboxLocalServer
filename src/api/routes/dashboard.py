@@ -372,17 +372,28 @@ def deidentify_text_api():
 
 @dashboard_bp.route('/privacy/batch_clean', methods=['POST'])
 def batch_clean_training_data():
-    """Batch de-identifies the current verified_training_data.jsonl in place."""
-    correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")
-    if not os.path.exists(correction_file):
-        return jsonify({"error": "No training data found"}), 404
+from src.services.anydoc_parser import anydoc_parser
+
+@dashboard_bp.route('/documents/parse_preview', methods=['POST'])
+def preview_document_parse():
+    """Parses a document on-demand and returns rendered GitHub-Flavored Markdown and metrics."""
     data = request.json or {}
-    method = data.get('method', 'mask')
-    count = privacy_service.anonymize_jsonl_file(correction_file, correction_file, method=method)
+    filepath = data.get('filepath', '')
+    
+    if not filepath:
+        return jsonify({"error": "filepath is required"}), 400
+
+    if not os.path.exists(filepath):
+        return jsonify({"error": f"File not found: {filepath}"}), 404
+
+    res = anydoc_parser.parse(filepath)
     return jsonify({
-        "status": "success",
-        "processed_records": count,
-        "method": method
+        "success": res.get("success", False),
+        "filepath": filepath,
+        "filename": os.path.basename(filepath),
+        "markdown": res.get("markdown", ""),
+        "elapsed_ms": res.get("elapsed_ms", 0.0),
+        "error": res.get("error")
     })
 
 from src.services.clinical_analyzer import clinical_analyzer
