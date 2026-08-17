@@ -321,11 +321,69 @@ def _remove_from_source(item_type, item_id):
         import logging
         logging.error(f"Cleanup of item failed: {e}")
 
+from src.services.privacy_service import privacy_service
+import tempfile
+
 @dashboard_bp.route('/export', methods=['GET'])
 def export_training_data():
     correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")
-    if not os.path.exists(correction_file): return jsonify({"error": "No training data"}), 404
+    if not os.path.exists(correction_file):
+        return jsonify({"error": "No training data"}), 404
+
+    should_anonymize = request.args.get('anonymize', 'true').lower() in ('true', '1', 'yes')
+    method = request.args.get('method', 'mask')
+
+    if should_anonymize:
+        # Create temp file with anonymized data for download
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".jsonl")
+        os.close(temp_fd)
+        privacy_service.anonymize_jsonl_file(correction_file, temp_path, method=method)
+        return send_file(temp_path, as_attachment=True, download_name=f"verified_training_data_{method}.jsonl")
+    
     return send_file(correction_file, as_attachment=True, download_name="verified_training_data.jsonl")
+
+@dashboard_bp.route('/privacy/deidentify', methods=['POST'])
+def deidentify_text_api():
+    """Extracts PII and de-identifies text or structured conversation on-demand."""
+    data = request.json or {}
+    text = data.get('text', '')
+    method = data.get('method', 'mask')
+    lang = data.get('lang', 'zh')
+    conversation = data.get('conversation')
+
+    if conversation:
+        anonymized_conv = privacy_service.anonymize_conversation(conversation, method=method)
+        return jsonify({
+            "status": "success",
+            "conversation": anonymized_conv,
+            "method": method
+        })
+
+    pii_entities = privacy_service.extract_pii(text, lang=lang)
+    deidentified = privacy_service.anonymize_text(text, method=method, lang=lang)
+    return jsonify({
+        "status": "success",
+        "original_text": text,
+        "deidentified_text": deidentified,
+        "entities": pii_entities,
+        "method": method,
+        "engine": "openmed" if getattr(privacy_service, 'HAS_OPENMED', False) else "native_safe_harbor"
+    })
+
+@dashboard_bp.route('/privacy/batch_clean', methods=['POST'])
+def batch_clean_training_data():
+    """Batch de-identifies the current verified_training_data.jsonl in place."""
+    correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")
+    if not os.path.exists(correction_file):
+        return jsonify({"error": "No training data found"}), 404
+    data = request.json or {}
+    method = data.get('method', 'mask')
+    count = privacy_service.anonymize_jsonl_file(correction_file, correction_file, method=method)
+    return jsonify({
+        "status": "success",
+        "processed_records": count,
+        "method": method
+    })
 
 from src.services.clinical_analyzer import clinical_analyzer
 
@@ -557,19 +615,25 @@ P (Plan):
 - Amoxicillin 500mg PO TID for 7 days.
 - Advised rest and adequate hydration; follow up if symptoms persist."""
 
+        from src.rag.clinical_ner import clinical_ner
+        clinical_tags = clinical_ner.summarize_clinical_tags(transcript)
+        extracted_entities = clinical_ner.extract_entities(transcript)
+
         return jsonify({
             "success": True,
             "transcript": transcript,
             "patient": {"name": patient_name, "dob": patient_dob},
+            "clinical_tags": clinical_tags,
+            "extracted_entities": extracted_entities,
             "cloud_without_db": {
                 "model": "Cloud-LLM (Generic Prompt, No DB)",
                 "soap": cloud_soap_sim,
                 "notes": "未對接診所 HIS 與藥物俗名庫，僅作一般語法重組。"
             },
             "local_with_db": {
-                "model": "Ornith-1.0-9B (Local DB + Graph-RAG)",
+                "model": "Ornith-1.0-9B (Local DB + Graph-RAG + OpenMed NER)",
                 "soap": local_response,
-                "notes": "已整合診所數據庫 (clinic.db)、處方藥名對照與本地廣義醫學推理。"
+                "notes": "已整合診所數據庫 (clinic.db)、處方藥名對照、OpenMed 臨床實體辨識與本地醫學推理。"
             }
         })
     except Exception as e:

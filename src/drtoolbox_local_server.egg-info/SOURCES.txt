@@ -47,6 +47,7 @@ src/drtoolbox_local_server.egg-info/SOURCES.txt
 src/drtoolbox_local_server.egg-info/dependency_links.txt
 src/drtoolbox_local_server.egg-info/requires.txt
 src/drtoolbox_local_server.egg-info/top_level.txt
+src/rag/clinical_ner.py
 src/rag/graph_rag_engine.py
 src/rag/ingest.py
 src/rag/query.py
@@ -69,9 +70,14 @@ src/services/logger_service.py
 src/services/message_router.py
 src/services/notification_service.py
 src/services/patient_service.py
+src/services/privacy_service.py
 src/services/search_service.py
 src/skills/skill_generator.py
 src/skills/skill_manager.py
 src/skills/auto_skills/__init__.py
 src/skills/auto_skills/skill_73171377.py
+tests/test_clinical_ner.py
+tests/test_local_b2b_scraper.py
+tests/test_openoutreach_bridge.py
+tests/test_privacy_service.py
 tests/test_rag_engine.py

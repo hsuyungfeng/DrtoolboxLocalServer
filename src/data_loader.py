@@ -211,6 +211,8 @@ def process_and_load_directory(directory, rag_engine_instance=None, is_special=T
             supported_exts = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.mp4', '.mp3', '.m4a', '.wav', '.flv', '.md']
             for root, _, files in os.walk(directory):
                 for file in files:
+                    if file.startswith(('~$', '.', '#')):
+                        continue
                     ext = os.path.splitext(file)[1].lower()
                     if ext in supported_exts:
                         filepath = os.path.join(root, file)

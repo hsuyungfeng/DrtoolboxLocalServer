@@ -74,3 +74,16 @@ Plans:
 
 - [x] Define and execute Phase 7 prompts (completed 2026-07-23)
 
+## Phase 8: OpenMed Integration for Privacy & Clinical NER
+
+**Goal:** Integrate openmed local-first clinical NLP for HIPAA/GDPR PII de-identification in logs/datasets and clinical NER in Graph-RAG and SOAP pipelines.
+
+- Build `PrivacyService` for automated PII masking, hashing, and synthetic replacement across conversation logs and training exports (`data/verified_training_data.jsonl`).
+- Implement `ClinicalNER` wrapping openmed on CPU/ONNX to extract diseases, medications, and dosages.
+- Integrate Clinical NER into `GraphRAGEngine` for enhanced clinical query resolution.
+- Enhance SOAP Note comparison pipeline (`/api/dashboard/soap/compare`) with structured entity cross-validation and SOAP Lab UI tags.
+
+Plans:
+
+- [x] Define and execute Phase 8 prompts (08-01-PLAN.md) (completed 2026-08-17)
+

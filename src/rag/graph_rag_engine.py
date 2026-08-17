@@ -33,13 +33,25 @@ class GraphRAGEngine:
             return []
 
         # Generate all substrings of length 2 to 10
-        substrings = []
+        substrings = set()
         q_len = len(clean_q)
         for length in range(2, min(11, q_len + 1)):
             for i in range(q_len - length + 1):
-                substrings.append(clean_q[i:i+length])
+                substrings.add(clean_q[i:i+length])
 
-        if not substrings:
+        # Integrate ClinicalNER extracted entities
+        try:
+            from src.rag.clinical_ner import clinical_ner
+            ner_entities = clinical_ner.extract_entities(clean_q)
+            for ne in ner_entities:
+                t = ne.get("text", "").strip()
+                if t:
+                    substrings.add(t)
+        except Exception:
+            pass
+
+        substring_list = list(substrings)
+        if not substring_list:
             return []
 
         # Query database in single batch
@@ -49,9 +61,9 @@ class GraphRAGEngine:
             cursor = conn.cursor()
             
             # SQLite IN parameter placeholder
-            placeholders = ",".join(["?"] * len(substrings))
+            placeholders = ",".join(["?"] * len(substring_list))
             query_str = f"SELECT id, name, label FROM medical_nodes WHERE name IN ({placeholders})"
-            cursor.execute(query_str, substrings)
+            cursor.execute(query_str, substring_list)
             
             rows = cursor.fetchall()
             for r in rows:

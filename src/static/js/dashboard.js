@@ -145,6 +145,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     document.getElementById('cloudSoapResult').value = data.cloud_without_db.soap || '';
                     document.getElementById('localSoapResult').value = data.local_with_db.soap || '';
+
+                    // Render OpenMed Clinical NER badges
+                    const tagsBox = document.getElementById('clinicalTagsBox');
+                    const tagsList = document.getElementById('clinicalTagsList');
+                    if (tagsBox && tagsList) {
+                        tagsList.innerHTML = '';
+                        const tags = data.clinical_tags || {};
+                        let hasTags = false;
+
+                        if (tags.diseases && tags.diseases.length > 0) {
+                            hasTags = true;
+                            tags.diseases.forEach(d => {
+                                tagsList.innerHTML += `<span style="font-size:0.75rem; padding:2px 8px; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); border-radius:12px;">🩺 ${d}</span>`;
+                            });
+                        }
+                        if (tags.drugs && tags.drugs.length > 0) {
+                            hasTags = true;
+                            tags.drugs.forEach(d => {
+                                tagsList.innerHTML += `<span style="font-size:0.75rem; padding:2px 8px; background:rgba(59,130,246,0.2); color:#93c5fd; border:1px solid rgba(59,130,246,0.3); border-radius:12px;">💊 ${d}</span>`;
+                            });
+                        }
+                        if (tags.dosages && tags.dosages.length > 0) {
+                            hasTags = true;
+                            tags.dosages.forEach(d => {
+                                tagsList.innerHTML += `<span style="font-size:0.75rem; padding:2px 8px; background:rgba(16,185,129,0.2); color:#6ee7b7; border:1px solid rgba(16,185,129,0.3); border-radius:12px;">⚖️ ${d}</span>`;
+                            });
+                        }
+                        if (tags.symptoms && tags.symptoms.length > 0) {
+                            hasTags = true;
+                            tags.symptoms.forEach(d => {
+                                tagsList.innerHTML += `<span style="font-size:0.75rem; padding:2px 8px; background:rgba(245,158,11,0.2); color:#fcd34d; border:1px solid rgba(245,158,11,0.3); border-radius:12px;">⚠️ ${d}</span>`;
+                            });
+                        }
+
+                        tagsBox.style.display = hasTags ? 'block' : 'none';
+                    }
                 } else {
                     alert("SOAP 對比失敗: " + (data.error || '未知錯誤'));
                 }

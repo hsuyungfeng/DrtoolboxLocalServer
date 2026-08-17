@@ -34,7 +34,8 @@ def test_local_b2b_scraper_ingestion():
         
     try:
         scraper = LocalB2BScraper(db_path=db_path)
-        tokens = scraper.run_ingestion(category="Gyms", limit=2)
+        res = scraper.run_ingestion(category="Gyms", limit=2)
+        tokens = res["tokens"]
         assert len(tokens) == 2
         assert tokens[0].startswith("b2b_")
         

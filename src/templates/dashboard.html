@@ -127,6 +127,12 @@
                         <textarea id="labTranscript" style="min-height: 140px; font-size: 0.85rem;" placeholder="輸入或使用 DoctorConsultation 同音檔對話文字...">患者主訴發燒38.5度持續兩天，伴隨嚴重喉嚨痛與咳嗽有黃痰。理學檢查發現雙側扁桃腺紅腫伴有白色斑塊，無呼吸急促。診斷為急性扁桃腺炎，開立普拿疼 (Acetaminophen) 500mg 口服三餐飯後與抗生素 Amoxicillin 500mg 口服7天，叮嚀多喝水休養。</textarea>
                     </div>
 
+                    <!-- Clinical Entity Tags (OpenMed NER) -->
+                    <div id="clinicalTagsBox" style="display: none; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px; margin-top: 10px;">
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #38bdf8; margin-bottom: 6px;">🧬 OpenMed 臨床實體辨識 (Clinical NER):</div>
+                        <div id="clinicalTagsList" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+                    </div>
+
                     <button class="save-btn" id="runSoapCompareBtn" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #10b981, #059669);">⚡ 執行雙 LLM SOAP 對比生成</button>
                 </div>
 

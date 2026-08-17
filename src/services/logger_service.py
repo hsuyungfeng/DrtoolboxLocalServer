@@ -94,6 +94,12 @@ class JSONLLogger:
         }
 
         try:
+            from src.services.privacy_service import privacy_service
+            training_entry = privacy_service.anonymize_conversation(training_entry)
+        except Exception:
+            pass
+
+        try:
             with self.lock:
                 with open(correction_file, 'a', encoding='utf-8') as f:
                     f.write(json.dumps(training_entry, ensure_ascii=False) + '\n')
