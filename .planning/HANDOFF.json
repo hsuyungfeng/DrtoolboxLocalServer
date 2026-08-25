@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-08-25T05:03:36.213Z",
+  "phase": "10",
+  "phase_name": "RAG Retrieval Consolidation",
+  "phase_dir": ".planning/phases/10-rag-retrieval-consolidation-merge-ragengine-sqlite-fts5-and",
+  "plan": 1,
+  "task": 1,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [],
+  "remaining_tasks": [
+    {"id": "10-01", "name": "Wire Chroma for real (embedding_function, config paths, collection rename incl. rag.py route defaults)", "status": "not_started"},
+    {"id": "10-02", "name": "HybridRetriever + RRF swap-in with sparse-only fallback", "status": "not_started"},
+    {"id": "10-03", "name": "Unified chunking + rag_doc_hashes idempotency gate", "status": "not_started"},
+    {"id": "10-04", "name": "Simplified-to-Traditional normalization + retrieval observability logging", "status": "not_started"}
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "Stash-pop conflict resolved: verified_training_data.jsonl merged as union (both sides only appended, no real conflict); 16 marketing archive images kept (rejected stash's deletion); .planning/HANDOFF.json deleted (accepted stash's deletion, transient file)", "rationale": "Verified line-by-line: 9 lines from HEAD + 42 from stash were distinct JSONL records, no overlap; archive images were user's explicit call via AskUserQuestion", "phase": "pre-10"},
+    {"decision": "Created Phase 10 'RAG Retrieval Consolidation' in ROADMAP.md to formally track the RAGEngine+Chroma merge work", "rationale": "Work was discussed conversationally and confirmed by user via /gsd-plan-phase; roadmap only went to Phase 9 (all complete) so this needed a new phase entry before planning could proceed", "phase": "10"},
+    {"decision": "9 locked decisions D-01 through D-09 in 10-CONTEXT.md govern this phase (embedding_function fix, Chinese embedding model, config path fixes, collection rename, HybridRetriever+RRF, sparse fallback, unified chunking, zh-Hans->zh-Hant normalization, retrieval observability)", "rationale": "See 10-CONTEXT.md for full rationale/reversibility ratings per decision", "phase": "10"},
+    {"decision": "Assumption-delta advisory resolved as 'promote': HybridRetriever becomes the sole call site inside _get_context(); SimpleIndex.get_scored_chunks() demoted to HybridRetriever's internal sparse leg, only invoked standalone on the Chroma-failure fallback path", "rationale": "Avoids an add-alongside trap where both a sparse-only path and a hybrid path run on every query at double cost", "phase": "10"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Run /gsd-execute-phase 10 to begin Wave 1 (10-01-PLAN.md, 3 tasks, autonomous). All planning artifacts (10-CONTEXT.md, 10-RESEARCH.md, 10-PATTERNS.md, 4x PLAN.md) are written, checker-verified, decision-coverage and gap-analysis gates passed, and committed (b1dd90f).",
+  "context_notes": "This is a clean planning->execution boundary pause, not a mid-task interruption. Nothing has been executed yet for Phase 10. Two things to keep in mind when resuming: (1) RESEARCH.md flagged that sentence-transformers and opencc are NOT currently installed in this project (pyproject.toml has no entry for them) -- Plan 10-01/10-04 tasks should already account for adding them, verify this doesn't surprise the executor; (2) Plan 10-01's embedding model choice (BAAI/bge-small-zh-v1.5 vs bge-m3) is rated MEDIUM confidence in RESEARCH.md and explicitly requires on-machine CPU latency measurement before treating it as settled -- do not skip that measurement step. Deferred (explicitly out of scope for Phase 10, noted in 10-CONTEXT.md Deferred Ideas): the KGQA-Based-On-medicine/ nested-git-repo decision, clinic.db Git LFS migration (GitHub warned on push that it's 72MB), and auditing whether verified_training_data.jsonl actually closes the loop back into PageIndex via inject_verified_knowledge()."
+}
