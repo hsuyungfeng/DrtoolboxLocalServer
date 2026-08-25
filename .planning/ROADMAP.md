@@ -100,3 +100,20 @@ Plans:
 
 - [x] Define and execute Phase 9 prompts (09-PLAN.md) (completed 2026-08-17)
 
+### Phase 10: RAG Retrieval Consolidation
+
+**Goal:** Merge the two disconnected RAG pipelines — the production SQLite FTS5 + n-gram retriever in `src/rag_engine.py` (live, used by `hermes_core.py`) and the built-but-never-populated Chroma/DocumentIngestor pipeline in `src/rag/ingest.py` + `src/rag/search.py` (wired to `/api/v1/rag/*` but `data/rag/chroma/` has never been created) — into one hybrid BM25 + dense-embedding retriever with RRF fusion, per book-to-skil.md's RAG best practices.
+**Depends on:** Phase 9
+**Plans:** 4 plans
+
+- Wire Chroma for real: fix the dead `embedding_model` param in `DocumentIngestor._init_chroma()` (never passed as `embedding_function`, so Chroma silently uses its English-only default), switch to a Chinese/multilingual embedding model, fix `config/ingest_config.json` `document_folders` to point at the real content dirs (`data/documents/general/`, `data/documents/special/`), and align Chroma collection names with the SQLite category names (`general`/`special`).
+- Add a `HybridRetriever` combining `SimpleIndex.get_scored_chunks()` (sparse, unchanged) with `SemanticSearch.search()` (Chroma dense) via Reciprocal Rank Fusion, swapped into `RAGEngine._get_context()` with a fallback to sparse-only on Chroma failure.
+- Unify the ingestion/chunking write path so SQLite `rag_chunks` and Chroma share one chunking pass and the same `chunk_id`.
+- Add Simplified-to-Traditional Chinese normalization before ingesting the 848 `medical_kb_batch_*.txt` files, plus lightweight retrieval observability (log which chunk ids/scores were used per answer).
+
+Plans:
+
+- [ ] 10-01-PLAN.md — Wire a Chinese-aware embedding function into Chroma, fix config/collection renames, populate both collections for real (Stage 1)
+- [ ] 10-02-PLAN.md — Build HybridRetriever (RRF fusion) and swap it into RAGEngine._get_context() with sparse-only fallback (Stage 2)
+- [ ] 10-03-PLAN.md — Unify SQLite/Chroma chunking with a shared chunk_id and make the production write path idempotent (Stage 3)
+- [ ] 10-04-PLAN.md — Simplified-to-Traditional normalization and chunk-level retrieval observability logging (Stage 4)
