@@ -6,9 +6,13 @@ import os
 import datetime
 import re
 import threading
+import hashlib
 import concurrent.futures
 from config.settings import DATA_DIR, PROJECT_ROOT
 from src.rag.graph_rag_engine import GraphRAGEngine
+from src.rag.search import SemanticSearch
+from src.rag.hybrid import HybridRetriever
+from src.rag.ingest import DocumentIngestor
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +34,11 @@ class ReasonerWrapper:
         return self.llm.chat_generate_stream(messages)
 
 class SimpleIndex:
-    def __init__(self, reasoner, category, db_path):
+    def __init__(self, reasoner, category, db_path, chunker=None):
         self.reasoner = reasoner
         self.category = category
         self.db_path = db_path
+        self.chunker = chunker
         self.lock = threading.Lock()
         
     def add_document(self, doc):
@@ -51,15 +56,23 @@ class SimpleIndex:
                 # Delete existing chunks for this document and category to prevent duplicates
                 cursor.execute("DELETE FROM rag_chunks WHERE doc_id = ? AND category = ?", (doc_id, self.category))
                 
-                # Chunk document and insert
-                chunk_index = 0
-                for i in range(0, len(content), 400):
-                    chunk_text = content[i:i+600]
-                    cursor.execute("""
-                        INSERT INTO rag_chunks (doc_id, category, chunk_index, content)
-                        VALUES (?, ?, ?, ?)
-                    """, (doc_id, self.category, chunk_index, chunk_text))
-                    chunk_index += 1
+                if self.chunker:
+                    chunks = self.chunker.chunk_text(content, doc_id)
+                    for chunk in chunks:
+                        cursor.execute("""
+                            INSERT INTO rag_chunks (doc_id, category, chunk_index, content, chunk_id)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (doc_id, self.category, chunk.index, chunk.text, chunk.chunk_id))
+                else:
+                    # Fallback fixed-stride chunking
+                    chunk_index = 0
+                    for i in range(0, len(content), 400):
+                        chunk_text = content[i:i+600]
+                        cursor.execute("""
+                            INSERT INTO rag_chunks (doc_id, category, chunk_index, content)
+                            VALUES (?, ?, ?, ?)
+                        """, (doc_id, self.category, chunk_index, chunk_text))
+                        chunk_index += 1
                     
                 conn.commit()
                 conn.close()
@@ -131,11 +144,72 @@ class RAGEngine:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
         self.graph_engine = GraphRAGEngine()
-        
         self.reasoner = ReasonerWrapper(llm_instance)
-        self.special_index = SimpleIndex(reasoner=self.reasoner, category="special", db_path=self.db_path)
-        self.general_index = SimpleIndex(reasoner=self.reasoner, category="general", db_path=self.db_path)
         
+        # Read configured embedding model
+        try:
+            config_path = os.path.join(PROJECT_ROOT, "config", "ingest_config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    ingest_cfg = json.load(f)
+                embedding_model = ingest_cfg.get("embedding", {}).get("model", "BAAI/bge-m3")
+            else:
+                embedding_model = "BAAI/bge-m3"
+        except Exception:
+            embedding_model = "BAAI/bge-m3"
+
+        chroma_dir = os.path.join(DATA_DIR, "rag", "chroma")
+
+        # Chroma Ingestors for unified chunking and vector storage
+        self.chroma_ingestor_special = DocumentIngestor(
+            chroma_dir=chroma_dir,
+            collection_name="special",
+            embedding_model=embedding_model,
+        )
+        self.chroma_ingestor_special._init_chroma()
+
+        self.chroma_ingestor_general = DocumentIngestor(
+            chroma_dir=chroma_dir,
+            collection_name="general",
+            embedding_model=embedding_model,
+        )
+        self.chroma_ingestor_general._init_chroma()
+
+        self.special_index = SimpleIndex(
+            reasoner=self.reasoner,
+            category="special",
+            db_path=self.db_path,
+            chunker=self.chroma_ingestor_special
+        )
+        self.general_index = SimpleIndex(
+            reasoner=self.reasoner,
+            category="general",
+            db_path=self.db_path,
+            chunker=self.chroma_ingestor_general
+        )
+        
+        # Hybrid retrievers (combines SimpleIndex sparse and SemanticSearch dense via RRF)
+        self.dense_special = None
+        self.dense_general = None
+        self.hybrid_special = None
+        self.hybrid_general = None
+        try:
+            self.dense_special = SemanticSearch(
+                chroma_dir=chroma_dir,
+                collection_name="special",
+                embedding_model=embedding_model,
+            )
+            self.dense_general = SemanticSearch(
+                chroma_dir=chroma_dir,
+                collection_name="general",
+                embedding_model=embedding_model,
+            )
+            self.hybrid_special = HybridRetriever(self.special_index, self.dense_special)
+            self.hybrid_general = HybridRetriever(self.general_index, self.dense_general)
+            logger.info("HybridRetriever initialized successfully for special and general routes.")
+        except Exception as e:
+            logger.error(f"Failed to initialize HybridRetriever, falling back to sparse index: {e}")
+
         # Parallel page indexing pool
         self.pi_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="PI_Worker")
         
@@ -154,7 +228,24 @@ class RAGEngine:
                         doc_id TEXT,
                         category TEXT,
                         chunk_index INTEGER,
-                        content TEXT
+                        content TEXT,
+                        chunk_id TEXT
+                    )
+                """)
+
+                # Guarded column migration for chunk_id
+                cursor.execute("PRAGMA table_info(rag_chunks)")
+                cols = [row[1] for row in cursor.fetchall()]
+                if "chunk_id" not in cols:
+                    cursor.execute("ALTER TABLE rag_chunks ADD COLUMN chunk_id TEXT")
+
+                # 1.1 Document content hashes table (for idempotent ingestion)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS rag_doc_hashes (
+                        doc_id TEXT,
+                        category TEXT,
+                        content_hash TEXT,
+                        PRIMARY KEY (doc_id, category)
                     )
                 """)
                 
@@ -239,18 +330,85 @@ class RAGEngine:
             except Exception as e:
                 logger.error(f"Failed to initialize SQLite RAG database: {e}")
                 
+    def _ingest_unified(self, doc, category: str):
+        """Unified idempotent ingestion for both SQLite (rag_chunks) and Chroma."""
+        doc_id = doc.get('id', '')
+        content = doc.get('content', '')
+        if not content:
+            return
+
+        from src.rag.normalize import normalize_to_traditional
+        content = normalize_to_traditional(content)
+        doc['content'] = content
+
+        content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
+
+        # Check idempotency via rag_doc_hashes table
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT content_hash FROM rag_doc_hashes WHERE doc_id = ? AND category = ?",
+                (doc_id, category)
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0] == content_hash:
+                logger.debug(f"Document {doc_id} ({category}) unchanged (hash match), skipping.")
+                return
+        except Exception as e:
+            logger.error(f"Failed to check document hash for {doc_id}: {e}")
+
+        # Choose appropriate ingestor and index
+        if category == "special":
+            chroma_ingestor = self.chroma_ingestor_special
+            simple_idx = self.special_index
+        else:
+            chroma_ingestor = self.chroma_ingestor_general
+            simple_idx = self.general_index
+
+        # 1. Chunk and write to SQLite via SimpleIndex
+        simple_idx.add_document(doc)
+
+        # 2. Upsert to Chroma collection
+        try:
+            if chroma_ingestor and chroma_ingestor.collection:
+                chunks = chroma_ingestor.chunk_text(content, doc_id)
+                if chunks:
+                    chroma_ingestor.collection.upsert(
+                        documents=[c.text for c in chunks],
+                        ids=[c.chunk_id for c in chunks],
+                        metadatas=[{"source": doc_id, "chunk_index": c.index} for c in chunks]
+                    )
+        except Exception as e:
+            logger.error(f"Failed to upsert document {doc_id} to Chroma ({category}): {e}")
+
+        # 3. Update hash in SQLite
+        with db_write_lock:
+            try:
+                conn = sqlite3.connect(self.db_path, timeout=30.0)
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO rag_doc_hashes (doc_id, category, content_hash)
+                    VALUES (?, ?, ?)
+                """, (doc_id, category, content_hash))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.error(f"Failed to save document hash for {doc_id}: {e}")
+
     def ingest_special_data(self, documents):
         logger.info(f"Ingesting {len(documents)} special documents into Index.")
         for doc in documents:
             if not doc.get('content'): continue
-            self.special_index.add_document(doc)
+            self._ingest_unified(doc, "special")
             self.pi_executor.submit(self._background_pi_index, doc, "special")
             
     def ingest_general_data(self, documents):
         logger.info(f"Ingesting {len(documents)} general documents into Index.")
         for doc in documents:
             if not doc.get('content'): continue
-            self.general_index.add_document(doc)
+            self._ingest_unified(doc, "general")
             self.pi_executor.submit(self._background_pi_index, doc, "general")
 
     def _background_pi_index(self, doc, category):
@@ -574,26 +732,35 @@ class RAGEngine:
         if not pi_context: pi_context = "無相關深度推理摘要。"
         logger.info(f"[_get_context] PageIndex top 3 selected. Context length: {len(pi_context)}")
 
-        # 3. SimpleIndex Context Lookup
-        logger.info(f"[_get_context] Querying SimpleIndex (route: {route})...")
-        if route == "special":
-            rag_scored_chunks = self.special_index.get_scored_chunks(question)
+        # 3. Hybrid Retrieval Context Lookup (Sparse + Dense RRF Fusion)
+        logger.info(f"[_get_context] Querying HybridRetriever (route: {route})...")
+        retriever = self.hybrid_special if route == "special" else self.hybrid_general
+        if retriever is not None:
+            fused_chunks = retriever.get_scored_chunks(question)
         else:
-            rag_scored_chunks = self.general_index.get_scored_chunks(question)
-            
-        rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
+            # Fallback if HybridRetriever failed initialization
+            if route == "special":
+                rag_scored_chunks = self.special_index.get_scored_chunks(question)
+            else:
+                rag_scored_chunks = self.general_index.get_scored_chunks(question)
+            rag_scored_chunks.sort(reverse=True, key=lambda x: x[0])
+            from src.rag.hybrid import _key
+            fused_chunks = [(_key(chunk), chunk, score) for score, chunk in rag_scored_chunks]
+
         top_chunks = []
+        selected_meta = []
         seen = set()
-        for score, chunk in rag_scored_chunks:
+        for key, chunk, fused_score in fused_chunks:
             if chunk not in seen:
                 seen.add(chunk)
                 text = re.sub(r'\$\s*\d+(?:,\d+)*', '[請致電確認]', chunk)
                 text = re.sub(r'\d+(?:,\d+)*\s*[元塊]', '[請致電確認]', text)
                 top_chunks.append(text)
+                selected_meta.append((key[:8], round(fused_score, 4)))
             if len(top_chunks) >= 4: break 
         rag_context = "\n\n".join(top_chunks)
         if not rag_context: rag_context = "無相關原始文本片段。"
-        logger.info(f"[_get_context] SimpleIndex done. Context length: {len(rag_context)}")
+        logger.info(f"[_get_context] HybridRetriever done. Selected chunks: {selected_meta}. Context length: {len(rag_context)}")
         
         return sql_context, pi_context, rag_context
 

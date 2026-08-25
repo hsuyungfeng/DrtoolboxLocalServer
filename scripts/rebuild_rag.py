@@ -2,7 +2,7 @@
 """
 Rebuild RAG Collections script.
 
-This script completely rebuilds the dual knowledge base (general_medical and clinic_specific)
+This script completely rebuilds the dual knowledge base (general and special)
 from their respective source document directories.
 
 Usage:
@@ -33,7 +33,8 @@ def rebuild_collection(collection_name: str, docs_dir: str, force_clear: bool = 
     # Get ingestor
     ingestor = DocumentIngestor(
         chroma_dir="data/rag/chroma/",
-        collection_name=collection_name
+        collection_name=collection_name,
+        embedding_model="BAAI/bge-m3"
     )
     
     # Force clear if requested
@@ -78,15 +79,15 @@ def main():
         
     # 1. Rebuild Medical Domain
     rebuild_collection(
-        collection_name="general_medical",
-        docs_dir="data/rag/general_docs/",
+        collection_name="general",
+        docs_dir="data/documents/general/",
         force_clear=args.force
     )
     
     # 2. Rebuild Clinical Domain
     rebuild_collection(
-        collection_name="clinic_specific",
-        docs_dir="data/rag/clinic_docs/",
+        collection_name="special",
+        docs_dir="data/documents/special/",
         force_clear=args.force
     )
     

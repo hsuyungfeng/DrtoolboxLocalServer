@@ -16,6 +16,11 @@ import logging
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 
+try:
+    from rag.ingest import make_embedding_function
+except ImportError:
+    from src.rag.ingest import make_embedding_function
+
 # Chroma imports
 try:
     import chromadb
@@ -64,6 +69,7 @@ class SemanticSearch:
         chroma_dir: str = "data/rag/chroma/",
         collection_name: str = "medical_documents",
         default_top_k: int = 5,
+        embedding_model: str = "BAAI/bge-small-zh-v1.5",
     ):
         """
         Initialize SemanticSearch.
@@ -72,10 +78,12 @@ class SemanticSearch:
             chroma_dir: Path to Chroma persistence directory
             collection_name: Name of Chroma collection
             default_top_k: Default number of results to return
+            embedding_model: Sentence-transformers embedding model
         """
         self.chroma_dir = chroma_dir
         self.collection_name = collection_name
         self.default_top_k = default_top_k
+        self.embedding_model = embedding_model
         
         self.client = None
         self.collection = None
@@ -102,7 +110,8 @@ class SemanticSearch:
             # Get collection (must exist - use ingest.py to create)
             try:
                 self.collection = self.client.get_collection(
-                    name=self.collection_name
+                    name=self.collection_name,
+                    embedding_function=make_embedding_function(self.embedding_model, "cpu")
                 )
             except Exception as e:
                 logger.warning(f"Collection '{self.collection_name}' not found: {e}")

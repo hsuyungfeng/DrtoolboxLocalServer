@@ -39,17 +39,17 @@ def load_config():
                 "chroma": {
                     "path": "data/rag/chroma/",
                     "collections": {
-                        "general_medical": "general_medical",
-                        "clinic_specific": "clinic_specific",
+                        "general": "general",
+                        "special": "special",
                     },
-                    "default_collection": "general_medical",
+                    "default_collection": "general",
                 },
                 "chunking": {"chunk_size": 512, "chunk_overlap": 50},
             }
     return _config
 
 
-def get_ingestor(collection: str = "general_medical") -> DocumentIngestor:
+def get_ingestor(collection: str = "general") -> DocumentIngestor:
     """Get or create ingestor instance for specified collection."""
     global _ingestors
 
@@ -75,7 +75,7 @@ def get_query_answer(collection: str = "both") -> QueryAnswer:
     """Get or create QueryAnswer instance.
 
     Args:
-        collection: "general_medical", "clinic_specific", or "both" (default: "both")
+        collection: "general", "special", or "both" (default: "both")
     """
     global _query_answers
 
@@ -85,25 +85,25 @@ def get_query_answer(collection: str = "both") -> QueryAnswer:
 
         if collection == "both":
             # Dual collection mode
-            general_search = get_ingestor("general_medical").collection
-            clinic_search = get_ingestor("clinic_specific").collection
+            general_search = get_ingestor("general").collection
+            clinic_search = get_ingestor("special").collection
 
             # Create general search instance
             from rag.search import SemanticSearch
             general = SemanticSearch(
                 chroma_dir=chroma_path,
-                collection_name="general_medical",
+                collection_name="general",
                 default_top_k=5,
             )
             clinic = SemanticSearch(
                 chroma_dir=chroma_path,
-                collection_name="clinic_specific",
+                collection_name="special",
                 default_top_k=5,
             )
 
             _query_answers[collection] = QueryAnswer(
                 chroma_dir=chroma_path,
-                collection_name="general_medical",
+                collection_name="general",
                 top_k=5,
                 clinic_search=clinic,
             )
@@ -163,7 +163,7 @@ def query():
 
     prompt = data['prompt']
     n_results = data.get('n_results', 5)
-    collection_param = data.get('collection', 'auto')  # 'general_medical', 'clinic_specific', 'both', or 'auto'
+    collection_param = data.get('collection', 'auto')  # 'general', 'special', 'both', or 'auto'
 
     # Auto-route intent if collection is auto
     if collection_param == 'auto':
@@ -173,9 +173,9 @@ def query():
         
         logger.info(f"Intent Router classified query '{prompt[:20]}...' as: {intent}")
         if intent == "MEDICAL":
-            collection = "general_medical"
+            collection = "general"
         elif intent == "CLINICAL":
-            collection = "clinic_specific"
+            collection = "special"
         else:
             collection = "both"
     else:
@@ -289,12 +289,12 @@ def ingest():
 
     Request body (multipart/form-data):
         file: Document file (PDF, DOCX, TXT)
-        collection: Optional, "general_medical" or "clinic_specific" (default: "general_medical")
+        collection: Optional, "general" or "special" (default: "general")
 
     Or JSON (file path):
         {
             "file_path": "path/to/document.pdf",
-            "collection": "clinic_specific",  // Optional
+            "collection": "special",  // Optional
             "metadata": {"category": "protocol"}  // Optional
         }
 
@@ -304,14 +304,14 @@ def ingest():
             "source": "document.pdf",
             "chunks": 10,
             "duration_ms": 500.0,
-            "collection": "clinic_specific"
+            "collection": "special"
         }
     """
     # Get collection from request
-    collection = request.form.get('collection', 'general_medical')
+    collection = request.form.get('collection', 'general')
     if request.is_json:
         data = request.get_json()
-        collection = data.get('collection', 'general_medical')
+        collection = data.get('collection', 'general')
 
     # Check for file upload
     if 'file' in request.files:

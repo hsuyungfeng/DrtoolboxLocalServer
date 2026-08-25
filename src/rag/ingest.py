@@ -43,12 +43,21 @@ except ImportError:
 try:
     import chromadb
     from chromadb.config import Settings
+    from chromadb.utils import embedding_functions
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
 
 
 logger = logging.getLogger(__name__)
+
+
+def make_embedding_function(model_name: str, device: str = "cpu"):
+    """Create a sentence-transformers embedding function for Chroma."""
+    return embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=model_name,
+        device=device,
+    )
 
 
 @dataclass
@@ -144,7 +153,8 @@ class DocumentIngestor:
             # Get or create collection
             self.collection = self.client.get_or_create_collection(
                 name=self.collection_name,
-                metadata={"description": "Medical documents for RAG"}
+                metadata={"description": "Medical documents for RAG"},
+                embedding_function=make_embedding_function(self.embedding_model, "cpu")
             )
             
             logger.info(f"Chroma collection ready: {self.collection_name}")
@@ -192,10 +202,12 @@ class DocumentIngestor:
             elif ext == '.pptx' and PPTX_AVAILABLE:
                 text = self._parse_pptx(file_path)
 
-            elif ext == '.json':
-                text = self._parse_json(file_path)
+            try:
+                from rag.normalize import normalize_to_traditional
+            except ImportError:
+                from src.rag.normalize import normalize_to_traditional
 
-            return text
+            return normalize_to_traditional(text)
 
         except Exception as e:
             raise RuntimeError(f"Failed to parse {file_path}: {e}")

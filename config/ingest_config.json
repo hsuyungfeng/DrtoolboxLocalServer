@@ -3,14 +3,14 @@
     "type": "persistant",
     "path": "data/rag/chroma/",
     "collections": {
-      "general_medical": "general_medical",
-      "clinic_specific": "clinic_specific"
+      "general": "general",
+      "special": "special"
     },
-    "default_collection": "general_medical"
+    "default_collection": "general"
   },
   "document_folders": {
-    "general_medical": "data/rag/general_docs/",
-    "clinic_specific": "data/rag/clinic_docs/"
+    "general": "data/documents/general/",
+    "special": "data/documents/special/"
   },
   "chunking": {
     "chunk_size": 512,
@@ -19,7 +19,7 @@
     "max_chunk_size": 1024
   },
   "embedding": {
-    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "model": "BAAI/bge-m3",
     "device": "cpu",
     "batch_size": 32
   },

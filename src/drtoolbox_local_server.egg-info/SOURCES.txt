@@ -53,6 +53,7 @@ src/rag/ingest.py
 src/rag/query.py
 src/rag/search.py
 src/services/__init__.py
+src/services/anydoc_parser.py
 src/services/astrbot_service.py
 src/services/clinical_analyzer.py
 src/services/cloud_sync_service.py
@@ -76,6 +77,8 @@ src/skills/skill_generator.py
 src/skills/skill_manager.py
 src/skills/auto_skills/__init__.py
 src/skills/auto_skills/skill_73171377.py
+tests/test_anydoc_parser.py
+tests/test_chroma_wiring.py
 tests/test_clinical_ner.py
 tests/test_local_b2b_scraper.py
 tests/test_openoutreach_bridge.py
