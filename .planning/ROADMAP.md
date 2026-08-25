@@ -112,8 +112,18 @@ Plans:
 - Add Simplified-to-Traditional Chinese normalization before ingesting the 848 `medical_kb_batch_*.txt` files, plus lightweight retrieval observability (log which chunk ids/scores were used per answer).
 
 Plans:
+**Wave 1**
 
 - [ ] 10-01-PLAN.md — Wire a Chinese-aware embedding function into Chroma, fix config/collection renames, populate both collections for real (Stage 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 10-02-PLAN.md — Build HybridRetriever (RRF fusion) and swap it into RAGEngine._get_context() with sparse-only fallback (Stage 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 10-03-PLAN.md — Unify SQLite/Chroma chunking with a shared chunk_id and make the production write path idempotent (Stage 3)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 10-04-PLAN.md — Simplified-to-Traditional normalization and chunk-level retrieval observability logging (Stage 4)

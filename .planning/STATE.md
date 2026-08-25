@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 09
+current_phase_name: Firecrawl Anydoc Integration
 status: executing
 stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-07-23T07:05:21.985Z"
+last_updated: "2026-08-25T05:00:50.749Z"
 progress:
-  total_phases: 5
+  total_phases: 10
   completed_phases: 2
-  total_plans: 2
+  total_plans: 10
   completed_plans: 2
-  percent: 100
 ---
 
 # State
@@ -56,3 +57,9 @@ Plan: 1 of 1 completed
 - [x] Run the test suite to verify that mocked RAG, routing, and dashboard APIs pass. (Passed)
 - [x] Launch the Flask web server to interactively verify the new tabs (Curation, Upload, Chat) in the browser. (Verified via browser automation)
 - [x] Stage and commit the uncommitted working tree changes to complete the feature set. (Committed to feature/phase-05-enterprise-features)
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 10 added: RAG Retrieval Consolidation — merge the live SQLite FTS5 retriever in RAGEngine with the unused Chroma/DocumentIngestor pipeline into a hybrid BM25+dense retriever with RRF fusion.
