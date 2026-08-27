@@ -3,8 +3,13 @@ Unit tests for AnydocParser Service and Document Ingestion Pipeline
 """
 
 import os
+import sys
 import tempfile
 import pytest
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+
 from src.services.anydoc_parser import AnydocParser, anydoc_parser
 from src.data_loader import extract_text_from_file
 
