@@ -19,13 +19,21 @@ from werkzeug.utils import secure_filename
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
+from config.settings import GENERAL_DATA_DIR, SPECIAL_DATA_DIR
+from src.data_loader import archive_file, extract_text_from_file
+
 logger = logging.getLogger(__name__)
 
 rag_dashboard_bp = Blueprint('rag_dashboard', __name__)
 
 # Configuration
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'md', 'docx'}
+# Matches the formats data_loader.extract_text_from_file() actually handles
+# for form/photo intake (jpg/jpeg/png cover "拍照上傳表單" — photographed forms).
+ALLOWED_EXTENSIONS = {'txt', 'md', 'pdf', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png'}
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# collection (API-facing name) -> category (rag_engine.py / data/documents/<category> convention)
+COLLECTION_TO_CATEGORY = {'general_medical': 'general', 'clinic_specific': 'special'}
 
 # Ingestion history (in-memory for now, can be persisted to DB)
 _ingestion_history = []
@@ -92,7 +100,14 @@ def get_collection_stats():
 
 @rag_dashboard_bp.route('/api/v1/rag/dashboard/upload', methods=['POST'])
 def upload_document():
-    """Upload document to specified collection."""
+    """Upload a document/photo to the general-medical or clinic-specific knowledge base.
+
+    Reuses the same extraction (data_loader.extract_text_from_file) and
+    ingestion (RAGEngine.ingest_general_data/ingest_special_data) path as the
+    background directory scanner, so uploads land in the same rag.db
+    (rag_chunks + page_index_trees) the Hermes agent actually queries —
+    not the orphaned Chroma collection the old code wrote to.
+    """
     try:
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file provided'}), 400
@@ -115,28 +130,42 @@ def upload_document():
                 'error': f'File too large. Max: {MAX_FILE_SIZE / 1024 / 1024}MB'
             }), 400
 
-        # Validate collection
-        if collection not in ['general_medical', 'clinic_specific']:
+        category = COLLECTION_TO_CATEGORY.get(collection)
+        if category is None:
             return jsonify({
                 'success': False,
                 'error': 'Invalid collection'
             }), 400
 
-        # Process file
-        from rag.ingest import DocumentIngestor
+        target_dir = GENERAL_DATA_DIR if category == 'general' else SPECIAL_DATA_DIR
+        os.makedirs(target_dir, exist_ok=True)
 
         filename = secure_filename(file.filename)
-        file_content = file.read().decode('utf-8', errors='ignore')
+        saved_path = os.path.join(target_dir, filename)
+        file.save(saved_path)
 
-        ingestor = DocumentIngestor(
-            chroma_dir='data/rag/chroma/',
-            collection_name=collection,
-        )
+        extracted_text = extract_text_from_file(saved_path)
+        if not extracted_text or not extracted_text.strip():
+            return jsonify({
+                'success': False,
+                'error': 'No text could be extracted from this file'
+            }), 422
 
-        result = ingestor.ingest_text(
-            text=file_content,
-            metadata={'source': filename, 'uploaded_at': datetime.utcnow().isoformat()}
-        )
+        txt_path = saved_path + ".txt"
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write(extracted_text)
+
+        doc = {"id": txt_path, "content": extracted_text}
+        from src.agent.hermes_core import get_hermes_agent
+        rag = get_hermes_agent().rag
+        if category == 'special':
+            rag.ingest_special_data([doc])
+        else:
+            rag.ingest_general_data([doc])
+
+        # Keep the original alongside its .txt (mirrors background_ocr's
+        # already-processed check) rather than archiving it away, since a
+        # human just uploaded it deliberately and may want to re-download it.
 
         # Record in history
         history_entry = {
@@ -144,16 +173,16 @@ def upload_document():
             'filename': filename,
             'collection': collection,
             'status': 'success',
-            'chunks': len(result.get('chunks', []))
+            'chars_extracted': len(extracted_text),
         }
         _ingestion_history.append(history_entry)
 
-        logger.info(f"Uploaded {filename} to {collection}: {len(result.get('chunks', []))} chunks")
+        logger.info(f"Uploaded {filename} to {collection}: {len(extracted_text)} chars extracted")
 
         return jsonify({
             'success': True,
             'message': f'Successfully uploaded {filename}',
-            'chunks_created': len(result.get('chunks', [])),
+            'chars_extracted': len(extracted_text),
             'collection': collection
         })
 

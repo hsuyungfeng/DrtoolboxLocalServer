@@ -28,6 +28,16 @@ data/models/gemma-4-31B.Q4_K_M.gguf
 data/models/Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf
 data/db/
 data/*.jsonl
+
+# Patient/clinic content — OCR'd forms, photos, clinical insights, and
+# generated reports. Real patient data must never be tracked in git.
+data/documents/
+data/analytics/
+data/analytics_data.json
+data/evaluation/
+data/pageindex/
+data/reports/
+
 # Logs
 *.log
 logs/
