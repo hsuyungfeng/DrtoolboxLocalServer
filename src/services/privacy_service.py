@@ -43,20 +43,32 @@ class PrivacyService:
         self.default_method = default_method
         self.lang = lang
 
+    @staticmethod
+    def _spans_overlap(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+        """True if two entity spans overlap (exclusive of exact-boundary touch)."""
+        a_start, a_end = a.get("start", -1), a.get("end", -1)
+        b_start, b_end = b.get("start", -1), b.get("end", -1)
+        return a_start < b_end and b_start < a_end
+
     def extract_pii(self, text: str, lang: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Extract all PII entities found in text with offsets and types."""
+        """
+        Extract all PII entities found in text with offsets and types.
+        Merges OpenMed NER with native regex rules: OpenMed is strong on names
+        but can miss phones/IDs, so native matches that do not overlap an
+        OpenMed span are always added (never a pure early-return fallback).
+        """
         if not text:
             return []
 
         target_lang = lang or self.lang
-        entities = []
+        openmed_entities: List[Dict[str, Any]] = []
 
-        # 1. Try OpenMed if available
+        # 1. OpenMed NER (best effort)
         if HAS_OPENMED:
             try:
                 res = openmed.extract_pii(text, lang=target_lang, use_smart_merging=True)
                 for e in res.entities:
-                    entities.append({
+                    openmed_entities.append({
                         "text": e.text,
                         "label": e.label,
                         "start": getattr(e, "start", -1),
@@ -64,12 +76,28 @@ class PrivacyService:
                         "confidence": getattr(e, "confidence", 0.95),
                         "source": "openmed"
                     })
-                if entities:
-                    return entities
             except Exception:
                 pass
 
-        # 2. Fallback to native Regex rules
+        # 2. Native regex rules — always run, then merge non-overlapping hits
+        native_entities = self._extract_pii_native(text)
+
+        if not openmed_entities:
+            return native_entities
+        if not native_entities:
+            return openmed_entities
+
+        merged = list(openmed_entities)
+        for n in native_entities:
+            if not any(self._spans_overlap(n, o) for o in openmed_entities):
+                merged.append(n)
+        merged.sort(key=lambda x: x.get("start", 0))
+        return merged
+
+    def _extract_pii_native(self, text: str) -> List[Dict[str, Any]]:
+        """Native regex PII extraction (MRN, TW ID, phones, email, dates, names)."""
+        entities = []
+
         # MRN
         for m in self.PATTERNS['MRN'].finditer(text):
             mrn_val = m.group(1)

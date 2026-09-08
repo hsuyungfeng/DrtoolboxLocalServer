@@ -1,13 +1,13 @@
 {
-    "timestamp": "2026-08-17T13:35:42.317311",
+    "timestamp": "2026-09-08T15:16:43.933502",
     "services": {
         "flask_backend": "online",
         "llm_engine": "online"
     },
     "resources": {
-        "cpu_percent": 12.7,
-        "memory_percent": 44.3,
-        "disk_usage": 63.7
+        "cpu_percent": 22.0,
+        "memory_percent": 4.9,
+        "disk_usage": 48.0
     },
     "status": "healthy"
 }
