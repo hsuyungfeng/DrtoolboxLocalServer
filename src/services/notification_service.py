@@ -18,6 +18,8 @@ from typing import Optional, List
 
 import requests
 
+from config.settings import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ──────────────────────────────────────────────────
@@ -130,7 +132,7 @@ class RiskAlertThread:
         self.is_running = False
         self.last_checked_timestamp = datetime.now().isoformat()
         # Fallback path if env var is missing
-        self.db_path = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../../clinic.db'))
+        self.db_path = os.environ.get('CLINIC_DB_PATH', os.path.join(DATA_DIR, 'db', 'clinic.db'))
         self.critical_terms = ["流血", "劇痛", "發燒", "呼吸困難"]
 
     def start(self):

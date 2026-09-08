@@ -23,9 +23,11 @@ from typing import Dict, Any, List, Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
+from config.settings import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(os.path.dirname(__file__), '../../clinic.db'))
+DB_PATH = os.environ.get('CLINIC_DB_PATH', os.path.join(DATA_DIR, 'db', 'clinic.db'))
 
 
 def _get_db_connection():

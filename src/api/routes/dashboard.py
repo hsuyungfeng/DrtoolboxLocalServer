@@ -372,6 +372,21 @@ def deidentify_text_api():
 
 @dashboard_bp.route('/privacy/batch_clean', methods=['POST'])
 def batch_clean_training_data():
+    """Batch cleans/anonymizes the verified_training_data.jsonl in-place or creates cleaned version."""
+    data = request.json or {}
+    method = data.get('method', 'mask')
+    
+    correction_file = os.path.join(LOG_DIR, "verified_training_data.jsonl")
+    if not os.path.exists(correction_file):
+        return jsonify({"error": "No training data file found"}), 404
+        
+    count = privacy_service.anonymize_jsonl_file(correction_file, method=method)
+    return jsonify({
+        "status": "success",
+        "processed_records": count,
+        "method": method
+    })
+
 from src.services.anydoc_parser import anydoc_parser
 
 @dashboard_bp.route('/documents/parse_preview', methods=['POST'])
@@ -491,7 +506,7 @@ def parse_patient_image():
         mrn = mrn_match.group(1) if mrn_match else "20260211123021"
 
         # 寫入 / 存入 clinic.db
-        db_path = os.path.join(DATA_DIR, "clinic.db")
+        db_path = os.path.join(DATA_DIR, "db", "clinic.db")
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
@@ -528,7 +543,7 @@ def parse_patient_image():
 @dashboard_bp.route('/soap/patients', methods=['GET'])
 def get_soap_patients():
     """取得快捷切換病患選單清單"""
-    db_path = os.path.join(DATA_DIR, "clinic.db")
+    db_path = os.path.join(DATA_DIR, "db", "clinic.db")
     patients_list = [
         {"name": "黃妍婷", "dob": "1990/10/15", "id_number": "L223991720", "mrn": "20261015091720"},
         {"name": "蘇彥銘", "dob": "2026/02/11", "id_number": "M123021893", "mrn": "20260211123021"},
