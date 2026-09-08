@@ -21,6 +21,10 @@ Thumbs.db
 /tmp/
 /build/
 /dist/
+*.egg-info/
+
+# Generated indices (regenerable from source documents)
+data/rag/
 
 # Data and Models
 data/datasets/
